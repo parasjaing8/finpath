@@ -1,0 +1,46 @@
+import { Tabs } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+export default function TabLayout() {
+  return (
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: '#1B5E20',
+        tabBarInactiveTintColor: '#999',
+        tabBarStyle: { backgroundColor: '#FFFFFF', borderTopColor: '#E0E0E0' },
+        headerStyle: { backgroundColor: '#1B5E20' },
+        headerTintColor: '#FFFFFF',
+        headerTitleStyle: { fontWeight: '700' as const },
+      }}
+    >
+      <Tabs.Screen
+        name="assets"
+        options={{
+          title: 'Assets',
+          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="wallet-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="expenses"
+        options={{
+          title: 'Expenses',
+          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="cash-minus" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="goals"
+        options={{
+          title: 'Goals',
+          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="flag-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: 'Dashboard',
+          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="view-dashboard-outline" size={size} color={color} />,
+        }}
+      />
+    </Tabs>
+  );
+}
