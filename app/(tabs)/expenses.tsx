@@ -7,6 +7,7 @@ import { EXPENSE_CATEGORIES, EXPENSE_TYPES, FREQUENCIES, DEFAULT_INFLATION_RATES
 import { formatCurrency, calculateProjections } from '../../engine/calculator';
 import { getGoals } from '../../db/queries';
 import { Slider } from '@miblanchard/react-native-slider';
+import { DateInput } from '../../components/DateInput';
 
 export default function ExpensesScreen() {
   const { currentProfile } = useProfile();
@@ -256,15 +257,15 @@ export default function ExpensesScreen() {
 
             {expenseType !== 'CURRENT_RECURRING' && (
               <>
-                <TextInput label="Start Date (YYYY-MM-DD)" value={startDate} onChangeText={setStartDate}
-                  mode="outlined" style={styles.input} error={!!errors.startDate} />
+                <DateInput label="Start Date" value={startDate} onChangeText={setStartDate}
+                  style={styles.input} error={!!errors.startDate} />
                 {errors.startDate && <HelperText type="error">{errors.startDate}</HelperText>}
               </>
             )}
 
             {expenseType !== 'FUTURE_ONE_TIME' && (
-              <TextInput label="End Date (YYYY-MM-DD, optional)" value={endDate} onChangeText={setEndDate}
-                mode="outlined" style={styles.input} />
+              <DateInput label="End Date (optional)" value={endDate} onChangeText={setEndDate}
+                style={styles.input} />
             )}
 
             <Text variant="labelMedium" style={styles.sliderLabel}>

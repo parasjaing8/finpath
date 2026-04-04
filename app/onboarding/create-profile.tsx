@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { createProfile } from '../../db/queries';
 import { useProfile } from '../../hooks/useProfile';
 import * as Crypto from 'expo-crypto';
+import { DateInput } from '../../components/DateInput';
 
 export default function CreateProfile() {
   const router = useRouter();
@@ -77,15 +78,13 @@ export default function CreateProfile() {
         />
         {errors.name && <HelperText type="error">{errors.name}</HelperText>}
 
-        <TextInput
-          label="Date of Birth (YYYY-MM-DD)"
+        <DateInput
+          label="Date of Birth"
           value={dob}
           onChangeText={setDob}
-          mode="outlined"
           style={styles.input}
-          placeholder="1995-06-15"
-          keyboardType="numeric"
           error={!!errors.dob}
+          maximumDate={new Date()}
         />
         {errors.dob && <HelperText type="error">{errors.dob}</HelperText>}
 

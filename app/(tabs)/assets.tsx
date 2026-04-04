@@ -6,6 +6,7 @@ import { Asset, getAssets, createAsset, updateAsset, deleteAsset, getTotalNetWor
 import { ASSET_CATEGORIES, FREQUENCIES } from '../../constants/categories';
 import { formatCurrency } from '../../engine/calculator';
 import { Slider } from '@miblanchard/react-native-slider';
+import { DateInput } from '../../components/DateInput';
 
 export default function AssetsScreen() {
   const { currentProfile } = useProfile();
@@ -266,8 +267,8 @@ export default function AssetsScreen() {
                       buttons={FREQUENCIES.map(f => ({ value: f.key, label: f.label }))}
                       style={styles.segment} />
 
-                    <TextInput label="Next Vesting Date (YYYY-MM-DD)" value={nextVestingDate}
-                      onChangeText={setNextVestingDate} mode="outlined" style={styles.input}
+                    <DateInput label="Next Vesting Date" value={nextVestingDate}
+                      onChangeText={setNextVestingDate} style={styles.input}
                       error={!!errors.vestingDate} />
                     {errors.vestingDate && <HelperText type="error">{errors.vestingDate}</HelperText>}
                   </>
