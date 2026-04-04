@@ -231,6 +231,26 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
   };
 }
 
+export function calculatePresentValueOfExpenses(
+  profile: Profile,
+  expenses: Expense[],
+  discountRate: number = 0.06,
+): number {
+  const currentAge = getAge(profile.dob);
+  const currentYear = new Date().getFullYear();
+  const pureExpenses = expenses.filter(e => !e.is_income);
+  let pv = 0;
+  for (let age = currentAge; age <= 100; age++) {
+    const year = currentYear + (age - currentAge);
+    let annualExpenses = 0;
+    for (const exp of pureExpenses) {
+      annualExpenses += calculateExpenseForYear(exp, year, currentYear);
+    }
+    pv += annualExpenses / Math.pow(1 + discountRate, age - currentAge);
+  }
+  return pv;
+}
+
 function calculateRequiredSIP(
   initialNetWorth: number,
   assets: Asset[],

@@ -2,10 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Platform, Keyboard } from 'react-native';
 import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, HelperText, Switch, RadioButton, TouchableRipple } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
-import { Expense, getExpenses, createExpense, updateExpense, deleteExpense, getAssets } from '../../db/queries';
+import { Expense, getExpenses, createExpense, updateExpense, deleteExpense } from '../../db/queries';
 import { EXPENSE_CATEGORIES, EXPENSE_TYPES, FREQUENCIES, DEFAULT_INFLATION_RATES } from '../../constants/categories';
-import { formatCurrency, calculateProjections } from '../../engine/calculator';
-import { getGoals } from '../../db/queries';
+import { formatCurrency, calculatePresentValueOfExpenses } from '../../engine/calculator';
 import { Slider } from '@miblanchard/react-native-slider';
 import { DateInput } from '../../components/DateInput';
 
@@ -35,23 +34,7 @@ export default function ExpensesScreen() {
     if (!currentProfile) return;
     const expList = await getExpenses(currentProfile.id);
     setExpenses(expList);
-
-    // Calculate PV of all expenses
-    const assets = await getAssets(currentProfile.id);
-    const goals = await getGoals(currentProfile.id);
-    if (goals && expList.length > 0) {
-      const result = calculateProjections({
-        profile: currentProfile,
-        assets,
-        expenses: expList,
-        goals,
-        sipAmount: 0,
-        sipReturnRate: 12,
-        postSipReturnRate: 10,
-        stepUpRate: 0,
-      });
-      setPresentValue(result.presentValueOfExpenses);
-    }
+    setPresentValue(calculatePresentValueOfExpenses(currentProfile, expList));
   }, [currentProfile]);
 
   useEffect(() => { loadData(); }, [loadData]);
