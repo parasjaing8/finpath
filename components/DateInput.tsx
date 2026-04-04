@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Platform } from 'react-native';
+import { Keyboard, Platform } from 'react-native';
 import { TextInput } from 'react-native-paper';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
@@ -11,6 +11,7 @@ interface DateInputProps {
   error?: boolean;
   maximumDate?: Date;
   minimumDate?: Date;
+  onFocus?: () => void;
 }
 
 function parseDate(value: string): Date {
@@ -34,8 +35,15 @@ export function DateInput({
   error,
   maximumDate,
   minimumDate,
+  onFocus,
 }: DateInputProps) {
   const [show, setShow] = useState(false);
+
+  function openPicker() {
+    Keyboard.dismiss();
+    onFocus?.();
+    setShow(true);
+  }
 
   function handleChange(event: DateTimePickerEvent, selectedDate?: Date) {
     setShow(false);
@@ -52,11 +60,14 @@ export function DateInput({
         mode="outlined"
         style={style}
         error={error}
+        showSoftInputOnFocus={false}
+        onFocus={openPicker}
+        onPressIn={openPicker}
         placeholder="YYYY-MM-DD"
         right={
           <TextInput.Icon
             icon="calendar"
-            onPress={() => setShow(true)}
+            onPress={openPicker}
           />
         }
       />

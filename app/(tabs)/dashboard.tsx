@@ -7,6 +7,7 @@ import { calculateProjections, CalculationOutput, formatCurrency, formatCurrency
 import { exportToCSV } from '../../utils/export';
 import { Slider } from '@miblanchard/react-native-slider';
 import { CartesianChart, Line } from 'victory-native';
+import { Path as SkiaPath, Line as SkiaLine, DashPathEffect, Skia, vec } from '@shopify/react-native-skia';
 
 export default function DashboardScreen() {
   const { currentProfile } = useProfile();
@@ -216,14 +217,35 @@ export default function DashboardScreen() {
                   if (abs >= 1e5) return `${(v / 1e5).toFixed(0)}L`;
                   return `${(v / 1e3).toFixed(0)}K`;
                 },
+                tickCount: { x: 8, y: 5 },
+                labelColor: '#555',
+                lineColor: { grid: 'rgba(0,0,0,0.07)', frame: 'transparent' },
               }}
             >
-              {({ points }) => (
-                <>
+              {({ points, yScale, canvasSize, chartBounds }) => {
+                const fireY = yScale(result.fireCorpus);
+                const firePath = Skia.Path.Make();
+                firePath.moveTo(chartBounds.left, fireY);
+                firePath.lineTo(chartBounds.right, fireY);
+                const fireIdx = points.netWorth.findIndex(pt => (pt.yValue ?? 0) >= result.fireCorpus);
+                const fp = fireIdx >= 0 ? points.netWorth[fireIdx] : null;
+                return <>
                   <Line points={points.netWorth} color="#1B5E20" strokeWidth={2.5} />
                   <Line points={points.expenses} color="#C62828" strokeWidth={2} />
-                </>
-              )}
+                  <SkiaPath path={firePath} color="#FF9800" strokeWidth={2} style="stroke">
+                    <DashPathEffect intervals={[10, 6]} />
+                  </SkiaPath>
+                  {fp && (
+                    <SkiaLine
+                      p1={vec(fp.x, 0)}
+                      p2={vec(fp.x, canvasSize.height)}
+                      color="rgba(255,152,0,0.35)"
+                      strokeWidth={1.5}
+                      style="stroke"
+                    />
+                  )}
+                </>;
+              }}
             </CartesianChart>
             )}
           </View>
@@ -234,7 +256,13 @@ export default function DashboardScreen() {
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#C62828' }]} />
-              <Text variant="bodySmall">Annual Expenses</Text>
+              <Text variant="bodySmall">Expenses</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#FF9800', borderRadius: 0, height: 3, width: 16 }]} />
+              <Text variant="bodySmall">
+                FIRE{result.fireAchievedAge > 0 ? ` @ Age ${result.fireAchievedAge}` : ''}
+              </Text>
             </View>
           </View>
         </Card.Content>

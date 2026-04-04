@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, HelperText, Switch } from 'react-native-paper';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, HelperText, Switch, RadioButton, TouchableRipple } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { Expense, getExpenses, createExpense, updateExpense, deleteExpense, getAssets } from '../../db/queries';
 import { EXPENSE_CATEGORIES, EXPENSE_TYPES, FREQUENCIES, DEFAULT_INFLATION_RATES } from '../../constants/categories';
@@ -20,7 +20,6 @@ export default function ExpensesScreen() {
   // Form fields
   const [expName, setExpName] = useState('');
   const [amount, setAmount] = useState('');
-  const [expCurrency, setExpCurrency] = useState('INR');
   const [expenseType, setExpenseType] = useState('CURRENT_RECURRING');
   const [frequency, setFrequency] = useState('MONTHLY');
   const [startDate, setStartDate] = useState('');
@@ -28,6 +27,9 @@ export default function ExpensesScreen() {
   const [inflationRate, setInflationRate] = useState(6);
   const [isIncome, setIsIncome] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+
+  const formScrollRef = useRef<ScrollView>(null);
 
   const loadData = useCallback(async () => {
     if (!currentProfile) return;
@@ -54,10 +56,26 @@ export default function ExpensesScreen() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSubscription = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardOffset(event.endCoordinates.height);
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setKeyboardOffset(0);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
   function resetForm() {
     setExpName('');
     setAmount('');
-    setExpCurrency(currentProfile?.currency ?? 'INR');
     setExpenseType('CURRENT_RECURRING');
     setFrequency('MONTHLY');
     setStartDate('');
@@ -77,7 +95,6 @@ export default function ExpensesScreen() {
       setEditingExpense(expense);
       setExpName(expense.name);
       setAmount(expense.amount.toString());
-      setExpCurrency(expense.currency);
       setExpenseType(expense.expense_type);
       setFrequency(expense.frequency ?? 'MONTHLY');
       setStartDate(expense.start_date ?? '');
@@ -106,7 +123,7 @@ export default function ExpensesScreen() {
       name: expName.trim(),
       category: selectedCategory,
       amount: parseFloat(amount),
-      currency: expCurrency,
+      currency: currentProfile.currency,
       expense_type: expenseType,
       frequency: expenseType !== 'FUTURE_ONE_TIME' ? frequency : null,
       start_date: expenseType !== 'CURRENT_RECURRING' ? startDate || null : null,
@@ -204,7 +221,7 @@ export default function ExpensesScreen() {
                       </View>
                       <View style={{ alignItems: 'flex-end' }}>
                         <Text variant="bodyLarge" style={{ fontWeight: '700', color: exp.is_income ? '#1B5E20' : '#C62828' }}>
-                          {exp.is_income ? '+' : '-'}{formatCurrency(exp.amount, exp.currency)}
+                          {exp.is_income ? '+' : '-'}{formatCurrency(exp.amount, currentProfile.currency)}
                         </Text>
                         <IconButton icon="delete-outline" size={18} onPress={() => handleDelete(exp.id)} />
                       </View>
@@ -220,77 +237,91 @@ export default function ExpensesScreen() {
       {/* Add/Edit Expense Modal */}
       <Portal>
         <Modal visible={showForm} onDismiss={() => { setShowForm(false); resetForm(); }}
-          contentContainerStyle={styles.modal}>
-          <ScrollView keyboardShouldPersistTaps="handled">
-            <Text variant="titleLarge" style={styles.modalTitle}>
-              {editingExpense ? 'Edit' : 'Add'} {catLabel}
-            </Text>
+          contentContainerStyle={[
+            styles.modal,
+            keyboardOffset > 0 && { transform: [{ translateY: -Math.min(keyboardOffset * 0.32, 180) }] },
+          ]}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+          >
+            <ScrollView ref={formScrollRef} keyboardShouldPersistTaps="handled">
+              <Text variant="titleLarge" style={styles.modalTitle}>
+                {editingExpense ? 'Edit' : 'Add'} {catLabel}
+              </Text>
 
-            <TextInput label="Expense Name" value={expName} onChangeText={setExpName}
-              mode="outlined" style={styles.input} error={!!errors.name}
-              placeholder="e.g. Child 1 School Fees" />
-            {errors.name && <HelperText type="error">{errors.name}</HelperText>}
+              <TextInput label="Expense Name" value={expName} onChangeText={setExpName}
+                mode="outlined" style={styles.input} error={!!errors.name}
+                placeholder="e.g. Child 1 School Fees" />
+              {errors.name && <HelperText type="error">{errors.name}</HelperText>}
 
-            <TextInput label="Amount (today's value)" value={amount} onChangeText={setAmount}
-              mode="outlined" style={styles.input} keyboardType="numeric"
-              left={<TextInput.Affix text={expCurrency === 'INR' ? '₹' : '$'} />}
-              error={!!errors.amount} />
-            {errors.amount && <HelperText type="error">{errors.amount}</HelperText>}
+              <TextInput label="Amount (today's value)" value={amount} onChangeText={setAmount}
+                mode="outlined" style={styles.input} keyboardType="numeric"
+                left={<TextInput.Affix text={currentProfile.currency === 'INR' ? '₹' : '$'} />}
+                error={!!errors.amount} />
+              {errors.amount && <HelperText type="error">{errors.amount}</HelperText>}
 
-            <SegmentedButtons value={expCurrency} onValueChange={setExpCurrency}
-              buttons={[{ value: 'INR', label: '₹ INR' }, { value: 'USD', label: '$ USD' }]}
-              style={styles.segment} />
+              <Text variant="labelMedium" style={styles.fieldLabel}>Expense Type</Text>
+              <RadioButton.Group value={expenseType} onValueChange={setExpenseType}>
+                {EXPENSE_TYPES.map(t => (
+                  <TouchableRipple key={t.key} onPress={() => setExpenseType(t.key)} style={styles.radioRow}>
+                    <View style={styles.radioItem}>
+                      <RadioButton value={t.key} color="#B71C1C" />
+                      <Text variant="bodySmall" style={styles.radioLabel}>{t.label}</Text>
+                    </View>
+                  </TouchableRipple>
+                ))}
+              </RadioButton.Group>
 
-            <Text variant="labelMedium" style={styles.fieldLabel}>Expense Type</Text>
-            <SegmentedButtons value={expenseType} onValueChange={setExpenseType}
-              buttons={EXPENSE_TYPES.map(t => ({ value: t.key, label: t.label }))}
-              style={styles.segment} />
+              {expenseType !== 'FUTURE_ONE_TIME' && (
+                <>
+                  <Text variant="labelMedium" style={styles.fieldLabel}>Frequency</Text>
+                  <SegmentedButtons value={frequency} onValueChange={setFrequency}
+                    buttons={FREQUENCIES.map(f => ({ value: f.key, label: f.label }))}
+                    style={styles.segment} />
+                </>
+              )}
 
-            {expenseType !== 'FUTURE_ONE_TIME' && (
-              <>
-                <Text variant="labelMedium" style={styles.fieldLabel}>Frequency</Text>
-                <SegmentedButtons value={frequency} onValueChange={setFrequency}
-                  buttons={FREQUENCIES.map(f => ({ value: f.key, label: f.label }))}
-                  style={styles.segment} />
-              </>
-            )}
+              {expenseType !== 'CURRENT_RECURRING' && (
+                <>
+                  <DateInput label="Start Date" value={startDate} onChangeText={setStartDate}
+                    style={styles.input} error={!!errors.startDate}
+                    onFocus={() => formScrollRef.current?.scrollToEnd({ animated: true })} />
+                  {errors.startDate && <HelperText type="error">{errors.startDate}</HelperText>}
+                </>
+              )}
 
-            {expenseType !== 'CURRENT_RECURRING' && (
-              <>
-                <DateInput label="Start Date" value={startDate} onChangeText={setStartDate}
-                  style={styles.input} error={!!errors.startDate} />
-                {errors.startDate && <HelperText type="error">{errors.startDate}</HelperText>}
-              </>
-            )}
+              {expenseType !== 'FUTURE_ONE_TIME' && (
+                <DateInput label="End Date (optional)" value={endDate} onChangeText={setEndDate}
+                  style={styles.input}
+                  onFocus={() => formScrollRef.current?.scrollToEnd({ animated: true })} />
+              )}
 
-            {expenseType !== 'FUTURE_ONE_TIME' && (
-              <DateInput label="End Date (optional)" value={endDate} onChangeText={setEndDate}
-                style={styles.input} />
-            )}
+              <Text variant="labelMedium" style={styles.sliderLabel}>
+                Inflation Rate: {inflationRate}%
+              </Text>
+              <Slider
+                value={inflationRate}
+                onValueChange={(v: number[]) => setInflationRate(Math.round(v[0]))}
+                minimumValue={0} maximumValue={15} step={1}
+                minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
+              />
 
-            <Text variant="labelMedium" style={styles.sliderLabel}>
-              Inflation Rate: {inflationRate}%
-            </Text>
-            <Slider
-              value={inflationRate}
-              onValueChange={(v: number[]) => setInflationRate(Math.round(v[0]))}
-              minimumValue={0} maximumValue={15} step={1}
-              minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
-            />
+              <View style={styles.switchRow}>
+                <Text variant="bodyMedium">This is an income stream (pension, rental, etc.)</Text>
+                <Switch value={isIncome} onValueChange={setIsIncome} color="#1B5E20" />
+              </View>
 
-            <View style={styles.switchRow}>
-              <Text variant="bodyMedium">This is an income stream (pension, rental, etc.)</Text>
-              <Switch value={isIncome} onValueChange={setIsIncome} color="#1B5E20" />
-            </View>
-
-            <View style={styles.formActions}>
-              <Button mode="outlined" onPress={() => { setShowForm(false); resetForm(); }}
-                style={styles.actionBtn}>Cancel</Button>
-              <Button mode="contained" onPress={handleSave} style={styles.actionBtn}>
-                {editingExpense ? 'Update' : 'Save'}
-              </Button>
-            </View>
-          </ScrollView>
+              <View style={styles.formActions}>
+                <Button mode="outlined" onPress={() => { setShowForm(false); resetForm(); }}
+                  style={styles.actionBtn}>Cancel</Button>
+                <Button mode="contained" onPress={handleSave} style={styles.actionBtn}>
+                  {editingExpense ? 'Update' : 'Save'}
+                </Button>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </Modal>
       </Portal>
     </View>
@@ -320,4 +351,7 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 12, paddingHorizontal: 4 },
   formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 16 },
   actionBtn: { flex: 1 },
+  radioRow: { marginVertical: 2, borderRadius: 12, backgroundColor: '#FAFAFA' },
+  radioItem: { flexDirection: 'row', alignItems: 'center', paddingRight: 12 },
+  radioLabel: { fontSize: 12, color: '#333', flexShrink: 1 },
 });

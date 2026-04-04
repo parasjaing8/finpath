@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, HelperText } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
@@ -7,6 +7,43 @@ import { ASSET_CATEGORIES, FREQUENCIES } from '../../constants/categories';
 import { formatCurrency } from '../../engine/calculator';
 import { Slider } from '@miblanchard/react-native-slider';
 import { DateInput } from '../../components/DateInput';
+import Svg, { Path, Circle } from 'react-native-svg';
+
+const CATEGORY_COLORS: Record<string, string> = {
+  ESOP_RSU: '#80CBC4', STOCKS: '#A5D6A7', MUTUAL_FUND: '#FFF176',
+  SAVINGS: '#FFE082', GOLD_SILVER: '#FFD54F', PF: '#90CAF9',
+  NPS: '#81D4FA', REAL_ESTATE: '#CE93D8', OTHERS: '#B0BEC5',
+};
+
+function MiniPieChart({ data, size = 92 }: { data: { value: number; color: string }[]; size?: number }) {
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size * 0.42;
+  const total = data.reduce((sum, d) => sum + Math.abs(d.value), 0);
+  if (total === 0) return null;
+  let startAngle = -Math.PI / 2;
+  const slices: { d: string; color: string }[] = [];
+  for (const item of data) {
+    const angle = (Math.abs(item.value) / total) * 2 * Math.PI;
+    const end = startAngle + angle;
+    const x1 = cx + r * Math.cos(startAngle);
+    const y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(end);
+    const y2 = cy + r * Math.sin(end);
+    const large = angle > Math.PI ? 1 : 0;
+    slices.push({
+      d: `M${cx} ${cy} L${x1.toFixed(1)} ${y1.toFixed(1)} A${r} ${r} 0 ${large} 1 ${x2.toFixed(1)} ${y2.toFixed(1)}Z`,
+      color: item.color,
+    });
+    startAngle = end;
+  }
+  return (
+    <Svg width={size} height={size}>
+      <Circle cx={cx} cy={cy} r={r + 2} fill="rgba(255,255,255,0.15)" />
+      {slices.map((s, i) => <Path key={i} d={s.d} fill={s.color} stroke="rgba(255,255,255,0.4)" strokeWidth={1.5} />)}
+    </Svg>
+  );
+}
 
 export default function AssetsScreen() {
   const { currentProfile } = useProfile();
@@ -28,7 +65,11 @@ export default function AssetsScreen() {
   const [isSelfUse, setIsSelfUse] = useState(false);
   const [goldSilverUnit, setGoldSilverUnit] = useState('VALUE');
   const [goldSilverQuantity, setGoldSilverQuantity] = useState('');
+  const [usdExchangeRate, setUsdExchangeRate] = useState('84');
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const chipScrollRef = useRef<ScrollView>(null);
+  const chipScrollX = useRef(0);
 
   const loadData = useCallback(async () => {
     if (!currentProfile) return;
@@ -54,6 +95,7 @@ export default function AssetsScreen() {
     setIsSelfUse(false);
     setGoldSilverUnit('VALUE');
     setGoldSilverQuantity('');
+    setUsdExchangeRate('84');
     setErrors({});
     setEditingAsset(null);
   }
@@ -61,6 +103,10 @@ export default function AssetsScreen() {
   function openForm(category: string, asset?: Asset) {
     resetForm();
     setSelectedCategory(category);
+    // Non-ESOP assets always use profile currency
+    if (category !== 'ESOP_RSU') {
+      setAssetCurrency(currentProfile?.currency ?? 'INR');
+    }
     if (asset) {
       setEditingAsset(asset);
       setAssetName(asset.name);
@@ -92,12 +138,17 @@ export default function AssetsScreen() {
 
   async function handleSave() {
     if (!currentProfile || !validate()) return;
+    // Convert USD → profile currency for ESOP/RSU
+    const convertedValue = selectedCategory === 'ESOP_RSU' && assetCurrency === 'USD'
+      ? parseFloat(currentValue) * parseFloat(usdExchangeRate || '84')
+      : parseFloat(currentValue);
+    const finalCurrency = currentProfile.currency;
     const assetData: Omit<Asset, 'id'> = {
       profile_id: currentProfile.id,
       category: selectedCategory,
       name: assetName.trim(),
-      current_value: parseFloat(currentValue),
-      currency: assetCurrency,
+      current_value: convertedValue,
+      currency: finalCurrency,
       expected_roi: expectedRoi,
       is_recurring: isRecurring ? 1 : 0,
       recurring_amount: isRecurring ? parseFloat(recurringAmount) || null : null,
@@ -134,6 +185,14 @@ export default function AssetsScreen() {
 
   const categoryLabel = ASSET_CATEGORIES.find(c => c.key === selectedCategory)?.label ?? selectedCategory;
 
+  // Pie chart data — breakdown by category
+  const pieData = Object.entries(groupedAssets)
+    .map(([cat, catAssets]) => ({
+      value: catAssets.reduce((sum, a) => sum + a.current_value, 0),
+      color: CATEGORY_COLORS[cat] ?? '#546E7A',
+    }))
+    .filter(d => d.value > 0);
+
   if (!currentProfile) {
     return (
       <View style={styles.center}>
@@ -145,34 +204,48 @@ export default function AssetsScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Net Worth Header */}
+        {/* Net Worth Header with Pie Chart */}
         <Card style={styles.netWorthCard}>
-          <Card.Content>
-            <Text variant="labelMedium" style={{ color: '#FFFFFF99' }}>Total Net Worth</Text>
-            <Text variant="headlineLarge" style={styles.netWorthValue}>
-              {formatCurrency(totalNetWorth, currentProfile.currency)}
-            </Text>
+          <Card.Content style={styles.netWorthContent}>
+            <View style={styles.netWorthTextWrap}>
+              <Text variant="labelMedium" style={{ color: '#FFFFFF99' }}>Total Net Worth</Text>
+              <Text variant="headlineMedium" style={styles.netWorthValue}>
+                {formatCurrency(totalNetWorth, currentProfile.currency)}
+              </Text>
+            </View>
+            {pieData.length > 0 && (
+              <View style={styles.pieWrap}>
+                <MiniPieChart data={pieData} size={92} />
+              </View>
+            )}
           </Card.Content>
         </Card>
 
-        {/* Category Tiles */}
+        {/* Category Tiles with arrows */}
         <Text variant="titleMedium" style={styles.sectionTitle}>Add Assets by Category</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-          {ASSET_CATEGORIES.map(cat => {
-            const count = groupedAssets[cat.key]?.length ?? 0;
-            return (
-              <Chip
-                key={cat.key}
-                icon={cat.icon}
-                onPress={() => openForm(cat.key)}
-                style={styles.chip}
-                textStyle={styles.chipText}
-              >
-                {cat.label}{count > 0 ? ` (${count})` : ''}
-              </Chip>
-            );
-          })}
-        </ScrollView>
+        <View style={styles.chipRowWrapper}>
+          <IconButton icon="chevron-left" size={18} style={styles.chipArrow}
+            onPress={() => chipScrollRef.current?.scrollTo({ x: Math.max(0, chipScrollX.current - 120), animated: true })} />
+          <ScrollView
+            ref={chipScrollRef}
+            horizontal showsHorizontalScrollIndicator={false}
+            style={styles.chipRow}
+            onScroll={(e) => { chipScrollX.current = e.nativeEvent.contentOffset.x; }}
+            scrollEventThrottle={50}
+          >
+            {ASSET_CATEGORIES.map(cat => {
+              const count = groupedAssets[cat.key]?.length ?? 0;
+              return (
+                <Chip key={cat.key} icon={cat.icon} onPress={() => openForm(cat.key)}
+                  style={styles.chip} textStyle={styles.chipText}>
+                  {cat.label}{count > 0 ? ` (${count})` : ''}
+                </Chip>
+              );
+            })}
+          </ScrollView>
+          <IconButton icon="chevron-right" size={18} style={styles.chipArrow}
+            onPress={() => chipScrollRef.current?.scrollTo({ x: chipScrollX.current + 120, animated: true })} />
+        </View>
 
         {/* Asset List */}
         {assets.length === 0 ? (
@@ -191,18 +264,18 @@ export default function AssetsScreen() {
                 <Text variant="titleSmall" style={styles.groupTitle}>{catInfo?.label ?? cat}</Text>
                 {catAssets.map(asset => (
                   <Card key={asset.id} style={styles.assetCard} onPress={() => openForm(asset.category, asset)}>
-                    <Card.Content style={styles.assetRow}>
+                    <Card.Content style={styles.assetContent}>
+                      <View style={styles.assetRow}>
                       <View style={{ flex: 1 }}>
-                        <Text variant="bodyLarge" style={{ fontWeight: '600' }}>{asset.name}</Text>
-                        <Text variant="bodySmall" style={{ color: '#666' }}>
-                          ROI: {asset.expected_roi}% • {asset.currency}
-                        </Text>
+                        <Text variant="bodyMedium" style={styles.assetName}>{asset.name}</Text>
+                        <Text variant="bodySmall" style={styles.assetMetaText}>ROI: {asset.expected_roi}% • {asset.currency}</Text>
                       </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text variant="bodyLarge" style={{ fontWeight: '700', color: '#1B5E20' }}>
+                      <View style={styles.assetMeta}>
+                        <Text variant="bodyMedium" style={styles.assetValue}>
                           {formatCurrency(asset.current_value, asset.currency)}
                         </Text>
-                        <IconButton icon="delete-outline" size={18} onPress={() => handleDelete(asset.id)} />
+                        <IconButton icon="delete-outline" size={16} onPress={() => handleDelete(asset.id)} style={styles.assetDeleteIcon} />
+                      </View>
                       </View>
                     </Card.Content>
                   </Card>
@@ -231,13 +304,25 @@ export default function AssetsScreen() {
 
             <TextInput label="Current Value" value={currentValue} onChangeText={setCurrentValue}
               mode="outlined" style={styles.input} keyboardType="numeric"
-              left={<TextInput.Affix text={assetCurrency === 'INR' ? '₹' : '$'} />}
+              left={<TextInput.Affix text={selectedCategory === 'ESOP_RSU' && assetCurrency === 'USD' ? '$' : '₹'} />}
               error={!!errors.value} />
             {errors.value && <HelperText type="error">{errors.value}</HelperText>}
 
-            <SegmentedButtons value={assetCurrency} onValueChange={setAssetCurrency}
-              buttons={[{ value: 'INR', label: '₹ INR' }, { value: 'USD', label: '$ USD' }]}
-              style={styles.segment} />
+            {/* Currency selector only for ESOP/RSU */}
+            {selectedCategory === 'ESOP_RSU' && (
+              <>
+                <SegmentedButtons value={assetCurrency} onValueChange={setAssetCurrency}
+                  buttons={[{ value: 'INR', label: '₹ INR' }, { value: 'USD', label: '$ USD' }]}
+                  style={styles.segment} />
+                {assetCurrency === 'USD' && (
+                  <TextInput label="USD → INR Exchange Rate" value={usdExchangeRate}
+                    onChangeText={setUsdExchangeRate} mode="outlined" style={styles.input}
+                    keyboardType="numeric"
+                    right={<TextInput.Affix text={`= ₹${(parseFloat(currentValue || '0') * parseFloat(usdExchangeRate || '84')).toFixed(0)}`} />}
+                  />
+                )}
+              </>
+            )}
 
             <Text variant="labelMedium" style={styles.sliderLabel}>Expected Annual ROI: {expectedRoi}%</Text>
             <Slider
@@ -320,15 +405,26 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 80 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   netWorthCard: { backgroundColor: '#1B5E20', marginBottom: 16, borderRadius: 12 },
+  netWorthContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  netWorthTextWrap: { flex: 1, paddingRight: 8 },
+  pieWrap: { alignItems: 'center', justifyContent: 'center' },
   netWorthValue: { color: '#FFFFFF', fontWeight: 'bold', marginTop: 4 },
-  sectionTitle: { marginBottom: 12, fontWeight: '600' },
-  chipRow: { marginBottom: 16, flexGrow: 0 },
-  chip: { marginRight: 8, backgroundColor: '#E8F5E9' },
-  chipText: { fontSize: 12 },
+  sectionTitle: { marginBottom: 8, fontWeight: '600' },
+  chipRowWrapper: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  chipArrow: { margin: 0, padding: 0 },
+  chipRow: { flexGrow: 1, flexShrink: 1 },
+  chip: { marginRight: 6, backgroundColor: '#E8F5E9' },
+  chipText: { fontSize: 11 },
   emptyCard: { padding: 24, borderRadius: 12 },
-  groupTitle: { marginTop: 16, marginBottom: 8, fontWeight: '700', color: '#1B5E20' },
-  assetCard: { marginBottom: 8, borderRadius: 8, backgroundColor: '#FFFFFF' },
-  assetRow: { flexDirection: 'row', alignItems: 'center' },
+  groupTitle: { marginTop: 10, marginBottom: 4, fontWeight: '700', color: '#1B5E20', fontSize: 13 },
+  assetCard: { marginBottom: 6, borderRadius: 8, backgroundColor: '#FFFFFF' },
+  assetContent: { paddingVertical: 8, paddingHorizontal: 12 },
+  assetRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 2 },
+  assetName: { fontWeight: '600', fontSize: 15 },
+  assetMetaText: { color: '#777', fontSize: 12, marginTop: 2 },
+  assetMeta: { flexDirection: 'row', alignItems: 'center', minWidth: 112, justifyContent: 'flex-end' },
+  assetValue: { fontWeight: '700', color: '#1B5E20', fontSize: 15, marginRight: 4 },
+  assetDeleteIcon: { margin: 0 },
   modal: { backgroundColor: '#FFFFFF', margin: 16, padding: 20, borderRadius: 16, maxHeight: '85%' },
   modalTitle: { fontWeight: 'bold', marginBottom: 16, color: '#1B5E20' },
   input: { marginBottom: 8, backgroundColor: '#FFFFFF' },
