@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Platform, Keyboard } from 'react-native';
 import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, HelperText, Switch, RadioButton, TouchableRipple } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { Expense, getExpenses, createExpense, updateExpense, deleteExpense, getAssets } from '../../db/queries';
@@ -132,14 +132,19 @@ export default function ExpensesScreen() {
       is_income: isIncome ? 1 : 0,
     };
 
-    if (editingExpense) {
-      await updateExpense({ ...data, id: editingExpense.id });
-    } else {
-      await createExpense(data);
+    try {
+      if (editingExpense) {
+        await updateExpense({ ...data, id: editingExpense.id });
+      } else {
+        await createExpense(data);
+      }
+      setShowForm(false);
+      resetForm();
+      loadData();
+    } catch (err) {
+      console.error('Failed to save expense:', err);
+      Alert.alert('Error', 'Could not save expense. Please try again.');
     }
-    setShowForm(false);
-    resetForm();
-    loadData();
   }
 
   async function handleDelete(id: number) {
@@ -195,7 +200,7 @@ export default function ExpensesScreen() {
         {/* Expense List */}
         {expenses.length === 0 ? (
           <Card style={styles.emptyCard}>
-            <Card.Content style={styles.center}>
+            <Card.Content style={styles.emptyContent}>
               <Text variant="bodyLarge" style={{ color: '#999', textAlign: 'center' }}>
                 No expenses added yet.{'\n'}Tap a category above to add your first expense.
               </Text>
@@ -241,12 +246,7 @@ export default function ExpensesScreen() {
             styles.modal,
             keyboardOffset > 0 && { transform: [{ translateY: -Math.min(keyboardOffset * 0.32, 180) }] },
           ]}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ flex: 1 }}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-          >
-            <ScrollView ref={formScrollRef} keyboardShouldPersistTaps="handled">
+            <ScrollView ref={formScrollRef} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <Text variant="titleLarge" style={styles.modalTitle}>
                 {editingExpense ? 'Edit' : 'Add'} {catLabel}
               </Text>
@@ -321,7 +321,6 @@ export default function ExpensesScreen() {
                 </Button>
               </View>
             </ScrollView>
-          </KeyboardAvoidingView>
         </Modal>
       </Portal>
     </View>
@@ -332,6 +331,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F5F5' },
   scroll: { padding: 16, paddingBottom: 80 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
+  emptyContent: { justifyContent: 'center', alignItems: 'center', paddingVertical: 32 },
   pvCard: { backgroundColor: '#B71C1C', marginBottom: 16, borderRadius: 12 },
   pvValue: { color: '#FFFFFF', fontWeight: 'bold', marginTop: 4 },
   sectionTitle: { marginBottom: 12, fontWeight: '600' },
