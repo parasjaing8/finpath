@@ -121,25 +121,23 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     }
   }
 
-  // Separate income streams from expenses
-  const pureExpenses = expenses.filter(e => !e.is_income);
-  const incomeStreams = expenses.filter(e => e.is_income);
+  // All expenses are pure expenses — pension income comes from goals
+  const pureExpenses = expenses;
 
-  // Calculate FIRE corpus = present value of all expenses from retirement age to 100
+  // Calculate FIRE corpus = PV of net expenses from retirement age to 100
+  // reduced by inflation-adjusted pension (6%/yr) where applicable
   let fireCorpus = 0;
   const discountRate = 0.06;
+  const monthlyPensionPV = goals.pension_income ?? 0;
   for (let age = retirementAge; age <= 100; age++) {
     const year = currentYear + (age - currentAge);
     let annualExpenses = 0;
     for (const exp of pureExpenses) {
       annualExpenses += calculateExpenseForYear(exp, year, currentYear);
     }
-    let annualIncome = 0;
-    for (const inc of incomeStreams) {
-      annualIncome += calculateExpenseForYear(inc, year, currentYear);
-    }
-    const netExpense = Math.max(0, annualExpenses - annualIncome);
     const yearsFromNow = age - currentAge;
+    const pensionAnnual = monthlyPensionPV * 12 * Math.pow(1.06, yearsFromNow);
+    const netExpense = Math.max(0, annualExpenses - pensionAnnual);
     fireCorpus += netExpense / Math.pow(1 + discountRate, yearsFromNow);
   }
 
@@ -177,10 +175,10 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
       plannedExpenses += calculateExpenseForYear(exp, year, currentYear);
     }
 
-    // Pension/Income this year
+    // Pension from goals: starts at retirementAge, inflation-adjusted at 6%/yr from today's value
     let pensionIncome = 0;
-    for (const inc of incomeStreams) {
-      pensionIncome += calculateExpenseForYear(inc, year, currentYear);
+    if (age >= retirementAge && monthlyPensionPV > 0) {
+      pensionIncome = monthlyPensionPV * 12 * Math.pow(1.06, yearsFromStart);
     }
 
     // Vesting income
@@ -213,7 +211,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
 
   // Calculate required monthly SIP using binary search
   const requiredMonthlySIP = calculateRequiredSIP(
-    investableNetWorth, assets, pureExpenses, incomeStreams,
+    investableNetWorth, assets, pureExpenses, monthlyPensionPV,
     currentAge, currentYear, retirementAge, sipStopAge,
     sipReturnRate, postSipReturnRate, stepUpRate, fireCorpus
   );
@@ -255,7 +253,7 @@ function calculateRequiredSIP(
   initialNetWorth: number,
   assets: Asset[],
   expenses: Expense[],
-  incomeStreams: Expense[],
+  monthlyPensionPV: number,
   currentAge: number,
   currentYear: number,
   retirementAge: number,
@@ -274,7 +272,7 @@ function calculateRequiredSIP(
   for (let i = 0; i < 50; i++) {
     const mid = (low + high) / 2;
     const nw = simulateNetWorthAtRetirement(
-      initialNetWorth, assets, expenses, incomeStreams,
+      initialNetWorth, assets, expenses, monthlyPensionPV,
       currentAge, currentYear, retirementAge, sipStopAge,
       sipReturnRate, postSipReturnRate, stepUpRate, mid
     );
@@ -296,7 +294,7 @@ function simulateNetWorthAtRetirement(
   initialNetWorth: number,
   assets: Asset[],
   expenses: Expense[],
-  incomeStreams: Expense[],
+  monthlyPensionPV: number,
   currentAge: number,
   currentYear: number,
   retirementAge: number,
@@ -322,14 +320,10 @@ function simulateNetWorthAtRetirement(
       plannedExpenses += calculateExpenseForYear(exp, year, currentYear);
     }
 
-    let pensionIncome = 0;
-    for (const inc of incomeStreams) {
-      pensionIncome += calculateExpenseForYear(inc, year, currentYear);
-    }
-
+    // Pension does not apply pre-retirement in this simulation
     const vestingIncome = calculateVestingForYear(assets, year);
     const returnRate = age <= sipStopAge ? sipReturnRate : postSipReturnRate;
-    netWorth = netWorth * (1 + returnRate / 100) + annualSIP + vestingIncome - (plannedExpenses - pensionIncome);
+    netWorth = netWorth * (1 + returnRate / 100) + annualSIP + vestingIncome - plannedExpenses;
   }
 
   return netWorth;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Platform, Keyboard } from 'react-native';
-import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, HelperText, Switch, RadioButton, TouchableRipple } from 'react-native-paper';
+import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, HelperText, RadioButton, TouchableRipple } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { Expense, getExpenses, createExpense, updateExpense, deleteExpense } from '../../db/queries';
 import { EXPENSE_CATEGORIES, EXPENSE_TYPES, FREQUENCIES, DEFAULT_INFLATION_RATES } from '../../constants/categories';
@@ -24,7 +24,6 @@ export default function ExpensesScreen() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [inflationRate, setInflationRate] = useState(6);
-  const [isIncome, setIsIncome] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [keyboardOffset, setKeyboardOffset] = useState(0);
 
@@ -64,7 +63,6 @@ export default function ExpensesScreen() {
     setStartDate('');
     setEndDate('');
     setInflationRate(6);
-    setIsIncome(false);
     setErrors({});
     setEditingExpense(null);
   }
@@ -73,7 +71,6 @@ export default function ExpensesScreen() {
     resetForm();
     setSelectedCategory(category);
     setInflationRate(DEFAULT_INFLATION_RATES[category] ?? 6);
-    if (category === 'PENSION_INCOME') setIsIncome(true);
     if (expense) {
       setEditingExpense(expense);
       setExpName(expense.name);
@@ -83,7 +80,6 @@ export default function ExpensesScreen() {
       setStartDate(expense.start_date ?? '');
       setEndDate(expense.end_date ?? '');
       setInflationRate(expense.inflation_rate);
-      setIsIncome(!!expense.is_income);
     }
     setShowForm(true);
   }
@@ -112,7 +108,7 @@ export default function ExpensesScreen() {
       start_date: expenseType !== 'CURRENT_RECURRING' ? startDate || null : null,
       end_date: endDate || null,
       inflation_rate: inflationRate,
-      is_income: isIncome ? 1 : 0,
+      is_income: 0,
     };
 
     try {
@@ -291,11 +287,6 @@ export default function ExpensesScreen() {
                 minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
               />
 
-              <View style={styles.switchRow}>
-                <Text variant="bodyMedium">This is an income stream (pension, rental, etc.)</Text>
-                <Switch value={isIncome} onValueChange={setIsIncome} color="#1B5E20" />
-              </View>
-
               <View style={styles.formActions}>
                 <Button mode="outlined" onPress={() => { setShowForm(false); resetForm(); }}
                   style={styles.actionBtn}>Cancel</Button>
@@ -331,7 +322,6 @@ const styles = StyleSheet.create({
   segment: { marginBottom: 12 },
   fieldLabel: { marginBottom: 8, marginTop: 4 },
   sliderLabel: { marginTop: 8, marginBottom: 4 },
-  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 12, paddingHorizontal: 4 },
   formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 16 },
   actionBtn: { flex: 1 },
   radioRow: { marginVertical: 2, borderRadius: 12, backgroundColor: '#FAFAFA' },

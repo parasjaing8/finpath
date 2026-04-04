@@ -81,4 +81,11 @@ export async function initializeDatabase(): Promise<void> {
     INSERT OR IGNORE INTO inflation_defaults VALUES ('FOOD', 6.0);
     INSERT OR IGNORE INTO inflation_defaults VALUES ('REAL_ESTATE', 7.0);
   `);
+
+  // Migrations: add columns that may not exist in older installs
+  try {
+    await database.execAsync('ALTER TABLE goals ADD COLUMN pension_income REAL DEFAULT 0');
+  } catch (_) {
+    // column already exists — safe to ignore
+  }
 }

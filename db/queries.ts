@@ -50,6 +50,7 @@ export interface Goals {
   retirement_age: number;
   sip_stop_age: number;
   fire_corpus: number | null;
+  pension_income: number | null;
 }
 
 // ========== Profile Queries ==========
@@ -219,16 +220,18 @@ export async function saveGoals(
   profileId: number,
   retirementAge: number,
   sipStopAge: number,
-  fireCorpus?: number
+  fireCorpus?: number,
+  pensionIncome?: number
 ): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `INSERT INTO goals (profile_id, retirement_age, sip_stop_age, fire_corpus)
-     VALUES (?, ?, ?, ?)
+    `INSERT INTO goals (profile_id, retirement_age, sip_stop_age, fire_corpus, pension_income)
+     VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(profile_id) DO UPDATE SET
      retirement_age = excluded.retirement_age,
      sip_stop_age = excluded.sip_stop_age,
-     fire_corpus = excluded.fire_corpus`,
-    [profileId, retirementAge, sipStopAge, fireCorpus ?? null]
+     fire_corpus = excluded.fire_corpus,
+     pension_income = excluded.pension_income`,
+    [profileId, retirementAge, sipStopAge, fireCorpus ?? null, pensionIncome ?? 0]
   );
 }

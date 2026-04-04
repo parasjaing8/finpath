@@ -5,12 +5,14 @@ import { useRouter } from 'expo-router';
 import { useProfile } from '../../hooks/useProfile';
 import { getGoals, saveGoals } from '../../db/queries';
 import { Slider } from '@miblanchard/react-native-slider';
+import { formatCurrency } from '../../engine/calculator';
 
 export default function GoalsScreen() {
   const { currentProfile } = useProfile();
   const router = useRouter();
   const [retirementAge, setRetirementAge] = useState(60);
   const [sipStopAge, setSipStopAge] = useState(55);
+  const [pensionIncome, setPensionIncome] = useState('');
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -21,6 +23,7 @@ export default function GoalsScreen() {
       if (goals) {
         setRetirementAge(goals.retirement_age);
         setSipStopAge(goals.sip_stop_age);
+        if (goals.pension_income) setPensionIncome(String(goals.pension_income));
       }
     }
     load();
@@ -28,16 +31,18 @@ export default function GoalsScreen() {
 
   async function handleSave() {
     if (!currentProfile) return;
-    if (sipStopAge > retirementAge) {
-      setSipStopAge(retirementAge);
-    }
+    if (sipStopAge > retirementAge) setSipStopAge(retirementAge);
     setLoading(true);
     try {
-      await saveGoals(currentProfile.id, retirementAge, Math.min(sipStopAge, retirementAge));
+      await saveGoals(
+        currentProfile.id,
+        retirementAge,
+        Math.min(sipStopAge, retirementAge),
+        undefined,
+        parseFloat(pensionIncome) > 0 ? parseFloat(pensionIncome) : 0
+      );
       setSaved(true);
-      setTimeout(() => {
-        router.push('/(tabs)/dashboard');
-      }, 500);
+      setTimeout(() => { router.push('/(tabs)/dashboard'); }, 500);
     } finally {
       setLoading(false);
     }
@@ -83,6 +88,30 @@ export default function GoalsScreen() {
             Age at which you stop making SIP contributions. Can be before retirement.
           </HelperText>
 
+          <Text variant="labelLarge" style={styles.sectionLabel}>Retirement Income</Text>
+          <Text variant="bodySmall" style={styles.sectionHint}>
+            Expected monthly pension or passive income in today's value (e.g. rental income, govt
+            pension). It will be inflation-adjusted at 6% and credited from retirement age onwards.
+          </Text>
+          <TextInput
+            label={`Monthly pension / passive income (${currentProfile.currency === 'INR' ? '₹' : '$'} today's value)`}
+            value={pensionIncome}
+            onChangeText={text => setPensionIncome(text.replace(/[^0-9.]/g, ''))}
+            mode="outlined"
+            keyboardType="numeric"
+            style={styles.input}
+            left={<TextInput.Affix text={currentProfile.currency === 'INR' ? '₹' : '$'} />}
+          />
+          {parseFloat(pensionIncome) > 0 && (
+            <HelperText type="info">
+              At retirement (age {retirementAge}) this will be{' '}
+              {formatCurrency(
+                parseFloat(pensionIncome) * 12 * Math.pow(1.06, retirementAge - (new Date().getFullYear() - new Date(currentProfile.dob).getFullYear())),
+                currentProfile.currency
+              )}/yr in nominal terms.
+            </HelperText>
+          )}
+
           <Button mode="contained" onPress={handleSave} loading={loading} disabled={loading}
             style={styles.button} contentStyle={styles.buttonContent}>
             {saved ? '✓ Saved! Going to Dashboard...' : 'Calculate & View Dashboard'}
@@ -100,6 +129,9 @@ const styles = StyleSheet.create({
   title: { fontWeight: 'bold', color: '#1B5E20', marginBottom: 8 },
   subtitle: { color: '#666', marginBottom: 24 },
   sliderLabel: { marginTop: 16, marginBottom: 4, fontWeight: '600' },
+  sectionLabel: { marginTop: 24, marginBottom: 4, fontWeight: '700', color: '#1B5E20' },
+  sectionHint: { color: '#888', marginBottom: 12, lineHeight: 18 },
+  input: { marginBottom: 4, backgroundColor: '#FFFFFF' },
   button: { marginTop: 32, borderRadius: 8 },
   buttonContent: { paddingVertical: 8 },
 });
