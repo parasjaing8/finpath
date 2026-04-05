@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Card, Switch, Button, DataTable } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { getAssets, getExpenses, getGoals, Asset, Expense, Goals } from '../../db/queries';
@@ -8,9 +8,14 @@ import { exportToCSV } from '../../utils/export';
 import { Slider } from '@miblanchard/react-native-slider';
 import { CartesianChart, Line } from 'victory-native';
 import { Path as SkiaPath, Line as SkiaLine, DashPathEffect, Skia, vec } from '@shopify/react-native-skia';
+import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function DashboardScreen() {
-  const { currentProfile } = useProfile();
+  const { currentProfile, logout } = useProfile();
+  const navigation = useNavigation();
+  const router = useRouter();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [goals, setGoals] = useState<Goals | null>(null);
@@ -26,6 +31,21 @@ export default function DashboardScreen() {
   // Table pagination
   const [tablePage, setTablePage] = useState(0);
   const rowsPerPage = 10;
+
+  function handleLogout() {
+    logout();
+    router.replace('/login');
+  }
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity onPress={handleLogout} style={{ marginRight: 14, padding: 4 }}>
+          <MaterialCommunityIcons name="logout" size={22} color="#FFF" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const loadData = useCallback(async () => {
     if (!currentProfile) return;

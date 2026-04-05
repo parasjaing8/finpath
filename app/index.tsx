@@ -3,10 +3,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 import { initializeDatabase } from '../db/schema';
 import { getAllProfiles } from '../db/queries';
-import { useProfile } from '../hooks/useProfile';
-
 export default function Index() {
-  const { setCurrentProfileId } = useProfile();
   const [target, setTarget] = useState<string | null>(null);
 
   useEffect(() => {
@@ -15,8 +12,7 @@ export default function Index() {
         await initializeDatabase();
         const profiles = await getAllProfiles();
         if (profiles.length > 0) {
-          await setCurrentProfileId(profiles[0].id);
-          setTarget('/(tabs)/assets');
+          setTarget('/login');
         } else {
           setTarget('/onboarding/create-profile');
         }

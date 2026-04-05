@@ -6,6 +6,7 @@ interface ProfileContextType {
   profiles: Profile[];
   setCurrentProfileId: (id: number) => Promise<void>;
   refreshProfiles: () => Promise<void>;
+  logout: () => void;
 }
 
 const ProfileContext = createContext<ProfileContextType>({
@@ -13,6 +14,7 @@ const ProfileContext = createContext<ProfileContextType>({
   profiles: [],
   setCurrentProfileId: async () => {},
   refreshProfiles: async () => {},
+  logout: () => {},
 });
 
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
@@ -33,8 +35,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (p) setCurrentProfile(p);
   }, []);
 
+  const logout = useCallback(() => {
+    setCurrentProfile(null);
+  }, []);
+
   return (
-    <ProfileContext.Provider value={{ currentProfile, profiles, setCurrentProfileId, refreshProfiles }}>
+    <ProfileContext.Provider value={{ currentProfile, profiles, setCurrentProfileId, refreshProfiles, logout }}>
       {children}
     </ProfileContext.Provider>
   );
