@@ -1,6 +1,12 @@
 import { Asset, Expense, Goals, Profile } from '../db/queries';
 import { FREQUENCIES } from '../constants/categories';
 
+/** Inflation rate applied to pension income year-over-year (6%). */
+export const PENSION_INFLATION_RATE = 0.06;
+
+/** Discount rate used for PV / FIRE corpus calculations (6%). */
+export const DEFAULT_DISCOUNT_RATE = 0.06;
+
 export interface CalculationInput {
   profile: Profile;
   assets: Asset[];
@@ -32,6 +38,10 @@ export interface CalculationOutput {
   isOnTrack: boolean;
   projections: YearProjection[];
   presentValueOfExpenses: number;
+  /** Net worth used for FIRE projections — excludes self-use real estate. */
+  investableNetWorth: number;
+  /** Total net worth across all assets including self-use real estate. */
+  totalNetWorth: number;
 }
 
 function getAge(dob: string, onDate: Date = new Date()): number {
@@ -125,9 +135,9 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
   const pureExpenses = expenses;
 
   // Calculate FIRE corpus = PV of net expenses from retirement age to 100
-  // reduced by inflation-adjusted pension (6%/yr) where applicable
+  // reduced by inflation-adjusted pension where applicable
   let fireCorpus = 0;
-  const discountRate = 0.06;
+  const discountRate = DEFAULT_DISCOUNT_RATE;
   const monthlyPensionPV = goals.pension_income ?? 0;
   for (let age = retirementAge; age <= 100; age++) {
     const year = currentYear + (age - currentAge);
@@ -136,7 +146,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
       annualExpenses += calculateExpenseForYear(exp, year, currentYear);
     }
     const yearsFromNow = age - currentAge;
-    const pensionAnnual = monthlyPensionPV * 12 * Math.pow(1.06, yearsFromNow);
+    const pensionAnnual = monthlyPensionPV * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsFromNow);
     const netExpense = Math.max(0, annualExpenses - pensionAnnual);
     fireCorpus += netExpense / Math.pow(1 + discountRate, yearsFromNow);
   }
@@ -175,10 +185,10 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
       plannedExpenses += calculateExpenseForYear(exp, year, currentYear);
     }
 
-    // Pension from goals: starts at retirementAge, inflation-adjusted at 6%/yr from today's value
+    // Pension from goals: starts at retirementAge, inflation-adjusted from today's value
     let pensionIncome = 0;
     if (age >= retirementAge && monthlyPensionPV > 0) {
-      pensionIncome = monthlyPensionPV * 12 * Math.pow(1.06, yearsFromStart);
+      pensionIncome = monthlyPensionPV * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsFromStart);
     }
 
     // Vesting income
@@ -226,22 +236,23 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     isOnTrack: sipAmount >= requiredMonthlySIP,
     projections,
     presentValueOfExpenses,
+    investableNetWorth,
+    totalNetWorth: initialNetWorth,
   };
 }
 
 export function calculatePresentValueOfExpenses(
   profile: Profile,
   expenses: Expense[],
-  discountRate: number = 0.06,
+  discountRate: number = DEFAULT_DISCOUNT_RATE,
 ): number {
   const currentAge = getAge(profile.dob);
   const currentYear = new Date().getFullYear();
-  const pureExpenses = expenses.filter(e => !e.is_income);
   let pv = 0;
   for (let age = currentAge; age <= 100; age++) {
     const year = currentYear + (age - currentAge);
     let annualExpenses = 0;
-    for (const exp of pureExpenses) {
+    for (const exp of expenses) {
       annualExpenses += calculateExpenseForYear(exp, year, currentYear);
     }
     pv += annualExpenses / Math.pow(1 + discountRate, age - currentAge);
@@ -266,7 +277,7 @@ function calculateRequiredSIP(
   if (fireCorpus <= 0) return 0;
 
   let low = 0;
-  let high = 500000;
+  let high = 5000000; // ₹50L/month cap
   const tolerance = 100;
 
   for (let i = 0; i < 50; i++) {

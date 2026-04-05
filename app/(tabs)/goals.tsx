@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Text, Card, TextInput, Button, HelperText } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useProfile } from '../../hooks/useProfile';
 import { getGoals, saveGoals } from '../../db/queries';
 import { Slider } from '@miblanchard/react-native-slider';
-import { formatCurrency } from '../../engine/calculator';
+import { formatCurrency, PENSION_INFLATION_RATE } from '../../engine/calculator';
 
 export default function GoalsScreen() {
   const { currentProfile } = useProfile();
@@ -32,20 +32,31 @@ export default function GoalsScreen() {
   async function handleSave() {
     if (!currentProfile) return;
     if (sipStopAge > retirementAge) setSipStopAge(retirementAge);
-    setLoading(true);
-    try {
-      await saveGoals(
-        currentProfile.id,
-        retirementAge,
-        Math.min(sipStopAge, retirementAge),
-        undefined,
-        parseFloat(pensionIncome) > 0 ? parseFloat(pensionIncome) : 0
-      );
-      setSaved(true);
-      setTimeout(() => { router.push('/(tabs)/dashboard'); }, 500);
-    } finally {
-      setLoading(false);
-    }
+
+    const doSave = async () => {
+      setLoading(true);
+      try {
+        await saveGoals(
+          currentProfile.id,
+          retirementAge,
+          Math.min(sipStopAge, retirementAge),
+          parseFloat(pensionIncome) > 0 ? parseFloat(pensionIncome) : 0
+        );
+        setSaved(true);
+        setTimeout(() => { router.push('/(tabs)/dashboard'); }, 500);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    Alert.alert(
+      'Save Goals',
+      'This will overwrite your current goals and recalculate your FIRE projection. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Save', onPress: doSave },
+      ]
+    );
   }
 
   if (!currentProfile) {
@@ -91,7 +102,7 @@ export default function GoalsScreen() {
           <Text variant="labelLarge" style={styles.sectionLabel}>Retirement Income</Text>
           <Text variant="bodySmall" style={styles.sectionHint}>
             Expected monthly pension or passive income in today's value (e.g. rental income, govt
-            pension). It will be inflation-adjusted at 6% and credited from retirement age onwards.
+            pension). It will be inflation-adjusted at {(PENSION_INFLATION_RATE * 100).toFixed(0)}% and credited from retirement age onwards.
           </Text>
           <TextInput
             label={`Monthly pension / passive income (${currentProfile.currency === 'INR' ? '₹' : '$'} today's value)`}
@@ -106,7 +117,7 @@ export default function GoalsScreen() {
             <HelperText type="info">
               At retirement (age {retirementAge}) this will be{' '}
               {formatCurrency(
-                parseFloat(pensionIncome) * 12 * Math.pow(1.06, retirementAge - (new Date().getFullYear() - new Date(currentProfile.dob).getFullYear())),
+                parseFloat(pensionIncome) * 12 * Math.pow(1 + PENSION_INFLATION_RATE, retirementAge - (new Date().getFullYear() - new Date(currentProfile.dob).getFullYear())),
                 currentProfile.currency
               )}/yr in nominal terms.
             </HelperText>

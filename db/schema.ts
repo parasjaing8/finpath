@@ -88,4 +88,10 @@ export async function initializeDatabase(): Promise<void> {
   } catch (_) {
     // column already exists — safe to ignore
   }
+  try {
+    await database.execAsync('ALTER TABLE profiles ADD COLUMN failed_attempts INTEGER DEFAULT 0');
+  } catch (_) {}
+  try {
+    await database.execAsync('ALTER TABLE profiles ADD COLUMN lockout_until INTEGER DEFAULT 0');
+  } catch (_) {}
 }

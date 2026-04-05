@@ -8,7 +8,8 @@ export interface Profile {
   dob: string;
   monthly_income: number;
   currency: string;
-  pin: string | null;
+  failed_attempts: number;
+  lockout_until: number;
   created_at: string;
 }
 
@@ -41,7 +42,6 @@ export interface Expense {
   start_date: string | null;
   end_date: string | null;
   inflation_rate: number;
-  is_income: number;
 }
 
 export interface Goals {
@@ -49,7 +49,6 @@ export interface Goals {
   profile_id: number;
   retirement_age: number;
   sip_stop_age: number;
-  fire_corpus: number | null;
   pension_income: number | null;
 }
 
@@ -57,12 +56,27 @@ export interface Goals {
 
 export async function getAllProfiles(): Promise<Profile[]> {
   const db = await getDatabase();
-  return db.getAllAsync<Profile>('SELECT * FROM profiles ORDER BY created_at DESC');
+  return db.getAllAsync<Profile>(
+    'SELECT id, name, dob, monthly_income, currency, failed_attempts, lockout_until, created_at FROM profiles ORDER BY created_at DESC'
+  );
 }
 
 export async function getProfile(id: number): Promise<Profile | null> {
   const db = await getDatabase();
-  return db.getFirstAsync<Profile>('SELECT * FROM profiles WHERE id = ?', [id]);
+  return db.getFirstAsync<Profile>(
+    'SELECT id, name, dob, monthly_income, currency, failed_attempts, lockout_until, created_at FROM profiles WHERE id = ?',
+    [id]
+  );
+}
+
+/** Auth-only: fetches the PIN hash for a profile. Never store the result in shared state. */
+export async function getProfilePin(id: number): Promise<string | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ pin: string | null }>(
+    'SELECT pin FROM profiles WHERE id = ?',
+    [id]
+  );
+  return row?.pin ?? null;
 }
 
 export async function createProfile(
@@ -80,29 +94,28 @@ export async function createProfile(
   return result.lastInsertRowId;
 }
 
-export async function updateProfile(
-  id: number,
-  name: string,
-  dob: string,
-  monthly_income: number,
-  currency: string
-): Promise<void> {
+export async function recordFailedAttempt(id: number): Promise<{ attempts: number; lockoutUntil: number }> {
   const db = await getDatabase();
-  await db.runAsync(
-    'UPDATE profiles SET name = ?, dob = ?, monthly_income = ?, currency = ? WHERE id = ?',
-    [name, dob, monthly_income, currency, id]
+  const profile = await db.getFirstAsync<{ failed_attempts: number }>(
+    'SELECT failed_attempts FROM profiles WHERE id = ?', [id]
   );
+  const attempts = (profile?.failed_attempts ?? 0) + 1;
+  // Lockout durations: 5 attempts → 30s, 8 → 5min, 11+ → 30min
+  let lockoutSeconds = 0;
+  if (attempts >= 11) lockoutSeconds = 1800;
+  else if (attempts >= 8) lockoutSeconds = 300;
+  else if (attempts >= 5) lockoutSeconds = 30;
+  const lockoutUntil = lockoutSeconds > 0 ? Date.now() + lockoutSeconds * 1000 : 0;
+  await db.runAsync(
+    'UPDATE profiles SET failed_attempts = ?, lockout_until = ? WHERE id = ?',
+    [attempts, lockoutUntil, id]
+  );
+  return { attempts, lockoutUntil };
 }
 
-export async function deleteProfile(id: number): Promise<void> {
+export async function resetFailedAttempts(id: number): Promise<void> {
   const db = await getDatabase();
-  await db.runAsync('DELETE FROM profiles WHERE id = ?', [id]);
-}
-
-export async function verifyPin(id: number, pin: string): Promise<boolean> {
-  const db = await getDatabase();
-  const profile = await db.getFirstAsync<{ pin: string }>('SELECT pin FROM profiles WHERE id = ?', [id]);
-  return profile?.pin === pin;
+  await db.runAsync('UPDATE profiles SET failed_attempts = 0, lockout_until = 0 WHERE id = ?', [id]);
 }
 
 // ========== Asset Queries ==========
@@ -110,14 +123,6 @@ export async function verifyPin(id: number, pin: string): Promise<boolean> {
 export async function getAssets(profileId: number): Promise<Asset[]> {
   const db = await getDatabase();
   return db.getAllAsync<Asset>('SELECT * FROM assets WHERE profile_id = ? ORDER BY category, name', [profileId]);
-}
-
-export async function getAssetsByCategory(profileId: number, category: string): Promise<Asset[]> {
-  const db = await getDatabase();
-  return db.getAllAsync<Asset>(
-    'SELECT * FROM assets WHERE profile_id = ? AND category = ? ORDER BY name',
-    [profileId, category]
-  );
 }
 
 export async function createAsset(asset: Omit<Asset, 'id'>): Promise<number> {
@@ -179,12 +184,12 @@ export async function createExpense(expense: Omit<Expense, 'id'>): Promise<numbe
   const db = await getDatabase();
   const result = await db.runAsync(
     `INSERT INTO expenses (profile_id, name, category, amount, currency, expense_type,
-     frequency, start_date, end_date, inflation_rate, is_income)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     frequency, start_date, end_date, inflation_rate)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       expense.profile_id, expense.name, expense.category, expense.amount, expense.currency,
       expense.expense_type, expense.frequency, expense.start_date, expense.end_date,
-      expense.inflation_rate, expense.is_income,
+      expense.inflation_rate,
     ]
   );
   return result.lastInsertRowId;
@@ -194,12 +199,12 @@ export async function updateExpense(expense: Expense): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
     `UPDATE expenses SET name = ?, category = ?, amount = ?, currency = ?, expense_type = ?,
-     frequency = ?, start_date = ?, end_date = ?, inflation_rate = ?, is_income = ?
+     frequency = ?, start_date = ?, end_date = ?, inflation_rate = ?
      WHERE id = ?`,
     [
       expense.name, expense.category, expense.amount, expense.currency, expense.expense_type,
       expense.frequency, expense.start_date, expense.end_date, expense.inflation_rate,
-      expense.is_income, expense.id,
+      expense.id,
     ]
   );
 }
@@ -220,18 +225,16 @@ export async function saveGoals(
   profileId: number,
   retirementAge: number,
   sipStopAge: number,
-  fireCorpus?: number,
   pensionIncome?: number
 ): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `INSERT INTO goals (profile_id, retirement_age, sip_stop_age, fire_corpus, pension_income)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO goals (profile_id, retirement_age, sip_stop_age, pension_income)
+     VALUES (?, ?, ?, ?)
      ON CONFLICT(profile_id) DO UPDATE SET
      retirement_age = excluded.retirement_age,
      sip_stop_age = excluded.sip_stop_age,
-     fire_corpus = excluded.fire_corpus,
      pension_income = excluded.pension_income`,
-    [profileId, retirementAge, sipStopAge, fireCorpus ?? null, pensionIncome ?? 0]
+    [profileId, retirementAge, sipStopAge, pensionIncome ?? 0]
   );
 }

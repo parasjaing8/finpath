@@ -21,7 +21,6 @@ export const EXPENSE_CATEGORIES = [
   { key: 'MEDICAL', label: 'Medical', icon: 'medical-bag', defaultInflation: 8 },
   { key: 'EVENTS', label: 'Events', icon: 'party-popper', defaultInflation: 6 },
   { key: 'INSURANCE', label: 'Insurance', icon: 'shield-outline', defaultInflation: 5 },
-  { key: 'PENSION_INCOME', label: 'Pension/Income', icon: 'cash-plus', defaultInflation: 6 },
   { key: 'OTHERS', label: 'Others', icon: 'dots-horizontal-circle-outline', defaultInflation: 6 },
 ] as const;
 
@@ -56,6 +55,5 @@ export const DEFAULT_INFLATION_RATES: Record<string, number> = {
   TRANSPORT: 6.0,
   EVENTS: 6.0,
   INSURANCE: 5.0,
-  PENSION_INCOME: 6.0,
   OTHERS: 6.0,
 };

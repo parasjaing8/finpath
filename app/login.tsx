@@ -7,13 +7,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { Text, TextInput, Button } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Crypto from 'expo-crypto';
-import { getAllProfiles, Profile } from '../db/queries';
+import { getAllProfiles, Profile, recordFailedAttempt, resetFailedAttempts, getProfilePin } from '../db/queries';
 import { useProfile } from '../hooks/useProfile';
+
+const MAX_FREE_ATTEMPTS = 5; // lockout kicks in after this many failures
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -24,6 +27,7 @@ export default function LoginScreen() {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
 
   const loadProfiles = useCallback(async () => {
     const all = await getAllProfiles();
@@ -38,27 +42,68 @@ export default function LoginScreen() {
     setSelectedProfile(profile);
     setPin('');
     setError('');
+    // Restore lockout countdown if profile is still locked out
+    const remaining = Math.ceil((profile.lockout_until - Date.now()) / 1000);
+    setLockoutSeconds(remaining > 0 ? remaining : 0);
+  }
+
+  // Countdown ticker for lockout
+  useEffect(() => {
+    if (lockoutSeconds <= 0) return;
+    const id = setInterval(() => {
+      setLockoutSeconds(s => {
+        if (s <= 1) { clearInterval(id); return 0; }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [lockoutSeconds]);
+
+  async function hashPin(pin: string, storedValue: string): Promise<boolean> {
+    if (storedValue.includes('$')) {
+      // New format: salt$hash
+      const [salt, expectedHash] = storedValue.split('$');
+      const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, salt + pin);
+      return hash === expectedHash;
+    }
+    // Legacy format: bare SHA-256 (profiles created before this update)
+    const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, pin);
+    return hash === storedValue;
   }
 
   async function handleLogin() {
     if (!selectedProfile) return;
+    if (lockoutSeconds > 0) return;
     if (pin.length !== 6) {
       setError('Enter your 6-digit PIN');
       return;
     }
     setLoading(true);
     try {
-      const hashed = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        pin
-      );
-      if (hashed === selectedProfile.pin) {
+      const storedPin = await getProfilePin(selectedProfile.id);
+      const isCorrect = storedPin
+        ? await hashPin(pin, storedPin)
+        : false;
+      if (isCorrect) {
+        await resetFailedAttempts(selectedProfile.id);
         await setCurrentProfileId(selectedProfile.id);
         await refreshProfiles();
         router.replace('/(tabs)/assets');
       } else {
-        setError('Incorrect PIN. Try again.');
+        const { lockoutUntil } = await recordFailedAttempt(selectedProfile.id);
+        const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+        if (remaining > 0) {
+          setLockoutSeconds(remaining);
+          setError(`Too many attempts. Locked for ${remaining}s.`);
+        } else {
+          setError('Incorrect PIN. Try again.');
+        }
         setPin('');
+        // Refresh profile list to get updated attempt counts
+        const all = await getAllProfiles();
+        setProfiles(all);
+        const updated = all.find(p => p.id === selectedProfile.id) ?? null;
+        setSelectedProfile(updated);
       }
     } finally {
       setLoading(false);
@@ -157,11 +202,11 @@ export default function LoginScreen() {
               mode="contained"
               onPress={handleLogin}
               loading={loading}
-              disabled={pin.length !== 6 || loading}
+              disabled={pin.length !== 6 || loading || lockoutSeconds > 0}
               style={styles.loginBtn}
               contentStyle={styles.loginBtnContent}
             >
-              Login
+              {lockoutSeconds > 0 ? `Locked (${lockoutSeconds}s)` : 'Login'}
             </Button>
           </View>
         )}
@@ -176,6 +221,15 @@ export default function LoginScreen() {
         >
           Add New Profile
         </Button>
+
+        {/* Privacy Policy */}
+        <TouchableOpacity
+          onPress={() => Linking.openURL('https://parasjaing8.github.io/finpath/PRIVACY_POLICY')}
+          style={styles.privacyLink}
+          accessibilityRole="link"
+        >
+          <Text style={styles.privacyLinkText}>Privacy Policy</Text>
+        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -326,5 +380,15 @@ const styles = StyleSheet.create({
   },
   newProfileBtn: {
     marginTop: 12,
+  },
+  privacyLink: {
+    alignItems: 'center',
+    marginTop: 24,
+    paddingBottom: 8,
+  },
+  privacyLinkText: {
+    fontSize: 12,
+    color: '#999',
+    textDecorationLine: 'underline',
   },
 });

@@ -39,10 +39,14 @@ export default function CreateProfile() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const hashedPin = await Crypto.digestStringAsync(
+      // Generate a random 16-byte salt, encode as hex
+      const saltBytes = Crypto.getRandomValues(new Uint8Array(16));
+      const salt = Array.from(saltBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      const hash = await Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,
-        pin
+        salt + pin
       );
+      const hashedPin = `${salt}$${hash}`;
       const profileId = await createProfile(
         name.trim(),
         dob,

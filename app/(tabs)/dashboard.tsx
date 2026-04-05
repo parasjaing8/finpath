@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Card, Switch, Button, DataTable } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
@@ -32,10 +32,13 @@ export default function DashboardScreen() {
   const [tablePage, setTablePage] = useState(0);
   const rowsPerPage = 10;
 
-  function handleLogout() {
+  // Track whether we have auto-set the SIP once from calculation (#18)
+  const hasAutoSetSip = useRef(false);
+
+  const handleLogout = useCallback(() => {
     logout();
     router.replace('/login');
-  }
+  }, [logout, router]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -45,7 +48,7 @@ export default function DashboardScreen() {
         </TouchableOpacity>
       ),
     });
-  }, [navigation]);
+  }, [navigation, handleLogout]);
 
   const loadData = useCallback(async () => {
     if (!currentProfile) return;
@@ -77,12 +80,13 @@ export default function DashboardScreen() {
     return output;
   }, [currentProfile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpEnabled, stepUpRate, dataLoaded]);
 
-  // Set initial SIP from calculation
+  // Set initial SIP from first calculation result — only once (#18)
   useEffect(() => {
-    if (result && result.requiredMonthlySIP > 0 && sipAmount === 10000) {
+    if (!hasAutoSetSip.current && result && result.requiredMonthlySIP > 0) {
+      hasAutoSetSip.current = true;
       setSipAmount(Math.ceil(result.requiredMonthlySIP / 1000) * 1000);
     }
-  }, [result?.requiredMonthlySIP]);
+  }, [result]);
 
   if (!currentProfile) {
     return <View style={styles.center}><Text>No profile selected</Text></View>;
@@ -106,12 +110,18 @@ export default function DashboardScreen() {
   const projections = result.projections;
   const paginatedRows = projections.slice(tablePage * rowsPerPage, (tablePage + 1) * rowsPerPage);
 
-  // Chart data
-  const chartData = projections.map(p => ({
+  // Chart data — memoized to avoid re-running .map on every render (#19)
+  const chartData = useMemo(() => projections.map(p => ({
     age: p.age,
     netWorth: p.netWorthEOY,
     expenses: p.plannedExpenses,
-  }));
+  })), [projections]);
+
+  // Pre-compute FIRE row index once for O(1) highlight in the table (#21)
+  const firstFireYear = useMemo(
+    () => projections.find(p => p.isFireAchieved)?.year ?? -1,
+    [projections],
+  );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
@@ -155,7 +165,28 @@ export default function DashboardScreen() {
         </Card>
       </View>
 
-      {/* Section B — SIP Investment Strategy */}
+      {/* Net Worth clarification — investable vs total (#26) */}
+      <Card style={styles.netWorthClarityCard}>
+        <Card.Content>
+          <View style={styles.netWorthClarityRow}>
+            <View style={styles.netWorthClarityCell}>
+              <Text variant="labelSmall" style={styles.tileLabel}>Investable Net Worth</Text>
+              <Text variant="titleSmall" style={[styles.tileValue, { color: '#1B5E20' }]}>
+                {formatCurrencyFull(result.investableNetWorth, currency)}
+              </Text>
+              <Text variant="bodySmall" style={styles.netWorthNote}>Used in FIRE projections</Text>
+            </View>
+            <View style={styles.netWorthDivider} />
+            <View style={styles.netWorthClarityCell}>
+              <Text variant="labelSmall" style={styles.tileLabel}>Total Net Worth</Text>
+              <Text variant="titleSmall" style={styles.tileValue}>
+                {formatCurrencyFull(result.totalNetWorth, currency)}
+              </Text>
+              <Text variant="bodySmall" style={styles.netWorthNote}>Incl. self-use real estate</Text>
+            </View>
+          </View>
+        </Card.Content>
+      </Card>
       <Card style={styles.strategyCard}>
         <Card.Content>
           <Text variant="titleMedium" style={styles.strategyTitle}>SIP Investment Strategy</Text>
@@ -311,8 +342,7 @@ export default function DashboardScreen() {
               </DataTable.Header>
 
               {paginatedRows.map(row => {
-                const isFireRow = row.isFireAchieved &&
-                  (projections.findIndex(p => p.isFireAchieved) === projections.indexOf(row));
+                const isFireRow = row.year === firstFireYear;
                 return (
                   <DataTable.Row key={row.year} style={isFireRow ? styles.fireRow : undefined}>
                     <DataTable.Cell style={styles.colNarrow}>{row.year}</DataTable.Cell>
@@ -358,6 +388,11 @@ const styles = StyleSheet.create({
   tile: { flex: 1, borderRadius: 12 },
   tileLabel: { color: '#666', marginBottom: 4 },
   tileValue: { fontWeight: 'bold' },
+  netWorthClarityCard: { borderRadius: 12, marginBottom: 12, backgroundColor: '#F9FBF9' },
+  netWorthClarityRow: { flexDirection: 'row', alignItems: 'center' },
+  netWorthClarityCell: { flex: 1 },
+  netWorthDivider: { width: 1, alignSelf: 'stretch', backgroundColor: '#DDD', marginHorizontal: 12 },
+  netWorthNote: { color: '#888', marginTop: 2 },
   strategyCard: { marginTop: 8, marginBottom: 16, borderRadius: 12 },
   strategyTitle: { fontWeight: 'bold', color: '#1B5E20', marginBottom: 12 },
   sliderLabel: { marginTop: 12, marginBottom: 4, fontWeight: '600' },

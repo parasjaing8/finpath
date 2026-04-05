@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, ActivityIndicator, RefreshControl } from 'react-native';
 import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, HelperText } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { Asset, getAssets, createAsset, updateAsset, deleteAsset, getTotalNetWorth } from '../../db/queries';
@@ -49,6 +49,8 @@ export default function AssetsScreen() {
   const { currentProfile } = useProfile();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [totalNetWorth, setTotalNetWorth] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
@@ -79,7 +81,14 @@ export default function AssetsScreen() {
     ]);
     setAssets(assetList);
     setTotalNetWorth(nw);
+    setLoading(false);
   }, [currentProfile]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -201,9 +210,15 @@ export default function AssetsScreen() {
     );
   }
 
+  if (loading) {
+    return <View style={styles.center}><ActivityIndicator size="large" color="#1B5E20" /></View>;
+  }
+
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1B5E20']} />}
+      >
         {/* Net Worth Header with Pie Chart */}
         <Card style={styles.netWorthCard}>
           <Card.Content style={styles.netWorthContent}>
@@ -211,6 +226,9 @@ export default function AssetsScreen() {
               <Text variant="labelMedium" style={{ color: '#FFFFFF99' }}>Total Net Worth</Text>
               <Text variant="headlineMedium" style={styles.netWorthValue}>
                 {formatCurrency(totalNetWorth, currentProfile.currency)}
+              </Text>
+              <Text variant="bodySmall" style={{ color: '#FFFFFF99', marginTop: 2 }}>
+                Incl. self-use real estate · excludes from FIRE calc
               </Text>
             </View>
             {pieData.length > 0 && (
@@ -304,7 +322,7 @@ export default function AssetsScreen() {
 
             <TextInput label="Current Value" value={currentValue} onChangeText={setCurrentValue}
               mode="outlined" style={styles.input} keyboardType="numeric"
-              left={<TextInput.Affix text={selectedCategory === 'ESOP_RSU' && assetCurrency === 'USD' ? '$' : '₹'} />}
+              left={<TextInput.Affix text={selectedCategory === 'ESOP_RSU' && assetCurrency === 'USD' ? '$' : currentProfile?.currency === 'INR' ? '₹' : '$'} />}
               error={!!errors.value} />
             {errors.value && <HelperText type="error">{errors.value}</HelperText>}
 

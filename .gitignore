@@ -40,7 +40,7 @@ yarn-error.*
 /ios
 /android
 
-# APKs
+# APKs — distribute via GitHub Releases, not git
 *.apk
 *.aab
 
@@ -52,4 +52,3 @@ dist/
 
 # node_modules
 node_modules/
-!releases/*.apk

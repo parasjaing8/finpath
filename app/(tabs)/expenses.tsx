@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Platform, Keyboard } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, Alert, Platform, Keyboard, ActivityIndicator, RefreshControl } from 'react-native';
 import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, HelperText, RadioButton, TouchableRipple } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { Expense, getExpenses, createExpense, updateExpense, deleteExpense } from '../../db/queries';
@@ -12,6 +12,8 @@ export default function ExpensesScreen() {
   const { currentProfile } = useProfile();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [presentValue, setPresentValue] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -34,7 +36,14 @@ export default function ExpensesScreen() {
     const expList = await getExpenses(currentProfile.id);
     setExpenses(expList);
     setPresentValue(calculatePresentValueOfExpenses(currentProfile, expList));
+    setLoading(false);
   }, [currentProfile]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -88,8 +97,12 @@ export default function ExpensesScreen() {
     const e: Record<string, string> = {};
     if (!expName.trim()) e.name = 'Name is required';
     if (!amount || parseFloat(amount) <= 0) e.amount = 'Enter a valid amount';
-    if (expenseType !== 'CURRENT_RECURRING' && !startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      e.startDate = 'Enter start date as YYYY-MM-DD';
+    if (expenseType !== 'CURRENT_RECURRING') {
+      if (!startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        e.startDate = 'Enter start date as YYYY-MM-DD';
+      } else if (isNaN(new Date(startDate).getTime())) {
+        e.startDate = 'Invalid date (e.g. 2024-13-45 is not valid)';
+      }
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -108,7 +121,6 @@ export default function ExpensesScreen() {
       start_date: expenseType !== 'CURRENT_RECURRING' ? startDate || null : null,
       end_date: endDate || null,
       inflation_rate: inflationRate,
-      is_income: 0,
     };
 
     try {
@@ -142,13 +154,28 @@ export default function ExpensesScreen() {
 
   const catLabel = EXPENSE_CATEGORIES.find(c => c.key === selectedCategory)?.label ?? selectedCategory;
 
+  // Pre-compute per-category counts in a single pass instead of O(10N) inline filters (#20)
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of expenses) {
+      counts[e.category] = (counts[e.category] ?? 0) + 1;
+    }
+    return counts;
+  }, [expenses]);
+
   if (!currentProfile) {
     return <View style={styles.center}><Text>No profile selected</Text></View>;
   }
 
+  if (loading) {
+    return <View style={styles.center}><ActivityIndicator size="large" color="#1B5E20" /></View>;
+  }
+
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1B5E20']} />}
+      >
         {/* PV Banner */}
         <Card style={styles.pvCard}>
           <Card.Content>
@@ -166,7 +193,7 @@ export default function ExpensesScreen() {
         <Text variant="titleMedium" style={styles.sectionTitle}>Add Expenses by Category</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
           {EXPENSE_CATEGORIES.map(cat => {
-            const count = expenses.filter(e => e.category === cat.key).length;
+            const count = categoryCounts[cat.key] ?? 0;
             return (
               <Chip key={cat.key} icon={cat.icon} onPress={() => openForm(cat.key)}
                 style={styles.chip} textStyle={styles.chipText}>
@@ -196,7 +223,7 @@ export default function ExpensesScreen() {
                     <Card.Content style={styles.expRow}>
                       <View style={{ flex: 1 }}>
                         <Text variant="bodyLarge" style={{ fontWeight: '600' }}>
-                          {exp.is_income ? '📈 ' : ''}{exp.name}
+                          {exp.name}
                         </Text>
                         <Text variant="bodySmall" style={{ color: '#666' }}>
                           {EXPENSE_CATEGORIES.find(c => c.key === exp.category)?.label} • {exp.inflation_rate}% inflation
@@ -204,8 +231,8 @@ export default function ExpensesScreen() {
                         </Text>
                       </View>
                       <View style={{ alignItems: 'flex-end' }}>
-                        <Text variant="bodyLarge" style={{ fontWeight: '700', color: exp.is_income ? '#1B5E20' : '#C62828' }}>
-                          {exp.is_income ? '+' : '-'}{formatCurrency(exp.amount, currentProfile.currency)}
+                        <Text variant="bodyLarge" style={{ fontWeight: '700', color: '#C62828' }}>
+                          -{formatCurrency(exp.amount, currentProfile.currency)}
                         </Text>
                         <IconButton icon="delete-outline" size={18} onPress={() => handleDelete(exp.id)} />
                       </View>
