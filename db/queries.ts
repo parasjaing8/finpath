@@ -1,4 +1,8 @@
 import { getDatabase } from './schema';
+import * as SecureStore from 'expo-secure-store';
+
+// SecureStore key for a profile's PIN hash
+const pinKey = (profileId: number) => `finpath_pin_${profileId}`;
 
 // ========== Types ==========
 
@@ -69,14 +73,39 @@ export async function getProfile(id: number): Promise<Profile | null> {
   );
 }
 
-/** Auth-only: fetches the PIN hash for a profile. Never store the result in shared state. */
+/** Auth-only: fetches the PIN hash for a profile from SecureStore.
+ *  Falls back to the SQLite column for profiles created before the
+ *  secure-store migration, and migrates them on first successful read.
+ *  Never store the result in shared state.
+ */
 export async function getProfilePin(id: number): Promise<string | null> {
+  // Primary: hardware-backed SecureStore
+  const stored = await SecureStore.getItemAsync(pinKey(id));
+  if (stored !== null) return stored;
+
+  // Fallback: legacy SQLite pin column (pre-migration installs)
   const db = await getDatabase();
   const row = await db.getFirstAsync<{ pin: string | null }>(
     'SELECT pin FROM profiles WHERE id = ?',
     [id]
   );
-  return row?.pin ?? null;
+  if (row?.pin) {
+    // Migrate: move to SecureStore, then null the SQLite column
+    await SecureStore.setItemAsync(pinKey(id), row.pin);
+    await db.runAsync('UPDATE profiles SET pin = NULL WHERE id = ?', [id]);
+    return row.pin;
+  }
+  return null;
+}
+
+/** Saves a new PIN hash to SecureStore (replaces any previous value). */
+export async function saveProfilePin(profileId: number, hashedPin: string): Promise<void> {
+  await SecureStore.setItemAsync(pinKey(profileId), hashedPin);
+}
+
+/** Removes the PIN from SecureStore — call when deleting a profile. */
+export async function deleteProfilePin(profileId: number): Promise<void> {
+  await SecureStore.deleteItemAsync(pinKey(profileId));
 }
 
 export async function createProfile(
@@ -87,11 +116,14 @@ export async function createProfile(
   pin: string
 ): Promise<number> {
   const db = await getDatabase();
+  // PIN is stored in SecureStore only — not in the SQLite DB
   const result = await db.runAsync(
-    'INSERT INTO profiles (name, dob, monthly_income, currency, pin) VALUES (?, ?, ?, ?, ?)',
-    [name, dob, monthly_income, currency, pin]
+    'INSERT INTO profiles (name, dob, monthly_income, currency) VALUES (?, ?, ?, ?)',
+    [name, dob, monthly_income, currency]
   );
-  return result.lastInsertRowId;
+  const profileId = result.lastInsertRowId;
+  await saveProfilePin(profileId, pin);
+  return profileId;
 }
 
 export async function recordFailedAttempt(id: number): Promise<{ attempts: number; lockoutUntil: number }> {

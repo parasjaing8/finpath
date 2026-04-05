@@ -47,9 +47,8 @@ const hash = SHA256(salt + pin);
 **Files:** `hooks/useProfile.tsx`, `db/queries.ts`, `app/login.tsx`  
 **Fix:** Removed `pin` from the `Profile` interface. `getAllProfiles()` and `getProfile()` now use explicit column SELECTs that exclude `pin`. Added `getProfilePin(id)` (auth-only function) which `login.tsx` calls at the moment of verification — the PIN hash is never stored in React state or passed through context.
 
-### 9. No Sensitive Data Protection
-**Issue:** SQLite database is stored as a plain file on the device. No encryption at rest. If the device is rooted or the DB file is extracted via backup, all financial data is exposed.  
-**Fix (nice-to-have):** Consider `expo-secure-store` for the PIN and `sqlcipher` for DB encryption if targeting security-conscious users.
+### 9. ~~No Sensitive Data Protection~~ ✅ FIXED
+**Fix:** Installed `expo-secure-store`. PIN hash is now stored in the hardware-backed Keystore (Android) / Keychain (iOS) — never written to the SQLite DB for new profiles. `createProfile` no longer inserts `pin` into the SQL row. `getProfilePin` reads from SecureStore first; if the entry is absent (existing install), it falls back to `profiles.pin` in SQLite, migrates the value to SecureStore, then nulls the SQLite column — so the migration is automatic on first login. Added `saveProfilePin` and `deleteProfilePin` helpers. The SQLite `profiles.pin` column is retained as nullable for backward-compat but is nulled out on migration. Financial data (assets, expenses, goals) remains in plaintext SQLite; full DB encryption (SQLCipher) would require replacing `expo-sqlite` and is out of scope for v1.0.
 
 ---
 
