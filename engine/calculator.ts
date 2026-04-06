@@ -145,50 +145,17 @@ function calculateVestingForYear(assets: Asset[], targetYear: number): number {
   return total;
 }
 
-/** Default FIRE target ages for each FIRE type. */
-export const FIRE_TARGET_AGES: Record<string, number> = {
-  slim: 85,
-  medium: 95,
-  fat: 100,
+/** Safe Withdrawal Rates (%) for each FIRE type. */
+export const FIRE_WITHDRAWAL_RATES: Record<string, number> = {
+  fat: 3,
+  moderate: 5,
+  slim: 7,
 };
 
 /**
- * Simulate post-retirement corpus depletion.
- * Returns NW at targetAge given a starting corpus at retirement.
- * Pension is treated as a withdrawal FROM the corpus (not external income).
- * Returns a large negative if NW goes negative before targetAge.
- */
-function simulateCorpusDepletion(
-  corpus: number,
-  expenses: Expense[],
-  pensionMonthly: number,
-  currentAge: number,
-  retirementAge: number,
-  currentYear: number,
-  currentMonth: number,
-  returnRate: number,
-  targetAge: number = 100,
-): number {
-  let nw = corpus;
-  for (let age = retirementAge; age <= targetAge; age++) {
-    const year = currentYear + (age - currentAge);
-    const yearsFromStart = age - currentAge;
-    let annualExpenses = 0;
-    for (const exp of expenses) {
-      annualExpenses += calculateExpenseForYear(exp, year, currentYear, currentMonth);
-    }
-    const pensionAnnual = pensionMonthly * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsFromStart);
-    const totalWithdrawal = annualExpenses + pensionAnnual;
-    const returns = Math.max(0, nw) * (returnRate / 100);
-    nw = nw + returns - totalWithdrawal;
-  }
-  return nw;
-}
-
-/**
- * Binary-search for the FIRE corpus: the minimum NW at retirement
- * that sustains withdrawals (expenses + pension) through targetAge,
- * depleting to ~₹0 but never going negative.
+ * Calculate the FIRE corpus using the Safe Withdrawal Rate (SWR) approach.
+ * corpus = first-year total withdrawal at retirement / (SWR / 100).
+ * All FIRE types target age 100; the SWR determines corpus size.
  */
 function calculateFireCorpus(
   expenses: Expense[],
@@ -197,31 +164,25 @@ function calculateFireCorpus(
   retirementAge: number,
   currentYear: number,
   currentMonth: number,
-  returnRate: number,
-  targetAge: number = 100,
+  _returnRate: number,
+  withdrawalRate: number = 5,
 ): number {
-  // No expenses and no pension → no corpus needed
   if (expenses.length === 0 && pensionMonthly === 0) return 0;
+  if (withdrawalRate <= 0) return 0;
 
-  let low = 0;
-  let high = 1e12; // ₹10,000 Cr cap
-  const tolerance = 10000; // ₹10K precision
+  // Compute first-year withdrawal at retirement
+  const retirementYear = currentYear + (retirementAge - currentAge);
+  const yearsToRetirement = retirementAge - currentAge;
 
-  for (let i = 0; i < 100; i++) {
-    const mid = (low + high) / 2;
-    const endNW = simulateCorpusDepletion(
-      mid, expenses, pensionMonthly,
-      currentAge, retirementAge, currentYear, currentMonth, returnRate, targetAge,
-    );
-    if (Math.abs(endNW) < tolerance) break;
-    if (endNW < 0) {
-      low = mid;
-    } else {
-      high = mid;
-    }
+  let firstYearExpenses = 0;
+  for (const exp of expenses) {
+    firstYearExpenses += calculateExpenseForYear(exp, retirementYear, currentYear, currentMonth);
   }
 
-  return Math.ceil((low + high) / 2);
+  const firstYearPension = pensionMonthly * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsToRetirement);
+  const firstYearWithdrawal = firstYearExpenses + firstYearPension;
+
+  return Math.ceil(firstYearWithdrawal / (withdrawalRate / 100));
 }
 
 export function calculateProjections(input: CalculationInput): CalculationOutput {
@@ -231,7 +192,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
   const { retirement_age: retirementAge, sip_stop_age: sipStopAge } = goals;
-  const targetAge = goals.fire_target_age ?? 100;
+  const withdrawalRate = goals.withdrawal_rate ?? 5;
 
   // Calculate initial net worth from all assets
   let initialNetWorth = 0;
@@ -247,13 +208,12 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
   const monthlyPensionPV = goals.pension_income ?? 0;
   const discountRate = postSipReturnRate / 100;
 
-  // Calculate FIRE corpus via simulation-based binary search.
-  // Find the corpus at retirement that sustains all withdrawals
-  // (expenses + pension) until targetAge, depleting to ~₹0 but never negative.
+  // Calculate FIRE corpus using Safe Withdrawal Rate (SWR).
+  // corpus = first-year withdrawal at retirement / (SWR / 100).
   // Pension is a desired withdrawal FROM corpus, not external income.
   const fireCorpus = calculateFireCorpus(
     pureExpenses, monthlyPensionPV,
-    currentAge, retirementAge, currentYear, currentMonth, postSipReturnRate, targetAge,
+    currentAge, retirementAge, currentYear, currentMonth, postSipReturnRate, withdrawalRate,
   );
 
   // Calculate present value of ALL lifetime expenses (for expenses page banner)

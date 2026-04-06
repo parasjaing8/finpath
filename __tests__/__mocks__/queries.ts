@@ -44,7 +44,7 @@ export interface Expense {
   inflation_rate: number;
 }
 
-export type FireType = 'slim' | 'medium' | 'fat' | 'custom';
+export type FireType = 'slim' | 'moderate' | 'fat' | 'custom';
 
 export interface Goals {
   id: number;
@@ -54,4 +54,5 @@ export interface Goals {
   pension_income: number | null;
   fire_type: FireType;
   fire_target_age: number;
+  withdrawal_rate: number;
 }

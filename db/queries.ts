@@ -49,7 +49,7 @@ export interface Expense {
   inflation_rate: number;
 }
 
-export type FireType = 'slim' | 'medium' | 'fat' | 'custom';
+export type FireType = 'slim' | 'moderate' | 'fat' | 'custom';
 
 export interface Goals {
   id: number;
@@ -59,6 +59,7 @@ export interface Goals {
   pension_income: number | null;
   fire_type: FireType;
   fire_target_age: number;
+  withdrawal_rate: number;
 }
 
 // ========== Profile Queries ==========
@@ -265,19 +266,21 @@ export async function saveGoals(
   retirementAge: number,
   sipStopAge: number,
   pensionIncome?: number,
-  fireType: FireType = 'fat',
+  fireType: FireType = 'moderate',
   fireTargetAge: number = 100,
+  withdrawalRate: number = 5.0,
 ): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `INSERT INTO goals (profile_id, retirement_age, sip_stop_age, pension_income, fire_type, fire_target_age)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO goals (profile_id, retirement_age, sip_stop_age, pension_income, fire_type, fire_target_age, withdrawal_rate)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(profile_id) DO UPDATE SET
      retirement_age = excluded.retirement_age,
      sip_stop_age = excluded.sip_stop_age,
      pension_income = excluded.pension_income,
      fire_type = excluded.fire_type,
-     fire_target_age = excluded.fire_target_age`,
-    [profileId, retirementAge, sipStopAge, pensionIncome ?? 0, fireType, fireTargetAge]
+     fire_target_age = excluded.fire_target_age,
+     withdrawal_rate = excluded.withdrawal_rate`,
+    [profileId, retirementAge, sipStopAge, pensionIncome ?? 0, fireType, fireTargetAge, withdrawalRate]
   );
 }

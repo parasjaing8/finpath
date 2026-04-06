@@ -2,7 +2,7 @@
   "expo": {
     "name": "FinPath",
     "slug": "finpath",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "scheme": "finpath",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

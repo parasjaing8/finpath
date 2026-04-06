@@ -140,7 +140,7 @@ export default function DashboardScreen() {
         <Card style={[styles.tile, { backgroundColor: '#E3F2FD' }]}>
           <Card.Content>
             <Text variant="labelSmall" style={styles.tileLabel}>
-              FIRE Corpus ({goals.fire_type ? goals.fire_type.charAt(0).toUpperCase() + goals.fire_type.slice(1) : 'Fat'})
+              FIRE Corpus ({goals.fire_type ? goals.fire_type.charAt(0).toUpperCase() + goals.fire_type.slice(1) : 'Moderate'})
             </Text>
             <Text variant="titleMedium" style={styles.tileValue}>
               {formatCurrency(result.fireCorpus, currency)}

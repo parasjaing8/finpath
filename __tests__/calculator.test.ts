@@ -28,8 +28,9 @@ function makeGoals(overrides: Partial<Goals> = {}): Goals {
     retirement_age: 45,
     sip_stop_age: 45,
     pension_income: 0,
-    fire_type: 'fat',
+    fire_type: 'moderate',
     fire_target_age: 100,
+    withdrawal_rate: 5,
     ...overrides,
   };
 }
@@ -310,18 +311,18 @@ describe('calculateProjections', () => {
     expect(age35.annualSIP).toBeGreaterThan(age30.annualSIP);
   });
 
-  it('slim FIRE produces smaller corpus than fat FIRE', () => {
-    const slim = {
-      ...baseInput,
-      goals: makeGoals({ fire_type: 'slim', fire_target_age: 85 }),
-    };
+  it('fat FIRE (3% SWR) produces larger corpus than slim FIRE (7% SWR)', () => {
     const fat = {
       ...baseInput,
-      goals: makeGoals({ fire_type: 'fat', fire_target_age: 100 }),
+      goals: makeGoals({ fire_type: 'fat', withdrawal_rate: 3 }),
     };
-    const outSlim = calculateProjections(slim);
+    const slim = {
+      ...baseInput,
+      goals: makeGoals({ fire_type: 'slim', withdrawal_rate: 7 }),
+    };
     const outFat = calculateProjections(fat);
-    expect(outSlim.fireCorpus).toBeLessThan(outFat.fireCorpus);
+    const outSlim = calculateProjections(slim);
+    expect(outFat.fireCorpus).toBeGreaterThan(outSlim.fireCorpus);
     expect(outSlim.fireCorpus).toBeGreaterThan(0);
   });
 });

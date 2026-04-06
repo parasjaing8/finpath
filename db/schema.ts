@@ -103,4 +103,7 @@ export async function initializeDatabase(): Promise<void> {
   try {
     await database.execAsync('ALTER TABLE assets ADD COLUMN vesting_end_date TEXT');
   } catch (_) {}
+  try {
+    await database.execAsync('ALTER TABLE goals ADD COLUMN withdrawal_rate REAL DEFAULT 5.0');
+  } catch (_) {}
 }

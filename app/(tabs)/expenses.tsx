@@ -17,6 +17,8 @@ export default function ExpensesScreen() {
   const [showForm, setShowForm] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const chipScrollRef = useRef<ScrollView>(null);
+  const chipScrollX = useRef(0);
 
   // Form fields
   const [expName, setExpName] = useState('');
@@ -191,17 +193,29 @@ export default function ExpensesScreen() {
 
         {/* Category Tiles */}
         <Text variant="titleMedium" style={styles.sectionTitle}>Add Expenses by Category</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-          {EXPENSE_CATEGORIES.map(cat => {
-            const count = categoryCounts[cat.key] ?? 0;
-            return (
-              <Chip key={cat.key} icon={cat.icon} onPress={() => openForm(cat.key)}
-                style={styles.chip} textStyle={styles.chipText}>
-                {cat.label}{count > 0 ? ` (${count})` : ''}
-              </Chip>
-            );
-          })}
-        </ScrollView>
+        <View style={styles.chipRowWrapper}>
+          <IconButton icon="chevron-left" size={18} style={styles.chipArrow}
+            onPress={() => chipScrollRef.current?.scrollTo({ x: Math.max(0, chipScrollX.current - 120), animated: true })} />
+          <ScrollView
+            ref={chipScrollRef}
+            horizontal showsHorizontalScrollIndicator={false}
+            style={styles.chipRow}
+            onScroll={(e) => { chipScrollX.current = e.nativeEvent.contentOffset.x; }}
+            scrollEventThrottle={50}
+          >
+            {EXPENSE_CATEGORIES.map(cat => {
+              const count = categoryCounts[cat.key] ?? 0;
+              return (
+                <Chip key={cat.key} icon={cat.icon} onPress={() => openForm(cat.key)}
+                  style={styles.chip} textStyle={styles.chipText}>
+                  {cat.label}{count > 0 ? ` (${count})` : ''}
+                </Chip>
+              );
+            })}
+          </ScrollView>
+          <IconButton icon="chevron-right" size={18} style={styles.chipArrow}
+            onPress={() => chipScrollRef.current?.scrollTo({ x: chipScrollX.current + 120, animated: true })} />
+        </View>
 
         {/* Expense List */}
         {expenses.length === 0 ? (
@@ -336,7 +350,9 @@ const styles = StyleSheet.create({
   pvCard: { backgroundColor: '#B71C1C', marginBottom: 16, borderRadius: 12 },
   pvValue: { color: '#FFFFFF', fontWeight: 'bold', marginTop: 4 },
   sectionTitle: { marginBottom: 12, fontWeight: '600' },
-  chipRow: { marginBottom: 16, flexGrow: 0 },
+  chipRowWrapper: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  chipArrow: { margin: 0, padding: 0 },
+  chipRow: { flexGrow: 1, flexShrink: 1 },
   chip: { marginRight: 8, backgroundColor: '#FFEBEE' },
   chipText: { fontSize: 12 },
   emptyCard: { padding: 24, borderRadius: 12 },
