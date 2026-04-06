@@ -3,11 +3,13 @@
   "compilerOptions": {
     "strict": true,
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "types": ["jest"]
   },
   "include": [
     "**/*.ts",

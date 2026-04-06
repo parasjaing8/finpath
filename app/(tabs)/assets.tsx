@@ -64,6 +64,7 @@ export default function AssetsScreen() {
   const [recurringAmount, setRecurringAmount] = useState('');
   const [recurringFrequency, setRecurringFrequency] = useState('QUARTERLY');
   const [nextVestingDate, setNextVestingDate] = useState('');
+  const [vestingEndDate, setVestingEndDate] = useState('');
   const [isSelfUse, setIsSelfUse] = useState(false);
   const [goldSilverUnit, setGoldSilverUnit] = useState('VALUE');
   const [goldSilverQuantity, setGoldSilverQuantity] = useState('');
@@ -101,6 +102,7 @@ export default function AssetsScreen() {
     setRecurringAmount('');
     setRecurringFrequency('QUARTERLY');
     setNextVestingDate('');
+    setVestingEndDate('');
     setIsSelfUse(false);
     setGoldSilverUnit('VALUE');
     setGoldSilverQuantity('');
@@ -126,6 +128,7 @@ export default function AssetsScreen() {
       setRecurringAmount(asset.recurring_amount?.toString() ?? '');
       setRecurringFrequency(asset.recurring_frequency ?? 'QUARTERLY');
       setNextVestingDate(asset.next_vesting_date ?? '');
+      setVestingEndDate(asset.vesting_end_date ?? '');
       setIsSelfUse(!!asset.is_self_use);
       setGoldSilverUnit(asset.gold_silver_unit ?? 'VALUE');
       setGoldSilverQuantity(asset.gold_silver_quantity?.toString() ?? '');
@@ -163,6 +166,7 @@ export default function AssetsScreen() {
       recurring_amount: isRecurring ? parseFloat(recurringAmount) || null : null,
       recurring_frequency: isRecurring ? recurringFrequency : null,
       next_vesting_date: isRecurring ? nextVestingDate || null : null,
+      vesting_end_date: isRecurring ? vestingEndDate || null : null,
       is_self_use: isSelfUse ? 1 : 0,
       gold_silver_unit: selectedCategory === 'GOLD_SILVER' ? goldSilverUnit : null,
       gold_silver_quantity: selectedCategory === 'GOLD_SILVER' && goldSilverUnit === 'GRAMS' ? parseFloat(goldSilverQuantity) || null : null,
@@ -350,6 +354,9 @@ export default function AssetsScreen() {
               minimumTrackTintColor="#1B5E20"
               thumbTintColor="#1B5E20"
             />
+            <HelperText type="info" style={styles.roiNote}>
+              For reference only. Projections use the blended return rate set on the Dashboard.
+            </HelperText>
 
             {/* ESOP/RSU Fields */}
             {selectedCategory === 'ESOP_RSU' && (
@@ -374,6 +381,12 @@ export default function AssetsScreen() {
                       onChangeText={setNextVestingDate} style={styles.input}
                       error={!!errors.vestingDate} />
                     {errors.vestingDate && <HelperText type="error">{errors.vestingDate}</HelperText>}
+
+                    <DateInput label="Vesting End Date (optional)" value={vestingEndDate}
+                      onChangeText={setVestingEndDate} style={styles.input} />
+                    <HelperText type="info" style={{ marginTop: -8 }}>
+                      Vesting stops after this date. Leave blank to vest indefinitely.
+                    </HelperText>
                   </>
                 )}
               </View>
@@ -448,6 +461,7 @@ const styles = StyleSheet.create({
   input: { marginBottom: 8, backgroundColor: '#FFFFFF' },
   segment: { marginBottom: 12 },
   sliderLabel: { marginTop: 8, marginBottom: 4 },
+  roiNote: { marginTop: -4, marginBottom: 4, fontSize: 11 },
   extraFields: { marginTop: 8 },
   toggleBtn: { marginBottom: 12 },
   formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 16 },

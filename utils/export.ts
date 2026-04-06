@@ -33,9 +33,9 @@ export async function exportToCSV(
   }
 
   csv += '\nYEAR BY YEAR PROJECTION\n';
-  csv += [q('Year'), q('Age'), q('Annual SIP'), q('Planned Expenses'), q('Pension/Income'), q('Total Net Expenses'), q('Net Worth EOY')].join(',') + '\n';
+  csv += [q('Year'), q('Age'), q('Annual SIP'), q('Vesting Income'), q('Planned Expenses'), q('Pension/Income'), q('Total Net Expenses'), q('Net Worth EOY')].join(',') + '\n';
   for (const p of projections) {
-    csv += [q(p.year), q(p.age), q(Math.round(p.annualSIP)), q(Math.round(p.plannedExpenses)), q(Math.round(p.pensionIncome)), q(Math.round(p.totalNetExpenses)), q(Math.round(p.netWorthEOY))].join(',') + '\n';
+    csv += [q(p.year), q(p.age), q(Math.round(p.annualSIP)), q(Math.round(p.vestingIncome)), q(Math.round(p.plannedExpenses)), q(Math.round(p.pensionIncome)), q(Math.round(p.totalNetExpenses)), q(Math.round(p.netWorthEOY))].join(',') + '\n';
   }
 
   const fileName = `FinPath_${profile.name.replace(/\s+/g, '_')}_${date}.csv`;

@@ -42,6 +42,11 @@ export interface CalculationOutput {
   investableNetWorth: number;
   /** Total net worth across all assets including self-use real estate. */
   totalNetWorth: number;
+  /**
+   * Warning when required SIP exceeds or heavily burdens monthly income.
+   * null when there is no concern.
+   */
+  sipBurdenWarning: string | null;
 }
 
 function getAge(dob: string, onDate: Date = new Date()): number {
@@ -64,6 +69,7 @@ function calculateExpenseForYear(
   expense: Expense,
   targetYear: number,
   currentYear: number,
+  currentMonth: number = 0,
 ): number {
   const yearsFromNow = targetYear - currentYear;
   if (yearsFromNow < 0) return 0;
@@ -72,7 +78,17 @@ function calculateExpenseForYear(
 
   if (expense.expense_type === 'CURRENT_RECURRING') {
     const multiplier = getFrequencyMultiplier(expense.frequency);
-    return expense.amount * Math.pow(1 + inflationRate, yearsFromNow) * multiplier;
+    const endDate = expense.end_date ? new Date(expense.end_date) : null;
+    const endYear = endDate ? endDate.getFullYear() : Infinity;
+    if (targetYear > endYear) return 0;
+
+    // Determine effective month range for this year
+    const firstMonth = (targetYear === currentYear) ? currentMonth : 0;
+    const lastMonth = (endDate && targetYear === endYear) ? endDate.getMonth() : 11;
+    const effectiveMonths = Math.max(0, lastMonth - firstMonth + 1);
+    const monthFraction = effectiveMonths / 12;
+
+    return expense.amount * Math.pow(1 + inflationRate, yearsFromNow) * multiplier * monthFraction;
   }
 
   if (expense.expense_type === 'FUTURE_ONE_TIME') {
@@ -86,13 +102,22 @@ function calculateExpenseForYear(
 
   if (expense.expense_type === 'FUTURE_RECURRING') {
     if (!expense.start_date) return 0;
-    const startYear = new Date(expense.start_date).getFullYear();
-    const endYear = expense.end_date ? new Date(expense.end_date).getFullYear() : 9999;
-    if (targetYear >= startYear && targetYear <= endYear) {
-      const multiplier = getFrequencyMultiplier(expense.frequency);
-      return expense.amount * Math.pow(1 + inflationRate, yearsFromNow) * multiplier;
+    const start = new Date(expense.start_date);
+    const startYear = start.getFullYear();
+    const end = expense.end_date ? new Date(expense.end_date) : null;
+    const endYear = end ? end.getFullYear() : 9999;
+    if (targetYear < startYear || targetYear > endYear) return 0;
+
+    const multiplier = getFrequencyMultiplier(expense.frequency);
+    let monthFraction = 1;
+    if (end && targetYear === startYear && targetYear === endYear) {
+      monthFraction = Math.max(0, end.getMonth() - start.getMonth() + 1) / 12;
+    } else if (targetYear === startYear) {
+      monthFraction = (12 - start.getMonth()) / 12;
+    } else if (end && targetYear === endYear) {
+      monthFraction = (end.getMonth() + 1) / 12;
     }
-    return 0;
+    return expense.amount * Math.pow(1 + inflationRate, yearsFromNow) * multiplier * monthFraction;
   }
 
   return 0;
@@ -108,6 +133,11 @@ function calculateVestingForYear(assets: Asset[], targetYear: number): number {
     const vestingStartYear = vestingStart.getFullYear();
     if (targetYear < vestingStartYear) continue;
 
+    if (asset.vesting_end_date) {
+      const vestingEndYear = new Date(asset.vesting_end_date).getFullYear();
+      if (targetYear > vestingEndYear) continue;
+    }
+
     const freq = asset.recurring_frequency;
     const timesPerYear = getFrequencyMultiplier(freq);
     total += asset.recurring_amount * timesPerYear;
@@ -115,11 +145,93 @@ function calculateVestingForYear(assets: Asset[], targetYear: number): number {
   return total;
 }
 
+/** Default FIRE target ages for each FIRE type. */
+export const FIRE_TARGET_AGES: Record<string, number> = {
+  slim: 85,
+  medium: 95,
+  fat: 100,
+};
+
+/**
+ * Simulate post-retirement corpus depletion.
+ * Returns NW at targetAge given a starting corpus at retirement.
+ * Pension is treated as a withdrawal FROM the corpus (not external income).
+ * Returns a large negative if NW goes negative before targetAge.
+ */
+function simulateCorpusDepletion(
+  corpus: number,
+  expenses: Expense[],
+  pensionMonthly: number,
+  currentAge: number,
+  retirementAge: number,
+  currentYear: number,
+  currentMonth: number,
+  returnRate: number,
+  targetAge: number = 100,
+): number {
+  let nw = corpus;
+  for (let age = retirementAge; age <= targetAge; age++) {
+    const year = currentYear + (age - currentAge);
+    const yearsFromStart = age - currentAge;
+    let annualExpenses = 0;
+    for (const exp of expenses) {
+      annualExpenses += calculateExpenseForYear(exp, year, currentYear, currentMonth);
+    }
+    const pensionAnnual = pensionMonthly * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsFromStart);
+    const totalWithdrawal = annualExpenses + pensionAnnual;
+    const returns = Math.max(0, nw) * (returnRate / 100);
+    nw = nw + returns - totalWithdrawal;
+  }
+  return nw;
+}
+
+/**
+ * Binary-search for the FIRE corpus: the minimum NW at retirement
+ * that sustains withdrawals (expenses + pension) through targetAge,
+ * depleting to ~₹0 but never going negative.
+ */
+function calculateFireCorpus(
+  expenses: Expense[],
+  pensionMonthly: number,
+  currentAge: number,
+  retirementAge: number,
+  currentYear: number,
+  currentMonth: number,
+  returnRate: number,
+  targetAge: number = 100,
+): number {
+  // No expenses and no pension → no corpus needed
+  if (expenses.length === 0 && pensionMonthly === 0) return 0;
+
+  let low = 0;
+  let high = 1e12; // ₹10,000 Cr cap
+  const tolerance = 10000; // ₹10K precision
+
+  for (let i = 0; i < 100; i++) {
+    const mid = (low + high) / 2;
+    const endNW = simulateCorpusDepletion(
+      mid, expenses, pensionMonthly,
+      currentAge, retirementAge, currentYear, currentMonth, returnRate, targetAge,
+    );
+    if (Math.abs(endNW) < tolerance) break;
+    if (endNW < 0) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+
+  return Math.ceil((low + high) / 2);
+}
+
 export function calculateProjections(input: CalculationInput): CalculationOutput {
   const { profile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpRate } = input;
   const currentAge = getAge(profile.dob);
-  const currentYear = new Date().getFullYear();
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
   const { retirement_age: retirementAge, sip_stop_age: sipStopAge } = goals;
+  const targetAge = goals.fire_target_age ?? 100;
 
   // Calculate initial net worth from all assets
   let initialNetWorth = 0;
@@ -131,25 +243,18 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     }
   }
 
-  // All expenses are pure expenses — pension income comes from goals
   const pureExpenses = expenses;
-
-  // Calculate FIRE corpus = PV of net expenses from retirement age to 100
-  // reduced by inflation-adjusted pension where applicable
-  let fireCorpus = 0;
-  const discountRate = DEFAULT_DISCOUNT_RATE;
   const monthlyPensionPV = goals.pension_income ?? 0;
-  for (let age = retirementAge; age <= 100; age++) {
-    const year = currentYear + (age - currentAge);
-    let annualExpenses = 0;
-    for (const exp of pureExpenses) {
-      annualExpenses += calculateExpenseForYear(exp, year, currentYear);
-    }
-    const yearsFromNow = age - currentAge;
-    const pensionAnnual = monthlyPensionPV * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsFromNow);
-    const netExpense = Math.max(0, annualExpenses - pensionAnnual);
-    fireCorpus += netExpense / Math.pow(1 + discountRate, yearsFromNow);
-  }
+  const discountRate = postSipReturnRate / 100;
+
+  // Calculate FIRE corpus via simulation-based binary search.
+  // Find the corpus at retirement that sustains all withdrawals
+  // (expenses + pension) until targetAge, depleting to ~₹0 but never negative.
+  // Pension is a desired withdrawal FROM corpus, not external income.
+  const fireCorpus = calculateFireCorpus(
+    pureExpenses, monthlyPensionPV,
+    currentAge, retirementAge, currentYear, currentMonth, postSipReturnRate, targetAge,
+  );
 
   // Calculate present value of ALL lifetime expenses (for expenses page banner)
   let presentValueOfExpenses = 0;
@@ -157,7 +262,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     const year = currentYear + (age - currentAge);
     let annualExpenses = 0;
     for (const exp of pureExpenses) {
-      annualExpenses += calculateExpenseForYear(exp, year, currentYear);
+      annualExpenses += calculateExpenseForYear(exp, year, currentYear, currentMonth);
     }
     const yearsFromNow = age - currentAge;
     presentValueOfExpenses += annualExpenses / Math.pow(1 + discountRate, yearsFromNow);
@@ -182,10 +287,10 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     // Expenses this year
     let plannedExpenses = 0;
     for (const exp of pureExpenses) {
-      plannedExpenses += calculateExpenseForYear(exp, year, currentYear);
+      plannedExpenses += calculateExpenseForYear(exp, year, currentYear, currentMonth);
     }
 
-    // Pension from goals: starts at retirementAge, inflation-adjusted from today's value
+    // Pension = desired monthly withdrawal from corpus, inflation-adjusted
     let pensionIncome = 0;
     if (age >= retirementAge && monthlyPensionPV > 0) {
       pensionIncome = monthlyPensionPV * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsFromStart);
@@ -196,8 +301,12 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
 
     // Net worth calculation
     const returnRate = age <= sipStopAge ? sipReturnRate : postSipReturnRate;
-    const totalNetExpenses = plannedExpenses - pensionIncome;
-    netWorth = netWorth * (1 + returnRate / 100) + annualSIP + vestingIncome - totalNetExpenses;
+    // Post-retirement: withdraw both expenses AND pension from corpus
+    const totalNetExpenses = plannedExpenses + pensionIncome;
+    const returnOnInvestments = Math.max(0, netWorth) * (returnRate / 100);
+    // Pre-retirement: salary covers expenses; SIP already nets them out
+    const expenseWithdrawal = age >= retirementAge ? totalNetExpenses : 0;
+    netWorth = netWorth + returnOnInvestments + annualSIP + vestingIncome - expenseWithdrawal;
 
     // Check FIRE
     const isFireThisYear = !fireAchieved && netWorth >= fireCorpus && fireCorpus > 0;
@@ -221,12 +330,35 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
 
   // Calculate required monthly SIP using binary search
   const requiredMonthlySIP = calculateRequiredSIP(
-    investableNetWorth, assets, pureExpenses, monthlyPensionPV,
+    investableNetWorth, assets,
     currentAge, currentYear, retirementAge, sipStopAge,
     sipReturnRate, postSipReturnRate, stepUpRate, fireCorpus
   );
 
   const timeToFire = fireAchievedAge >= 0 ? fireAchievedAge - currentAge : -1;
+
+  let sipBurdenWarning: string | null = null;
+  const monthlyIncome = profile.monthly_income;
+  if (monthlyIncome > 0) {
+    if (requiredMonthlySIP > monthlyIncome) {
+      sipBurdenWarning = `Required SIP (₹${Math.round(requiredMonthlySIP / 1000)}K/mo) exceeds your monthly income (₹${Math.round(monthlyIncome / 1000)}K/mo). FIRE target is not achievable on your current income. Consider a later retirement age or increasing your income.`;
+    } else if (requiredMonthlySIP > monthlyIncome * 0.6) {
+      sipBurdenWarning = `Required SIP (₹${Math.round(requiredMonthlySIP / 1000)}K/mo) is ${Math.round(requiredMonthlySIP / monthlyIncome * 100)}% of your salary — a high burden. Consider extending your retirement age.`;
+    } else {
+      // Check combined SIP + current monthly expenses against income
+      let monthlyExpenses = 0;
+      for (const e of expenses) {
+        if (e.expense_type !== 'CURRENT_RECURRING') continue;
+        monthlyExpenses += e.amount * getFrequencyMultiplier(e.frequency ?? null) / 12;
+      }
+      const combined = requiredMonthlySIP + monthlyExpenses;
+      if (monthlyExpenses > 0 && combined > monthlyIncome) {
+        sipBurdenWarning = `Required SIP (₹${Math.round(requiredMonthlySIP / 1000)}K/mo) + current expenses (₹${Math.round(monthlyExpenses / 1000)}K/mo) = ₹${Math.round(combined / 1000)}K/mo, which exceeds your income (₹${Math.round(monthlyIncome / 1000)}K/mo). You may need to reduce expenses or extend your retirement age.`;
+      } else if (monthlyExpenses > 0 && combined > monthlyIncome * 0.9) {
+        sipBurdenWarning = `SIP + expenses leave less than 10% of your income (₹${Math.round(monthlyIncome / 1000)}K/mo) as buffer. Consider reviewing your targets.`;
+      }
+    }
+  }
 
   return {
     fireCorpus,
@@ -238,6 +370,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     presentValueOfExpenses,
     investableNetWorth,
     totalNetWorth: initialNetWorth,
+    sipBurdenWarning,
   };
 }
 
@@ -247,13 +380,15 @@ export function calculatePresentValueOfExpenses(
   discountRate: number = DEFAULT_DISCOUNT_RATE,
 ): number {
   const currentAge = getAge(profile.dob);
-  const currentYear = new Date().getFullYear();
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
   let pv = 0;
   for (let age = currentAge; age <= 100; age++) {
     const year = currentYear + (age - currentAge);
     let annualExpenses = 0;
     for (const exp of expenses) {
-      annualExpenses += calculateExpenseForYear(exp, year, currentYear);
+      annualExpenses += calculateExpenseForYear(exp, year, currentYear, currentMonth);
     }
     pv += annualExpenses / Math.pow(1 + discountRate, age - currentAge);
   }
@@ -263,8 +398,6 @@ export function calculatePresentValueOfExpenses(
 function calculateRequiredSIP(
   initialNetWorth: number,
   assets: Asset[],
-  expenses: Expense[],
-  monthlyPensionPV: number,
   currentAge: number,
   currentYear: number,
   retirementAge: number,
@@ -283,7 +416,7 @@ function calculateRequiredSIP(
   for (let i = 0; i < 50; i++) {
     const mid = (low + high) / 2;
     const nw = simulateNetWorthAtRetirement(
-      initialNetWorth, assets, expenses, monthlyPensionPV,
+      initialNetWorth, assets,
       currentAge, currentYear, retirementAge, sipStopAge,
       sipReturnRate, postSipReturnRate, stepUpRate, mid
     );
@@ -304,8 +437,6 @@ function calculateRequiredSIP(
 function simulateNetWorthAtRetirement(
   initialNetWorth: number,
   assets: Asset[],
-  expenses: Expense[],
-  monthlyPensionPV: number,
   currentAge: number,
   currentYear: number,
   retirementAge: number,
@@ -326,15 +457,11 @@ function simulateNetWorthAtRetirement(
       annualSIP = monthlySIP * 12 * Math.pow(1 + stepUpRate / 100, yearsFromStart);
     }
 
-    let plannedExpenses = 0;
-    for (const exp of expenses) {
-      plannedExpenses += calculateExpenseForYear(exp, year, currentYear);
-    }
-
-    // Pension does not apply pre-retirement in this simulation
+    // Pre-retirement: salary covers expenses; SIP = savings after expenses
     const vestingIncome = calculateVestingForYear(assets, year);
     const returnRate = age <= sipStopAge ? sipReturnRate : postSipReturnRate;
-    netWorth = netWorth * (1 + returnRate / 100) + annualSIP + vestingIncome - plannedExpenses;
+    const returnOnInvestments = Math.max(0, netWorth) * (returnRate / 100);
+    netWorth = netWorth + returnOnInvestments + annualSIP + vestingIncome;
   }
 
   return netWorth;

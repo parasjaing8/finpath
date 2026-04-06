@@ -24,6 +24,7 @@ export interface Asset {
   recurring_amount: number | null;
   recurring_frequency: string | null;
   next_vesting_date: string | null;
+  vesting_end_date: string | null;
   is_self_use: number;
   gold_silver_unit: string | null;
   gold_silver_quantity: number | null;
@@ -43,10 +44,14 @@ export interface Expense {
   inflation_rate: number;
 }
 
+export type FireType = 'slim' | 'medium' | 'fat' | 'custom';
+
 export interface Goals {
   id: number;
   profile_id: number;
   retirement_age: number;
   sip_stop_age: number;
   pension_income: number | null;
+  fire_type: FireType;
+  fire_target_age: number;
 }

@@ -28,6 +28,8 @@ function makeGoals(overrides: Partial<Goals> = {}): Goals {
     retirement_age: 45,
     sip_stop_age: 45,
     pension_income: 0,
+    fire_type: 'fat',
+    fire_target_age: 100,
     ...overrides,
   };
 }
@@ -62,6 +64,7 @@ function makeAsset(overrides: Partial<Asset> = {}): Asset {
     recurring_amount: null,
     recurring_frequency: null,
     next_vesting_date: null,
+    vesting_end_date: null,
     is_self_use: 0,
     gold_silver_unit: null,
     gold_silver_quantity: null,
@@ -172,6 +175,32 @@ describe('calculatePresentValueOfExpenses', () => {
       50000 / Math.pow(1.06, 4);
     expect(pv).toBeCloseTo(expected, -2);
   });
+
+  it('current recurring expense with end_date stops at end year', () => {
+    const currentMonth = new Date().getMonth(); // 0-indexed
+    const endYear = TODAY_YEAR + 2;
+    const emi = makeExpense({
+      expense_type: 'CURRENT_RECURRING',
+      category: 'EMI',
+      amount: 33000,
+      frequency: 'MONTHLY',
+      inflation_rate: 0,
+      end_date: `${endYear}-03-07`, // March of end year
+    });
+    const pv = calculatePresentValueOfExpenses(makeProfile(), [emi], 0.06);
+    // Year 0: remaining months only → 33000*12 * remainingFraction
+    // Year 1: full 12 months → 396000 / 1.06
+    // Year 2: 3/12 months (Jan-Mar) → 396000 * 0.25 / 1.06^2
+    const remainingMonths = 12 - currentMonth;
+    const firstYearFraction = remainingMonths / 12;
+    const expected =
+      396000 * firstYearFraction +
+      396000 / Math.pow(1.06, 1) +
+      396000 * 0.25 / Math.pow(1.06, 2);
+    expect(pv).toBeCloseTo(expected, -2);
+    // Must NOT be the ~69L that a perpetual 33k EMI would produce
+    expect(pv).toBeLessThan(1000000);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -223,8 +252,8 @@ describe('calculateProjections', () => {
     expect(out.isOnTrack).toBe(true);
   });
 
-  it('isOnTrack is false when SIP is 0 and expenses are non-zero', () => {
-    const noSip = { ...baseInput, sipAmount: 0 };
+  it('isOnTrack is false when SIP is 0 and no initial assets', () => {
+    const noSip = { ...baseInput, sipAmount: 0, assets: [] };
     const out = calculateProjections(noSip);
     expect(out.isOnTrack).toBe(false);
   });
@@ -256,15 +285,15 @@ describe('calculateProjections', () => {
     );
   });
 
-  it('pension income reduces required SIP', () => {
+  it('pension increases fire corpus (pension is a withdrawal from corpus)', () => {
     const withPension = {
       ...baseInput,
       goals: makeGoals({ retirement_age: 45, sip_stop_age: 45, pension_income: 50000 }),
     };
     const outNoPension = calculateProjections(baseInput);
     const outWithPension = calculateProjections(withPension);
-    expect(outWithPension.requiredMonthlySIP).toBeLessThan(outNoPension.requiredMonthlySIP);
-    expect(outWithPension.fireCorpus).toBeLessThan(outNoPension.fireCorpus);
+    // Pension = additional withdrawal → corpus must be LARGER to sustain it
+    expect(outWithPension.fireCorpus).toBeGreaterThan(outNoPension.fireCorpus);
   });
 
   it('SIP stops being contributed after sipStopAge', () => {
@@ -279,5 +308,20 @@ describe('calculateProjections', () => {
     const age30 = out.projections.find(p => p.age === 30)!;
     const age35 = out.projections.find(p => p.age === 35)!;
     expect(age35.annualSIP).toBeGreaterThan(age30.annualSIP);
+  });
+
+  it('slim FIRE produces smaller corpus than fat FIRE', () => {
+    const slim = {
+      ...baseInput,
+      goals: makeGoals({ fire_type: 'slim', fire_target_age: 85 }),
+    };
+    const fat = {
+      ...baseInput,
+      goals: makeGoals({ fire_type: 'fat', fire_target_age: 100 }),
+    };
+    const outSlim = calculateProjections(slim);
+    const outFat = calculateProjections(fat);
+    expect(outSlim.fireCorpus).toBeLessThan(outFat.fireCorpus);
+    expect(outSlim.fireCorpus).toBeGreaterThan(0);
   });
 });

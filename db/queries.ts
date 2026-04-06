@@ -29,6 +29,7 @@ export interface Asset {
   recurring_amount: number | null;
   recurring_frequency: string | null;
   next_vesting_date: string | null;
+  vesting_end_date: string | null;
   is_self_use: number;
   gold_silver_unit: string | null;
   gold_silver_quantity: number | null;
@@ -48,12 +49,16 @@ export interface Expense {
   inflation_rate: number;
 }
 
+export type FireType = 'slim' | 'medium' | 'fat' | 'custom';
+
 export interface Goals {
   id: number;
   profile_id: number;
   retirement_age: number;
   sip_stop_age: number;
   pension_income: number | null;
+  fire_type: FireType;
+  fire_target_age: number;
 }
 
 // ========== Profile Queries ==========
@@ -161,13 +166,14 @@ export async function createAsset(asset: Omit<Asset, 'id'>): Promise<number> {
   const db = await getDatabase();
   const result = await db.runAsync(
     `INSERT INTO assets (profile_id, category, name, current_value, currency, expected_roi,
-     is_recurring, recurring_amount, recurring_frequency, next_vesting_date, is_self_use,
-     gold_silver_unit, gold_silver_quantity)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     is_recurring, recurring_amount, recurring_frequency, next_vesting_date, vesting_end_date,
+     is_self_use, gold_silver_unit, gold_silver_quantity)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       asset.profile_id, asset.category, asset.name, asset.current_value, asset.currency,
       asset.expected_roi, asset.is_recurring, asset.recurring_amount, asset.recurring_frequency,
-      asset.next_vesting_date, asset.is_self_use, asset.gold_silver_unit, asset.gold_silver_quantity,
+      asset.next_vesting_date, asset.vesting_end_date, asset.is_self_use,
+      asset.gold_silver_unit, asset.gold_silver_quantity,
     ]
   );
   return result.lastInsertRowId;
@@ -178,12 +184,13 @@ export async function updateAsset(asset: Asset): Promise<void> {
   await db.runAsync(
     `UPDATE assets SET category = ?, name = ?, current_value = ?, currency = ?, expected_roi = ?,
      is_recurring = ?, recurring_amount = ?, recurring_frequency = ?, next_vesting_date = ?,
-     is_self_use = ?, gold_silver_unit = ?, gold_silver_quantity = ?
+     vesting_end_date = ?, is_self_use = ?, gold_silver_unit = ?, gold_silver_quantity = ?
      WHERE id = ?`,
     [
       asset.category, asset.name, asset.current_value, asset.currency, asset.expected_roi,
       asset.is_recurring, asset.recurring_amount, asset.recurring_frequency, asset.next_vesting_date,
-      asset.is_self_use, asset.gold_silver_unit, asset.gold_silver_quantity, asset.id,
+      asset.vesting_end_date, asset.is_self_use, asset.gold_silver_unit, asset.gold_silver_quantity,
+      asset.id,
     ]
   );
 }
@@ -257,16 +264,20 @@ export async function saveGoals(
   profileId: number,
   retirementAge: number,
   sipStopAge: number,
-  pensionIncome?: number
+  pensionIncome?: number,
+  fireType: FireType = 'fat',
+  fireTargetAge: number = 100,
 ): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `INSERT INTO goals (profile_id, retirement_age, sip_stop_age, pension_income)
-     VALUES (?, ?, ?, ?)
+    `INSERT INTO goals (profile_id, retirement_age, sip_stop_age, pension_income, fire_type, fire_target_age)
+     VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(profile_id) DO UPDATE SET
      retirement_age = excluded.retirement_age,
      sip_stop_age = excluded.sip_stop_age,
-     pension_income = excluded.pension_income`,
-    [profileId, retirementAge, sipStopAge, pensionIncome ?? 0]
+     pension_income = excluded.pension_income,
+     fire_type = excluded.fire_type,
+     fire_target_age = excluded.fire_target_age`,
+    [profileId, retirementAge, sipStopAge, pensionIncome ?? 0, fireType, fireTargetAge]
   );
 }

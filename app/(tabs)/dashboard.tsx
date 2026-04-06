@@ -25,7 +25,7 @@ export default function DashboardScreen() {
   const [sipAmount, setSipAmount] = useState(10000);
   const [sipReturnRate, setSipReturnRate] = useState(12);
   const [postSipReturnRate, setPostSipReturnRate] = useState(10);
-  const [stepUpEnabled, setStepUpEnabled] = useState(false);
+  const [stepUpEnabled, setStepUpEnabled] = useState(true);
   const [stepUpRate, setStepUpRate] = useState(10);
 
   // Table pagination
@@ -139,9 +139,14 @@ export default function DashboardScreen() {
         </Card>
         <Card style={[styles.tile, { backgroundColor: '#E3F2FD' }]}>
           <Card.Content>
-            <Text variant="labelSmall" style={styles.tileLabel}>FIRE Corpus</Text>
+            <Text variant="labelSmall" style={styles.tileLabel}>
+              FIRE Corpus ({goals.fire_type ? goals.fire_type.charAt(0).toUpperCase() + goals.fire_type.slice(1) : 'Fat'})
+            </Text>
             <Text variant="titleMedium" style={styles.tileValue}>
               {formatCurrency(result.fireCorpus, currency)}
+            </Text>
+            <Text variant="bodySmall" style={{ color: '#666', fontSize: 10, marginTop: 2 }}>
+              Covers till age {goals.fire_target_age ?? 100}
             </Text>
           </Card.Content>
         </Card>
@@ -187,6 +192,34 @@ export default function DashboardScreen() {
           </View>
         </Card.Content>
       </Card>
+      {/* SIP burden warning — shown when required SIP exceeds or strains salary */}
+      {result.sipBurdenWarning && (() => {
+        const income = currentProfile?.monthly_income ?? 0;
+        const sipExceedsIncome = result.requiredMonthlySIP > income;
+        const combinedWarning = result.sipBurdenWarning!.startsWith('Required SIP') && result.sipBurdenWarning!.includes('expenses');
+        const bufferWarning = result.sipBurdenWarning!.startsWith('SIP + expenses leave');
+        const isRed = sipExceedsIncome || combinedWarning;
+        const bgColor = isRed ? '#FFEBEE' : '#FFF8E1';
+        const textColor = isRed ? '#C62828' : '#E65100';
+        const title = sipExceedsIncome
+          ? '⚠️ Required SIP Exceeds Salary'
+          : combinedWarning
+          ? '⚠️ SIP + Expenses Exceed Salary'
+          : bufferWarning
+          ? '⚠️ Low Income Buffer'
+          : '⚠️ High SIP Burden';
+        return (
+          <Card style={[styles.netWorthClarityCard, { backgroundColor: bgColor }]}>
+            <Card.Content>
+              <Text variant="labelSmall" style={{ color: textColor, fontWeight: 'bold', marginBottom: 4 }}>
+                {title}
+              </Text>
+              <Text variant="bodySmall" style={{ color: '#555' }}>{result.sipBurdenWarning}</Text>
+            </Card.Content>
+          </Card>
+        );
+      })()}
+
       <Card style={styles.strategyCard}>
         <Card.Content>
           <Text variant="titleMedium" style={styles.strategyTitle}>SIP Investment Strategy</Text>
@@ -336,6 +369,7 @@ export default function DashboardScreen() {
                 <DataTable.Title style={styles.colNarrow}>Year</DataTable.Title>
                 <DataTable.Title style={styles.colNarrow}>Age</DataTable.Title>
                 <DataTable.Title style={styles.colWide} numeric>Annual SIP</DataTable.Title>
+                <DataTable.Title style={styles.colWide} numeric>Vesting</DataTable.Title>
                 <DataTable.Title style={styles.colWide} numeric>Expenses</DataTable.Title>
                 <DataTable.Title style={styles.colWide} numeric>Pension</DataTable.Title>
                 <DataTable.Title style={styles.colWide} numeric>Net Worth</DataTable.Title>
@@ -349,6 +383,9 @@ export default function DashboardScreen() {
                     <DataTable.Cell style={styles.colNarrow}>{row.age}</DataTable.Cell>
                     <DataTable.Cell style={styles.colWide} numeric>
                       {formatCurrency(row.annualSIP, currency)}
+                    </DataTable.Cell>
+                    <DataTable.Cell style={styles.colWide} numeric>
+                      {row.vestingIncome > 0 ? formatCurrency(row.vestingIncome, currency) : '—'}
                     </DataTable.Cell>
                     <DataTable.Cell style={styles.colWide} numeric>
                       {formatCurrency(row.plannedExpenses, currency)}

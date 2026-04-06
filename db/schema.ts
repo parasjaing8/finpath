@@ -89,9 +89,18 @@ export async function initializeDatabase(): Promise<void> {
     // column already exists — safe to ignore
   }
   try {
+    await database.execAsync("ALTER TABLE goals ADD COLUMN fire_type TEXT DEFAULT 'fat'");
+  } catch (_) {}
+  try {
+    await database.execAsync('ALTER TABLE goals ADD COLUMN fire_target_age INTEGER DEFAULT 100');
+  } catch (_) {}
+  try {
     await database.execAsync('ALTER TABLE profiles ADD COLUMN failed_attempts INTEGER DEFAULT 0');
   } catch (_) {}
   try {
     await database.execAsync('ALTER TABLE profiles ADD COLUMN lockout_until INTEGER DEFAULT 0');
+  } catch (_) {}
+  try {
+    await database.execAsync('ALTER TABLE assets ADD COLUMN vesting_end_date TEXT');
   } catch (_) {}
 }
