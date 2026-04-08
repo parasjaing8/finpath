@@ -3,7 +3,7 @@ import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-nat
 import { Text, Card, TextInput, Button, HelperText, Dialog, Portal, IconButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useProfile } from '../../hooks/useProfile';
-import { getGoals, saveGoals, getExpenses, FireType, Expense } from '../../db/queries';
+import { getGoals, saveGoals, FireType } from '../../db/queries';
 import { Slider } from '@miblanchard/react-native-slider';
 import { formatCurrency, PENSION_INFLATION_RATE, FIRE_WITHDRAWAL_RATES } from '../../engine/calculator';
 import { FREQUENCIES } from '../../constants/categories';
@@ -17,7 +17,6 @@ export default function GoalsScreen() {
   const [fireType, setFireType] = useState<FireType>('moderate');
   const [withdrawalRate, setWithdrawalRate] = useState(5);
   const [inflationRate, setInflationRate] = useState(6);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [showSWRDialog, setShowSWRDialog] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -25,11 +24,7 @@ export default function GoalsScreen() {
   useEffect(() => {
     async function load() {
       if (!currentProfile) return;
-      const [goals, exps] = await Promise.all([
-        getGoals(currentProfile.id),
-        getExpenses(currentProfile.id),
-      ]);
-      setExpenses(exps);
+      const goals = await getGoals(currentProfile.id);
       if (goals) {
         setRetirementAge(goals.retirement_age);
         setSipStopAge(goals.sip_stop_age);
@@ -90,45 +85,15 @@ export default function GoalsScreen() {
     return <View style={styles.center}><Text>No profile selected</Text></View>;
   }
 
-  // Dynamic FIRE number preview
-  const currentAge = (() => {
-    const birth = new Date(currentProfile.dob);
-    const now = new Date();
-    let age = now.getFullYear() - birth.getFullYear();
-    const m = now.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
-    return age;
-  })();
-
-  const yearsToRetirement = Math.max(0, retirementAge - currentAge);
-  const firePreview = (() => {
-    // FIRE corpus = pension (systematic corpus withdrawal) / SWR
-    // Expenses are pre-retirement (salary-funded) and don't size the corpus
-    const pensionVal = parseFloat(pensionIncome) || 0;
-    if (pensionVal <= 0 || withdrawalRate <= 0) return 0;
-    const pensionAtRetirement = pensionVal * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsToRetirement);
-    return Math.ceil(pensionAtRetirement / (withdrawalRate / 100));
-  })();
+  const yearsToRetirement = Math.max(0, retirementAge - (() => {
+    const b = new Date(currentProfile.dob), n = new Date();
+    let a = n.getFullYear() - b.getFullYear();
+    if (n.getMonth() - b.getMonth() < 0 || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--;
+    return a;
+  })());
 
   return (
     <ScrollView contentContainerStyle={styles.scroll}>
-      {/* FIRE Number Preview Tile */}
-      <Card style={[styles.card, { backgroundColor: '#E8F5E9', marginBottom: 12 }]}>
-        <Card.Content style={styles.previewRow}>
-          <View style={{ flex: 1 }}>
-            <Text variant="labelSmall" style={{ color: '#666', fontSize: 11 }}>
-              Estimated FIRE Corpus (based on current recurring expenses)
-            </Text>
-            <Text variant="headlineMedium" style={{ fontWeight: 'bold', color: '#1B5E20' }}>
-              {formatCurrency(firePreview, currentProfile.currency)}
-            </Text>
-            <Text variant="bodySmall" style={{ color: '#888', marginTop: 2 }}>
-              SWR {withdrawalRate}% · Retire at {retirementAge} · Inflation {inflationRate}%
-            </Text>
-          </View>
-        </Card.Content>
-      </Card>
-
       <Card style={styles.card}>
         <Card.Content>
           <Text variant="headlineSmall" style={styles.title}>Set Your Goals</Text>
@@ -304,7 +269,7 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, padding: 16, paddingBottom: 40, backgroundColor: '#F5F5F5' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   card: { borderRadius: 16, padding: 8 },
-  previewRow: { flexDirection: 'row', alignItems: 'center' },
+
   title: { fontWeight: 'bold', color: '#1B5E20', marginBottom: 8 },
   subtitle: { color: '#666', marginBottom: 24 },
   sliderLabel: { marginTop: 16, marginBottom: 4, fontWeight: '600' },
