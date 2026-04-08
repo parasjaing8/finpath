@@ -5,7 +5,6 @@ import { useProfile } from '../../hooks/useProfile';
 import { Asset, getAssets, createAsset, updateAsset, deleteAsset, getTotalNetWorth } from '../../db/queries';
 import { ASSET_CATEGORIES, FREQUENCIES } from '../../constants/categories';
 import { formatCurrency } from '../../engine/calculator';
-import { Slider } from '@miblanchard/react-native-slider';
 import { DateInput } from '../../components/DateInput';
 import Svg, { Path, Circle } from 'react-native-svg';
 
@@ -59,7 +58,6 @@ export default function AssetsScreen() {
   const [assetName, setAssetName] = useState('');
   const [currentValue, setCurrentValue] = useState('');
   const [assetCurrency, setAssetCurrency] = useState('INR');
-  const [expectedRoi, setExpectedRoi] = useState(12);
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringAmount, setRecurringAmount] = useState('');
   const [recurringFrequency, setRecurringFrequency] = useState('QUARTERLY');
@@ -123,7 +121,6 @@ export default function AssetsScreen() {
       setAssetName(asset.name);
       setCurrentValue(asset.current_value.toString());
       setAssetCurrency(asset.currency);
-      setExpectedRoi(asset.expected_roi);
       setIsRecurring(!!asset.is_recurring);
       setRecurringAmount(asset.recurring_amount?.toString() ?? '');
       setRecurringFrequency(asset.recurring_frequency ?? 'QUARTERLY');
@@ -161,7 +158,7 @@ export default function AssetsScreen() {
       name: assetName.trim(),
       current_value: convertedValue,
       currency: finalCurrency,
-      expected_roi: expectedRoi,
+      expected_roi: 0,
       is_recurring: isRecurring ? 1 : 0,
       recurring_amount: isRecurring ? parseFloat(recurringAmount) || null : null,
       recurring_frequency: isRecurring ? recurringFrequency : null,
@@ -294,7 +291,7 @@ export default function AssetsScreen() {
                       <View style={styles.assetRow}>
                       <View style={{ flex: 1 }}>
                         <Text variant="bodyMedium" style={styles.assetName}>{asset.name}</Text>
-                        <Text variant="bodySmall" style={styles.assetMetaText}>ROI: {asset.expected_roi}% • {asset.currency}</Text>
+                        <Text variant="bodySmall" style={styles.assetMetaText}>{asset.currency}</Text>
                       </View>
                       <View style={styles.assetMeta}>
                         <Text variant="bodyMedium" style={styles.assetValue}>
@@ -349,18 +346,6 @@ export default function AssetsScreen() {
                 )}
               </>
             )}
-
-            <Text variant="labelMedium" style={styles.sliderLabel}>Expected Annual ROI: {expectedRoi}%</Text>
-            <Slider
-              value={expectedRoi}
-              onValueChange={(v: number[]) => setExpectedRoi(Math.round(v[0]))}
-              minimumValue={0} maximumValue={30} step={1}
-              minimumTrackTintColor="#1B5E20"
-              thumbTintColor="#1B5E20"
-            />
-            <HelperText type="info" style={styles.roiNote}>
-              For reference only. Projections use the blended return rate set on the Dashboard.
-            </HelperText>
 
             {/* ESOP/RSU Fields */}
             {selectedCategory === 'ESOP_RSU' && (
@@ -464,8 +449,6 @@ const styles = StyleSheet.create({
   modalTitle: { fontWeight: 'bold', marginBottom: 16, color: '#1B5E20' },
   input: { marginBottom: 8, backgroundColor: '#FFFFFF' },
   segment: { marginBottom: 12 },
-  sliderLabel: { marginTop: 8, marginBottom: 4 },
-  roiNote: { marginTop: -4, marginBottom: 4, fontSize: 11 },
   extraFields: { marginTop: 8 },
   toggleBtn: { marginBottom: 12 },
   formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 16 },
