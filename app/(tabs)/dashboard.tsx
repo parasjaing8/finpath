@@ -2,8 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Text, Card, Switch, Button, DataTable } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
-import { getAssets, getExpenses, getGoals, deleteProfile, Asset, Expense, Goals, getBiometricEnabled, setBiometricEnabled } from '../../db/queries';
-import * as LocalAuthentication from 'expo-local-authentication';
+import { getAssets, getExpenses, getGoals, Asset, Expense, Goals } from '../../db/queries';
 import { calculateProjections, CalculationOutput, formatCurrency, formatCurrencyFull } from '../../engine/calculator';
 import { exportToCSV } from '../../utils/export';
 import { Slider } from '@miblanchard/react-native-slider';
@@ -34,8 +33,6 @@ export default function DashboardScreen() {
   const [sipReturnRateDisplay, setSipReturnRateDisplay] = useState(12);
   const [postSipReturnRateDisplay, setPostSipReturnRateDisplay] = useState(7);
   const [stepUpRateDisplay, setStepUpRateDisplay] = useState(10);
-  const [biometricOn, setBiometricOn] = useState(false);
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const { isPro } = usePro();
 
@@ -52,29 +49,6 @@ export default function DashboardScreen() {
     router.replace('/login');
   }, [logout, router]);
 
-  const handleDeleteProfile = useCallback(() => {
-    if (!currentProfile) return;
-    Alert.alert(
-      'Delete Profile',
-      `Permanently delete "${currentProfile.name}" and all associated assets, expenses, and goals? This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteProfile(currentProfile.id);
-              logout();
-              router.replace('/login');
-            } catch (e) {
-              Alert.alert('Error', 'Could not delete profile. Please try again.');
-            }
-          },
-        },
-      ]
-    );
-  }, [currentProfile, logout, router]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -98,14 +72,6 @@ export default function DashboardScreen() {
     setGoals(g);
     // goals fingerprint is updated below — auto-set will re-fire if goals changed
     setDataLoaded(true);
-    // Load biometric availability and stored preference
-    const hasHardware = await LocalAuthentication.hasHardwareAsync();
-    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-    setBiometricAvailable(hasHardware && isEnrolled);
-    if (hasHardware && isEnrolled) {
-      const enabled = await getBiometricEnabled(currentProfile.id);
-      setBiometricOn(enabled);
-    }
   }, [currentProfile]);
 
   // Reload data every time this tab comes into focus — ensures fresh goals after saving
@@ -209,15 +175,21 @@ export default function DashboardScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
-      <Text variant="titleLarge" style={styles.pageTitle}>Your Path to Financial Freedom</Text>
+
 
       {/* Section A — Summary Tiles */}
       <Card style={[styles.tileFullWidth, { backgroundColor: '#E8F5E9' }]}>
         <Card.Content>
           <Text variant="labelSmall" style={styles.tileLabel}>Monthly SIP Required</Text>
-          <Text variant="headlineSmall" style={[styles.tileValue, { color: '#1B5E20' }]}>
-            {formatCurrencyFull(result.requiredMonthlySIP, currency)}
-          </Text>
+          {result.requiredMonthlySIP > 0 ? (
+            <Text variant="headlineSmall" style={[styles.tileValue, { color: '#1B5E20' }]}>
+              {formatCurrencyFull(result.requiredMonthlySIP, currency)}
+            </Text>
+          ) : (
+            <Text variant="headlineSmall" style={[styles.tileValue, { color: '#1B5E20' }]}>
+              No SIP needed
+            </Text>
+          )}
         </Card.Content>
       </Card>
       <View style={styles.tilesRow}>
@@ -225,7 +197,7 @@ export default function DashboardScreen() {
           <Card.Content>
             <Text variant="labelSmall" style={styles.tileLabel}>Time to FIRE</Text>
             <Text variant="titleMedium" style={styles.tileValue}>
-              {result.timeToFire > 0 ? `${result.timeToFire} years (age ${result.fireAchievedAge})` : 'N/A'}
+              {result.timeToFire > 0 ? `${result.timeToFire} years (age ${result.fireAchievedAge})` : result.fireAchievedAge > 0 ? `FIRE Reached! (age ${result.fireAchievedAge})` : 'Set goals first'}
             </Text>
           </Card.Content>
         </Card>
@@ -241,7 +213,7 @@ export default function DashboardScreen() {
                 ? `+${formatCurrency(delta, currency)}/mo surplus`
                 : `${formatCurrency(Math.abs(delta), currency)}/mo short`;
               return (
-                <Text variant="bodySmall" style={{ color: result.isOnTrack ? '#2E7D32' : '#C62828', marginTop: 2 }}>
+                <Text variant="labelMedium" style={{ color: result.isOnTrack ? '#2E7D32' : '#C62828', marginTop: 4, fontWeight: '700' }}>
                   {label}
                 </Text>
               );
@@ -259,13 +231,11 @@ export default function DashboardScreen() {
             <Text variant="titleSmall" style={[styles.tileValue, { color: '#1B5E20' }]}>
               {formatCurrencyFull(result.investableNetWorth, currency)}
             </Text>
-            <Text variant="bodySmall" style={styles.netWorthNote}>Used in FIRE projections</Text>
             <View style={styles.horizontalDivider} />
-            <Text variant="labelSmall" style={styles.tileLabel}>Total Net Worth</Text>
+            <Text variant="labelSmall" style={styles.tileLabel}>Total NW (incl. home/car)</Text>
             <Text variant="titleSmall" style={styles.tileValue}>
               {formatCurrencyFull(result.totalNetWorth, currency)}
             </Text>
-            <Text variant="bodySmall" style={styles.netWorthNote}>Incl. self-use assets</Text>
           </Card.Content>
         </Card>
         <Card style={[styles.tile, { backgroundColor: '#EDE7F6' }]}>
@@ -292,7 +262,7 @@ export default function DashboardScreen() {
 
       <Card style={styles.strategyCard}>
         <Card.Content>
-          <Text variant="titleMedium" style={styles.strategyTitle}>SIP Investment Strategy</Text>
+          <Text variant="titleMedium" style={styles.strategyTitle}>Adjust Your Plan</Text>
 
           <Text variant="labelMedium" style={styles.sliderLabel}>
             Monthly SIP: {formatCurrencyFull(sipAmountDisplay, currency)}
@@ -428,7 +398,7 @@ export default function DashboardScreen() {
                     <SkiaCircle cx={fp.x} cy={fireY} r={5} color="#FF9800" />
                     {font && (
                       <SkiaText
-                        x={fp.x - 18}
+                        x={Math.max(chartBounds.left + 2, fp.x - 18)}
                         y={fireY - 9}
                         text={`Age ${result.fireAchievedAge}`}
                         font={font}
@@ -529,27 +499,7 @@ export default function DashboardScreen() {
         </Card.Content>
       </Card>
 
-      {/* Biometric Login Toggle */}
-      {biometricAvailable && (
-        <View style={styles.biometricRow}>
-          <MaterialCommunityIcons name="fingerprint" size={22} color="#1B5E20" />
-          <Text style={styles.biometricLabel}>Fingerprint Login</Text>
-          <Switch
-            value={biometricOn}
-            onValueChange={async (val) => {
-              await setBiometricEnabled(currentProfile!.id, val);
-              setBiometricOn(val);
-            }}
-            color="#1B5E20"
-          />
-        </View>
-      )}
 
-      {/* Delete Profile */}
-      <TouchableOpacity style={styles.deleteProfileBtn} onPress={handleDeleteProfile} accessibilityLabel="Delete profile" accessibilityRole="button">
-        <MaterialCommunityIcons name="account-remove-outline" size={18} color="#C62828" />
-        <Text style={styles.deleteProfileText}>Delete Profile</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -576,7 +526,7 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 },
   chartCard: { marginBottom: 16, borderRadius: 12 },
   chartTitle: { fontWeight: 'bold', marginBottom: 12 },
-  legendRow: { flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: 8 },
+  legendRow: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 12, marginTop: 8 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
   tableCard: { marginBottom: 16, borderRadius: 12 },
@@ -584,30 +534,4 @@ const styles = StyleSheet.create({
   colNarrow: { width: 60 },
   colWide: { width: 100 },
   fireRow: { backgroundColor: '#C8E6C9' },
-  biometricRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 12,
-    marginBottom: 4,
-    gap: 10,
-    elevation: 1,
-  },
-  biometricLabel: {
-    flex: 1,
-    fontSize: 15,
-    color: '#333',
-    fontWeight: '500',
-  },
-  deleteProfileBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 14,
-    marginBottom: 16,
-  },
-  deleteProfileText: { color: '#C62828', fontSize: 14 },
 });

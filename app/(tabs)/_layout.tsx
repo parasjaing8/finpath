@@ -45,6 +45,14 @@ export default function TabLayout() {
           tabBarAccessibilityLabel: 'Dashboard tab',
         }}
       />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="account-circle-outline" size={size} color={color} />,
+          tabBarAccessibilityLabel: 'Profile tab',
+        }}
+      />
     </Tabs>
   );
 }
