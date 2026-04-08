@@ -155,12 +155,20 @@ export default function DashboardScreen() {
 
   // Plain variables — must NOT be hooks (useMemo) here because they are after early returns,
   // which would violate React's Rules of Hooks and crash on first load.
+  const retirementAge = goals.retirement_age;
+  const currentAge = (() => {
+    const b = new Date(currentProfile.dob), n = new Date();
+    let a = n.getFullYear() - b.getFullYear();
+    if (n.getMonth() - b.getMonth() < 0 || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--;
+    return a;
+  })();
+  // Only show withdrawal line post-retirement — pre-retirement expenses are salary-funded
+  // and don't reduce corpus, so showing them alongside net worth growth is misleading.
   const chartData = projections.map(p => ({
     age: p.age,
     netWorth: p.netWorthEOY,
-    totalOutflow: p.totalOutflow,
+    totalOutflow: p.age >= retirementAge ? p.totalOutflow : 0,
   }));
-  const retirementAge = goals.retirement_age;
   const firstFireYear = projections.find(p => p.isFireAchieved)?.year ?? -1;
 
   // SIP burden warning card — computed here to avoid inline IIFE in JSX
@@ -428,6 +436,10 @@ export default function DashboardScreen() {
                 retPath.moveTo(retX, chartBounds.top);
                 retPath.lineTo(retX, canvasSize.height);
 
+                // "You Are Here" — dot on net worth line at current age
+                const todayIdx = chartData.findIndex(d => d.age === currentAge);
+                const todayPt = todayIdx >= 0 ? points.netWorth[todayIdx] : null;
+
                 return <>
                   <Line points={points.netWorth} color="#1B5E20" strokeWidth={2.5} />
                   <Line points={points.totalOutflow} color="#C62828" strokeWidth={2} />
@@ -462,6 +474,21 @@ export default function DashboardScreen() {
                       />
                     )}
                   </>}
+
+                  {/* You Are Here — ring dot + "Today" label at current age */}
+                  {todayPt && <>
+                    <SkiaCircle cx={todayPt.x} cy={todayPt.y ?? 0} r={7} color="#1B5E20" />
+                    <SkiaCircle cx={todayPt.x} cy={todayPt.y ?? 0} r={4} color="#FFFFFF" />
+                    {fireAgeFont && (
+                      <SkiaText
+                        x={Math.max(chartBounds.left + 2, (todayPt.x ?? 0) - 14)}
+                        y={(todayPt.y ?? 0) - 11}
+                        text="Today"
+                        font={fireAgeFont}
+                        color="#1B5E20"
+                      />
+                    )}
+                  </>}
                 </>;
               }}
             </CartesianChart>
@@ -470,21 +497,25 @@ export default function DashboardScreen() {
           <View style={styles.legendRow}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#1B5E20' }]} />
-              <Text variant="bodySmall">Net Worth</Text>
+              <Text variant="bodySmall">Your Corpus</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#C62828' }]} />
-              <Text variant="bodySmall">Outflow</Text>
+              <Text variant="bodySmall">Withdrawals</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#FF9800', borderRadius: 0, height: 3, width: 16 }]} />
               <Text variant="bodySmall">
-                {result.fireAchievedAge > 0 ? `FIRE @ Age ${result.fireAchievedAge}` : 'FIRE'}
+                {result.fireAchievedAge > 0 ? `FIRE @ Age ${result.fireAchievedAge}` : 'FIRE Target'}
               </Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: 'rgba(63,81,181,0.7)', borderRadius: 0, height: 3, width: 16 }]} />
               <Text variant="bodySmall">{`Retire @ ${retirementAge}`}</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { borderWidth: 2, borderColor: '#1B5E20', backgroundColor: '#FFF' }]} />
+              <Text variant="bodySmall">Today</Text>
             </View>
           </View>
         </Card.Content>
