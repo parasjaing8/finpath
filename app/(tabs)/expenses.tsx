@@ -325,6 +325,9 @@ export default function ExpensesScreen() {
                   </TouchableRipple>
                 ))}
               </RadioButton.Group>
+              <Text variant="bodySmall" style={styles.typeHint}>
+                {EXPENSE_TYPES.find(t => t.key === expenseType)?.hint}
+              </Text>
 
               {expenseType !== 'FUTURE_ONE_TIME' && (
                 <>
@@ -402,4 +405,5 @@ const styles = StyleSheet.create({
   radioRow: { marginVertical: 2, borderRadius: 12, backgroundColor: '#FAFAFA' },
   radioItem: { flexDirection: 'row', alignItems: 'center', paddingRight: 12 },
   radioLabel: { fontSize: 12, color: '#333', flexShrink: 1 },
+  typeHint: { color: '#666', fontSize: 11, marginTop: 4, marginBottom: 8, lineHeight: 16, fontStyle: 'italic' },
 });

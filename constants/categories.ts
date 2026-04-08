@@ -28,9 +28,21 @@ export const EXPENSE_CATEGORIES = [
 export type ExpenseCategory = typeof EXPENSE_CATEGORIES[number]['key'];
 
 export const EXPENSE_TYPES = [
-  { key: 'CURRENT_RECURRING', label: 'Current Recurring' },
-  { key: 'FUTURE_ONE_TIME', label: 'Future One-Time' },
-  { key: 'FUTURE_RECURRING', label: 'Future Recurring' },
+  {
+    key: 'CURRENT_RECURRING',
+    label: 'Regular Expense',
+    hint: 'Ongoing spend funded by your salary. Stops at retirement (e.g. rent, groceries, EMIs, school fees).',
+  },
+  {
+    key: 'FUTURE_ONE_TIME',
+    label: 'Future One-Time Cost',
+    hint: 'A planned lump-sum spend on a specific date (e.g. house purchase, wedding, car). Corpus-funded if after retirement.',
+  },
+  {
+    key: 'FUTURE_RECURRING',
+    label: 'Future Recurring Cost',
+    hint: 'A planned regular spend starting in the future (e.g. college fees, travel fund). Corpus-funded if after retirement.',
+  },
 ] as const;
 
 export type ExpenseType = typeof EXPENSE_TYPES[number]['key'];
