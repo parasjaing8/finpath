@@ -134,6 +134,11 @@ export async function setBiometricEnabled(profileId: number, enabled: boolean): 
 /** Permanently deletes a profile and all its associated data (assets, expenses, goals).
  *  Also removes the PIN from SecureStore.
  */
+export async function updateProfile(id: number, monthly_income: number, currency: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync('UPDATE profiles SET monthly_income = ?, currency = ? WHERE id = ?', [monthly_income, currency, id]);
+}
+
 export async function deleteProfile(profileId: number): Promise<void> {
   await deleteProfilePin(profileId);
   await setBiometricEnabled(profileId, false);

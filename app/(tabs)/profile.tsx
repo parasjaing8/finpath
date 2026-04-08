@@ -110,6 +110,14 @@ export default function ProfileScreen() {
       <Text variant="labelSmall" style={styles.sectionLabel}>ACCOUNT</Text>
       <Card style={styles.card}>
         <Card.Content>
+          <TouchableOpacity style={styles.settingRow} onPress={() => router.push('/onboarding/edit-profile')} accessibilityRole="button">
+            <View style={styles.settingLeft}>
+              <MaterialCommunityIcons name="account-edit-outline" size={22} color="#555" />
+              <Text style={styles.settingText}>Edit Profile</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
+          </TouchableOpacity>
+          <Divider style={{ marginVertical: 4 }} />
           <TouchableOpacity style={styles.settingRow} onPress={handleLogout} accessibilityRole="button">
             <View style={styles.settingLeft}>
               <MaterialCommunityIcons name="logout" size={22} color="#555" />

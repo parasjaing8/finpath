@@ -7,6 +7,7 @@ import { getGoals, saveGoals, FireType } from '../../db/queries';
 import { Slider } from '@miblanchard/react-native-slider';
 import { formatCurrency, PENSION_INFLATION_RATE, FIRE_WITHDRAWAL_RATES } from '../../engine/calculator';
 import { FREQUENCIES } from '../../constants/categories';
+import { CorpusPrimer } from '../../components/CorpusPrimer';
 
 export default function GoalsScreen() {
   const { currentProfile } = useProfile();
@@ -224,6 +225,9 @@ export default function GoalsScreen() {
           </Button>
         </Card.Content>
       </Card>
+
+      {/* Corpus primer — shown on first visit to explain the withdrawal concept */}
+      <CorpusPrimer profileId={currentProfile.id} />
 
       {/* SWR Info Dialog */}
       <Portal>

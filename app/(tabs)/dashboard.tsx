@@ -170,31 +170,41 @@ export default function DashboardScreen() {
     totalOutflow: p.age >= retirementAge ? p.totalOutflow : 0,
   }));
   const firstFireYear = projections.find(p => p.isFireAchieved)?.year ?? -1;
+  const hasVesting = projections.some(p => p.vestingIncome > 0);
 
-  // SIP burden warning card — computed here to avoid inline IIFE in JSX
+  // SIP burden warning card — four severity levels based on how badly SIP strains income
   let sipWarningCard: React.ReactNode = null;
   if (result.sipBurdenWarning) {
     const income = currentProfile.monthly_income ?? 0;
-    const sipExceedsIncome = result.requiredMonthlySIP > income;
-    const combinedWarning = result.sipBurdenWarning.startsWith('Required SIP') && result.sipBurdenWarning.includes('expenses');
-    const bufferWarning = result.sipBurdenWarning.startsWith('SIP + expenses leave');
-    const isRed = sipExceedsIncome || combinedWarning;
-    const bgColor = isRed ? '#FFEBEE' : '#FFF8E1';
-    const textColor = isRed ? '#C62828' : '#E65100';
-    const title = sipExceedsIncome
-      ? '⚠️ Required SIP Exceeds Salary'
-      : combinedWarning
-      ? '⚠️ SIP + Expenses Exceed Salary'
-      : bufferWarning
-      ? '⚠️ Low Income Buffer'
-      : '⚠️ High SIP Burden';
+    const sipRatio = income > 0 ? result.requiredMonthlySIP / income : 0;
+    // Detect combined-expense conditions from message (calculator encodes these)
+    const isCombinedExceed = result.sipBurdenWarning.startsWith('Required SIP') && result.sipBurdenWarning.includes('expenses');
+    const isBufferLow = result.sipBurdenWarning.startsWith('SIP + expenses leave');
+
+    let severity: 'CRITICAL' | 'HIGH' | 'MODERATE' | 'INFO';
+    if (sipRatio > 1) severity = 'CRITICAL';
+    else if (sipRatio > 0.6) severity = 'HIGH';
+    else if (isCombinedExceed) severity = 'MODERATE';
+    else if (isBufferLow) severity = 'INFO';
+    else severity = 'INFO';
+
+    const warningStyles: Record<typeof severity, { bg: string; titleColor: string; bodyColor: string; icon: string; title: string }> = {
+      CRITICAL: { bg: '#FFEBEE', titleColor: '#B71C1C', bodyColor: '#C62828', icon: '⛔', title: 'Required SIP Exceeds Your Salary' },
+      HIGH:     { bg: '#FFF3E0', titleColor: '#BF360C', bodyColor: '#E64A19', icon: '🔴', title: 'Very High SIP Burden (>60% of Income)' },
+      MODERATE: { bg: '#FFFDE7', titleColor: '#F57F17', bodyColor: '#795548', icon: '⚠️', title: 'SIP + Expenses Exceed Monthly Income' },
+      INFO:     { bg: '#F5F5F5', titleColor: '#616161', bodyColor: '#757575', icon: 'ℹ️', title: 'Low Income Buffer After SIP' },
+    };
+    const ws = warningStyles[severity];
+
     sipWarningCard = (
-      <Card style={[styles.netWorthClarityCard, { backgroundColor: bgColor }]}>
+      <Card style={[styles.netWorthClarityCard, { backgroundColor: ws.bg, borderLeftWidth: severity === 'CRITICAL' ? 4 : severity === 'HIGH' ? 3 : 0, borderLeftColor: ws.titleColor }]}>
         <Card.Content>
-          <Text variant="labelSmall" style={{ color: textColor, fontWeight: 'bold', marginBottom: 4 }}>
-            {title}
+          <Text variant="labelSmall" style={{ color: ws.titleColor, fontWeight: severity === 'CRITICAL' ? '900' : 'bold', marginBottom: 4, fontSize: severity === 'CRITICAL' ? 13 : 11 }}>
+            {ws.icon} {ws.title}
           </Text>
-          <Text variant="bodySmall" style={{ color: '#555' }}>{result.sipBurdenWarning}</Text>
+          <Text variant="bodySmall" style={{ color: ws.bodyColor, fontStyle: severity === 'INFO' ? 'italic' : 'normal' }}>
+            {result.sipBurdenWarning}
+          </Text>
         </Card.Content>
       </Card>
     );
@@ -542,7 +552,7 @@ export default function DashboardScreen() {
                 <DataTable.Title style={styles.colNarrow}>Year</DataTable.Title>
                 <DataTable.Title style={styles.colNarrow}>Age</DataTable.Title>
                 <DataTable.Title style={styles.colWide} numeric>Annual SIP</DataTable.Title>
-                <DataTable.Title style={styles.colWide} numeric>Vesting</DataTable.Title>
+                {hasVesting && <DataTable.Title style={styles.colWide} numeric>Vesting</DataTable.Title>}
                 <DataTable.Title style={styles.colWide} numeric>Expenses</DataTable.Title>
                 <DataTable.Title style={styles.colWide} numeric>Pension</DataTable.Title>
                 <DataTable.Title style={styles.colWide} numeric>Net Worth</DataTable.Title>
@@ -557,9 +567,11 @@ export default function DashboardScreen() {
                     <DataTable.Cell style={styles.colWide} numeric>
                       {formatCurrency(row.annualSIP, currency)}
                     </DataTable.Cell>
-                    <DataTable.Cell style={styles.colWide} numeric>
-                      {row.vestingIncome > 0 ? formatCurrency(row.vestingIncome, currency) : '—'}
-                    </DataTable.Cell>
+                    {hasVesting && (
+                      <DataTable.Cell style={styles.colWide} numeric>
+                        {row.vestingIncome > 0 ? formatCurrency(row.vestingIncome, currency) : '—'}
+                      </DataTable.Cell>
+                    )}
                     <DataTable.Cell style={styles.colWide} numeric>
                       {formatCurrency(row.plannedExpenses, currency)}
                     </DataTable.Cell>
