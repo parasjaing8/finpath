@@ -204,13 +204,13 @@ export default function GoalsScreen() {
             accessibilityLabel={`Inflation rate: ${inflationRate} percent`}
           />
 
-          <Text variant="labelLarge" style={styles.sectionLabel}>Retirement Income</Text>
+          <Text variant="labelLarge" style={styles.sectionLabel}>Monthly Retirement Withdrawal</Text>
           <Text variant="bodySmall" style={styles.sectionHint}>
-            Expected monthly pension or passive income in today's value (e.g. rental income, govt
-            pension). It will be inflation-adjusted at {(PENSION_INFLATION_RATE * 100).toFixed(0)}% and credited from retirement age onwards.
+            How much you want to withdraw from your corpus each month after retiring (in today's value).
+            This sizes your FIRE corpus target via the SWR above. It grows at {(PENSION_INFLATION_RATE * 100).toFixed(0)}%/yr from retirement.
           </Text>
           <TextInput
-            label={`Monthly pension / passive income (${currentProfile.currency === 'INR' ? '₹' : '$'} today's value)`}
+            label={`Monthly withdrawal target (${currentProfile.currency === 'INR' ? '₹' : '$'} today's value)`}
             value={pensionIncome}
             onChangeText={text => setPensionIncome(text.replace(/[^0-9.]/g, ''))}
             mode="outlined"
@@ -220,7 +220,7 @@ export default function GoalsScreen() {
           />
           {parseFloat(pensionIncome) > 0 && (
             <HelperText type="info">
-              At retirement (age {retirementAge}) this will be{' '}
+              At retirement (age {retirementAge}) this becomes{' '}
               {formatCurrency(
                 parseFloat(pensionIncome) * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsToRetirement),
                 currentProfile.currency
