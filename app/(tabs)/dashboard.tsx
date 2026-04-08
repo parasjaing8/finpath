@@ -125,9 +125,22 @@ export default function DashboardScreen() {
   if (!goals) {
     return (
       <View style={styles.center}>
-        <Text variant="bodyLarge" style={{ textAlign: 'center', color: '#666' }}>
-          Set your goals first to see projections.
+        <MaterialCommunityIcons name="flag-outline" size={48} color="#C8E6C9" />
+        <Text variant="titleMedium" style={{ textAlign: 'center', color: '#333', marginTop: 16, fontWeight: '700' }}>
+          No plan set yet
         </Text>
+        <Text variant="bodyMedium" style={{ textAlign: 'center', color: '#666', marginTop: 8, marginHorizontal: 32, lineHeight: 22 }}>
+          Set your retirement age, withdrawal target, and SWR to see your FIRE projection here.
+        </Text>
+        <Button
+          mode="contained"
+          icon="flag-outline"
+          onPress={() => router.push('/(tabs)/goals')}
+          style={{ marginTop: 24, borderRadius: 8 }}
+          contentStyle={{ paddingVertical: 6 }}
+        >
+          Set Your Plan
+        </Button>
       </View>
     );
   }
