@@ -33,6 +33,7 @@ export default function DashboardScreen() {
   const [sipReturnRateDisplay, setSipReturnRateDisplay] = useState(12);
   const [postSipReturnRateDisplay, setPostSipReturnRateDisplay] = useState(7);
   const [stepUpRateDisplay, setStepUpRateDisplay] = useState(10);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const { isPro } = usePro();
 
@@ -293,6 +294,7 @@ export default function DashboardScreen() {
         <Card.Content>
           <Text variant="titleMedium" style={styles.strategyTitle}>Adjust Your Plan</Text>
 
+          {/* Primary control — always visible */}
           <Text variant="labelMedium" style={styles.sliderLabel}>
             Monthly SIP: {formatCurrencyFull(sipAmountDisplay, currency)}
           </Text>
@@ -303,51 +305,66 @@ export default function DashboardScreen() {
             minimumValue={1000} maximumValue={500000} step={1000}
             minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
           />
-
           <Text variant="bodySmall" style={styles.infoText}>
-            SIP contributions stop at age {goals.sip_stop_age}. After that, your corpus grows through returns only.
+            SIP stops at age {goals.sip_stop_age} · Step-up {stepUpEnabled ? `${stepUpRate}%/yr` : 'off'} · Returns {sipReturnRate}% → {postSipReturnRate}%
           </Text>
 
-          <Text variant="labelMedium" style={styles.sliderLabel}>
-            Return While Investing (until age {goals.sip_stop_age}): {sipReturnRateDisplay}%
-          </Text>
-          <Slider
-            value={sipReturnRateDisplay}
-            onValueChange={(v: number[]) => setSipReturnRateDisplay(Math.round(v[0]))}
-            onSlidingComplete={(v: number[]) => setSipReturnRate(Math.round(v[0]))}
-            minimumValue={5} maximumValue={20} step={1}
-            minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
-          />
-          <Text variant="labelMedium" style={styles.sliderLabel}>
-            Return After SIP Stops (from age {goals.sip_stop_age}): {postSipReturnRateDisplay}%
-          </Text>
-          <Slider
-            value={postSipReturnRateDisplay}
-            onValueChange={(v: number[]) => setPostSipReturnRateDisplay(Math.round(v[0]))}
-            onSlidingComplete={(v: number[]) => setPostSipReturnRate(Math.round(v[0]))}
-            minimumValue={3} maximumValue={15} step={1}
-            minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
-          />
-          <Text variant="bodySmall" style={styles.infoText}>
-            Only withdrawn amounts are taxed. Remaining corpus compounds at gross return rate.
-          </Text>
+          {/* Advanced toggle */}
+          <TouchableOpacity
+            style={styles.advancedToggle}
+            onPress={() => setShowAdvanced(v => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={showAdvanced ? 'Hide advanced settings' : 'Show advanced settings'}
+          >
+            <Text variant="labelMedium" style={styles.advancedToggleText}>
+              Advanced {showAdvanced ? '▲' : '▼'}
+            </Text>
+          </TouchableOpacity>
 
-          <View style={styles.switchRow}>
-            <Text variant="bodyMedium">Step-Up SIP</Text>
-            <Switch value={stepUpEnabled} onValueChange={setStepUpEnabled} color="#1B5E20" />
-          </View>
-          {stepUpEnabled && (
+          {showAdvanced && (
             <>
               <Text variant="labelMedium" style={styles.sliderLabel}>
-                Step-Up Rate: {stepUpRateDisplay}%/year
+                Return While Investing (until age {goals.sip_stop_age}): {sipReturnRateDisplay}%
               </Text>
               <Slider
-                value={stepUpRateDisplay}
-                onValueChange={(v: number[]) => setStepUpRateDisplay(Math.round(v[0]))}
-                onSlidingComplete={(v: number[]) => setStepUpRate(Math.round(v[0]))}
+                value={sipReturnRateDisplay}
+                onValueChange={(v: number[]) => setSipReturnRateDisplay(Math.round(v[0]))}
+                onSlidingComplete={(v: number[]) => setSipReturnRate(Math.round(v[0]))}
                 minimumValue={5} maximumValue={20} step={1}
                 minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
               />
+              <Text variant="labelMedium" style={styles.sliderLabel}>
+                Return After SIP Stops (from age {goals.sip_stop_age}): {postSipReturnRateDisplay}%
+              </Text>
+              <Slider
+                value={postSipReturnRateDisplay}
+                onValueChange={(v: number[]) => setPostSipReturnRateDisplay(Math.round(v[0]))}
+                onSlidingComplete={(v: number[]) => setPostSipReturnRate(Math.round(v[0]))}
+                minimumValue={3} maximumValue={15} step={1}
+                minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
+              />
+              <Text variant="bodySmall" style={styles.infoText}>
+                Only withdrawn amounts are taxed. Remaining corpus compounds at gross return rate.
+              </Text>
+
+              <View style={styles.switchRow}>
+                <Text variant="bodyMedium">Step-Up SIP</Text>
+                <Switch value={stepUpEnabled} onValueChange={setStepUpEnabled} color="#1B5E20" />
+              </View>
+              {stepUpEnabled && (
+                <>
+                  <Text variant="labelMedium" style={styles.sliderLabel}>
+                    Step-Up Rate: {stepUpRateDisplay}%/year
+                  </Text>
+                  <Slider
+                    value={stepUpRateDisplay}
+                    onValueChange={(v: number[]) => setStepUpRateDisplay(Math.round(v[0]))}
+                    onSlidingComplete={(v: number[]) => setStepUpRate(Math.round(v[0]))}
+                    minimumValue={5} maximumValue={20} step={1}
+                    minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
+                  />
+                </>
+              )}
             </>
           )}
         </Card.Content>
@@ -552,6 +569,8 @@ const styles = StyleSheet.create({
   strategyTitle: { fontWeight: 'bold', color: '#1B5E20', marginBottom: 12 },
   sliderLabel: { marginTop: 12, marginBottom: 4, fontWeight: '600' },
   infoText: { color: '#666', marginTop: 8, fontStyle: 'italic' },
+  advancedToggle: { marginTop: 12, paddingVertical: 6, alignSelf: 'flex-start' },
+  advancedToggleText: { color: '#1B5E20', fontWeight: '700' },
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 },
   chartCard: { marginBottom: 16, borderRadius: 12 },
   chartTitle: { fontWeight: 'bold', marginBottom: 12 },
