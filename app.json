@@ -2,7 +2,7 @@
   "expo": {
     "name": "FinPath",
     "slug": "finpath",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "scheme": "finpath",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,14 +21,16 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.anonymous.finpath"
+      "versionCode": 1,
+      "package": "com.parasjain.finpath"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-sqlite",
-      "expo-router"
+      "expo-router",
+      "expo-secure-store"
     ]
   }
 }

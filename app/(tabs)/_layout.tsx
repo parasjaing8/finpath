@@ -18,6 +18,7 @@ export default function TabLayout() {
         options={{
           title: 'Assets',
           tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="wallet-outline" size={size} color={color} />,
+          tabBarAccessibilityLabel: 'Assets tab',
         }}
       />
       <Tabs.Screen
@@ -25,6 +26,7 @@ export default function TabLayout() {
         options={{
           title: 'Expenses',
           tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="cash-minus" size={size} color={color} />,
+          tabBarAccessibilityLabel: 'Expenses tab',
         }}
       />
       <Tabs.Screen
@@ -32,6 +34,7 @@ export default function TabLayout() {
         options={{
           title: 'Goals',
           tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="flag-outline" size={size} color={color} />,
+          tabBarAccessibilityLabel: 'Goals tab',
         }}
       />
       <Tabs.Screen
@@ -39,6 +42,7 @@ export default function TabLayout() {
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="view-dashboard-outline" size={size} color={color} />,
+          tabBarAccessibilityLabel: 'Dashboard tab',
         }}
       />
     </Tabs>

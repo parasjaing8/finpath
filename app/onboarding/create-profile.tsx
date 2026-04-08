@@ -1,23 +1,41 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Switch } from 'react-native';
 import { TextInput, Button, Text, SegmentedButtons, HelperText } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { createProfile } from '../../db/queries';
+import { createProfile, setBiometricEnabled, getAllProfiles } from '../../db/queries';
+import { usePro } from '../../hooks/usePro';
+import { ProPaywall } from '../../components/ProPaywall';
 import { useProfile } from '../../hooks/useProfile';
 import * as Crypto from 'expo-crypto';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { DateInput } from '../../components/DateInput';
 
 export default function CreateProfile() {
   const router = useRouter();
   const { setCurrentProfileId, refreshProfiles } = useProfile();
 
   const [name, setName] = useState('');
-  const [dob, setDob] = useState('');
+  const [dob, setDob] = useState('2000-01-01');
   const [monthlyIncome, setMonthlyIncome] = useState('');
   const [currency, setCurrency] = useState('INR');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [enableBiometric, setEnableBiometric] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const { isPro } = usePro();
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+
+  useEffect(() => {
+    async function checkBiometric() {
+      const hasHW = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      setBiometricAvailable(hasHW && isEnrolled);
+    }
+    checkBiometric();
+  }, []);
 
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
@@ -36,12 +54,22 @@ export default function CreateProfile() {
 
   async function handleSubmit() {
     if (!validate()) return;
+    // Pro gate: check existing profile count before creating
+    const existing = await getAllProfiles();
+    if (!isPro && existing.length >= 1) {
+      setShowPaywall(true);
+      return;
+    }
     setLoading(true);
     try {
-      const hashedPin = await Crypto.digestStringAsync(
+      // Generate a random 16-byte salt, encode as hex
+      const saltBytes = Crypto.getRandomValues(new Uint8Array(16));
+      const salt = Array.from(saltBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      const hash = await Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,
-        pin
+        salt + pin
       );
+      const hashedPin = `${salt}$${hash}`;
       const profileId = await createProfile(
         name.trim(),
         dob,
@@ -49,11 +77,13 @@ export default function CreateProfile() {
         currency,
         hashedPin
       );
+      if (enableBiometric) await setBiometricEnabled(profileId, true);
       await setCurrentProfileId(profileId);
       await refreshProfiles();
       router.replace('/(tabs)/assets');
     } catch (e) {
-      console.error('Failed to create profile:', e);
+      if (__DEV__) console.error('Failed to create profile:', e);
+      Alert.alert('Error', 'Could not create profile. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -74,18 +104,17 @@ export default function CreateProfile() {
           mode="outlined"
           style={styles.input}
           error={!!errors.name}
+          maxLength={100}
         />
         {errors.name && <HelperText type="error">{errors.name}</HelperText>}
 
-        <TextInput
-          label="Date of Birth (YYYY-MM-DD)"
+        <DateInput
+          label="Date of Birth"
           value={dob}
           onChangeText={setDob}
-          mode="outlined"
           style={styles.input}
-          placeholder="1995-06-15"
-          keyboardType="numeric"
           error={!!errors.dob}
+          maximumDate={new Date()}
         />
         {errors.dob && <HelperText type="error">{errors.dob}</HelperText>}
 
@@ -138,6 +167,22 @@ export default function CreateProfile() {
         />
         {errors.confirmPin && <HelperText type="error">{errors.confirmPin}</HelperText>}
 
+        {biometricAvailable && (
+          <View style={styles.biometricRow}>
+            <MaterialCommunityIcons name="fingerprint" size={22} color="#1B5E20" />
+            <View style={styles.biometricText}>
+              <Text variant="labelLarge" style={styles.biometricLabel}>Enable Fingerprint Login</Text>
+              <Text variant="bodySmall" style={styles.biometricSub}>Use fingerprint instead of PIN to log in</Text>
+            </View>
+            <Switch
+              value={enableBiometric}
+              onValueChange={setEnableBiometric}
+              thumbColor={enableBiometric ? '#1B5E20' : '#CCC'}
+              trackColor={{ false: '#E0E0E0', true: '#A5D6A7' }}
+            />
+          </View>
+        )}
+
         <Button
           mode="contained"
           onPress={handleSubmit}
@@ -145,10 +190,20 @@ export default function CreateProfile() {
           disabled={loading}
           style={styles.button}
           contentStyle={styles.buttonContent}
+          accessibilityLabel="Create profile"
         >
           Create Profile
         </Button>
+
+        {/* Cause note */}
+        <View style={styles.causeNote}>
+          <Text style={styles.causeIcon}>🙏</Text>
+          <Text style={styles.causeText}>
+            51% of FinPath's profits go toward food {'&'} education for underprivileged children in rural India. Your plan. Their future.
+          </Text>
+        </View>
       </ScrollView>
+      <ProPaywall visible={showPaywall} onDismiss={() => setShowPaywall(false)} reason="profiles" />
     </KeyboardAvoidingView>
   );
 }
@@ -161,6 +216,13 @@ const styles = StyleSheet.create({
   input: { marginBottom: 4, backgroundColor: '#FFFFFF' },
   label: { marginTop: 12, marginBottom: 8 },
   segment: { marginBottom: 16 },
+  biometricRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 12, padding: 14, marginTop: 16, gap: 12, elevation: 1 },
+  biometricText: { flex: 1 },
+  biometricLabel: { color: '#1B5E20' },
+  biometricSub: { color: '#888', marginTop: 2 },
   button: { marginTop: 24, borderRadius: 8 },
+  causeNote: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FFF8E1', borderRadius: 10, padding: 12, marginTop: 20, gap: 8 },
+  causeIcon: { fontSize: 15, marginTop: 1 },
+  causeText: { flex: 1, fontSize: 12, color: '#5D4037', lineHeight: 18 },
   buttonContent: { paddingVertical: 8 },
 });

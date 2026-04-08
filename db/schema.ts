@@ -80,5 +80,46 @@ export async function initializeDatabase(): Promise<void> {
     INSERT OR IGNORE INTO inflation_defaults VALUES ('MEDICAL', 8.0);
     INSERT OR IGNORE INTO inflation_defaults VALUES ('FOOD', 6.0);
     INSERT OR IGNORE INTO inflation_defaults VALUES ('REAL_ESTATE', 7.0);
+
+    CREATE INDEX IF NOT EXISTS idx_assets_profile ON assets(profile_id);
+    CREATE INDEX IF NOT EXISTS idx_expenses_profile ON expenses(profile_id);
+    CREATE INDEX IF NOT EXISTS idx_goals_profile ON goals(profile_id);
   `);
+
+  // Versioned migration system
+  // Each entry runs once — guarded by schema_version table.
+  await database.execAsync(`
+    CREATE TABLE IF NOT EXISTS schema_version (
+      version INTEGER PRIMARY KEY
+    );
+  `);
+
+  const MIGRATIONS: { version: number; sql: string }[] = [
+    { version: 1, sql: 'ALTER TABLE goals ADD COLUMN pension_income REAL DEFAULT 0' },
+    { version: 2, sql: "ALTER TABLE goals ADD COLUMN fire_type TEXT DEFAULT 'fat'" },
+    { version: 3, sql: 'ALTER TABLE goals ADD COLUMN fire_target_age INTEGER DEFAULT 100' },
+    { version: 4, sql: 'ALTER TABLE profiles ADD COLUMN failed_attempts INTEGER DEFAULT 0' },
+    { version: 5, sql: 'ALTER TABLE profiles ADD COLUMN lockout_until INTEGER DEFAULT 0' },
+    { version: 6, sql: 'ALTER TABLE assets ADD COLUMN vesting_end_date TEXT' },
+    { version: 7, sql: 'ALTER TABLE goals ADD COLUMN withdrawal_rate REAL DEFAULT 5.0' },
+    { version: 8, sql: 'ALTER TABLE goals ADD COLUMN inflation_rate REAL DEFAULT 6.0' },
+  ];
+
+  for (const migration of MIGRATIONS) {
+    const applied = await database.getFirstAsync<{ version: number }>(
+      'SELECT version FROM schema_version WHERE version = ?',
+      [migration.version]
+    );
+    if (!applied) {
+      try {
+        await database.execAsync(migration.sql);
+      } catch (_) {
+        // Column/index may already exist on fresh installs where CREATE TABLE included it
+      }
+      await database.runAsync(
+        'INSERT OR IGNORE INTO schema_version (version) VALUES (?)',
+        [migration.version]
+      );
+    }
+  }
 }
