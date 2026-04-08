@@ -219,7 +219,7 @@ export default function GoalsScreen() {
 
           <Button mode="contained" onPress={handleSave} loading={loading} disabled={loading}
             style={styles.button} contentStyle={styles.buttonContent}>
-            {saved ? '✓ Saved! Going to Dashboard...' : 'Calculate & View Dashboard'}
+            {saved ? '✓ Saved!' : 'Save Plan'}
           </Button>
         </Card.Content>
       </Card>
