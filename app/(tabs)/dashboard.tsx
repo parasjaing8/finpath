@@ -7,7 +7,7 @@ import { calculateProjections, CalculationOutput, formatCurrency, formatCurrency
 import { exportToCSV } from '../../utils/export';
 import { Slider } from '@miblanchard/react-native-slider';
 import { CartesianChart, Line } from 'victory-native';
-import { Path as SkiaPath, Line as SkiaLine, Circle as SkiaCircle, Text as SkiaText, DashPathEffect, Skia, vec } from '@shopify/react-native-skia';
+import { Path as SkiaPath, Line as SkiaLine, Circle as SkiaCircle, Text as SkiaText, DashPathEffect, Skia, vec, matchFont } from '@shopify/react-native-skia';
 import { useNavigation, useRouter, useFocusEffect } from 'expo-router';
 import { usePro } from '../../hooks/usePro';
 import { ProPaywall } from '../../components/ProPaywall';
@@ -43,6 +43,11 @@ export default function DashboardScreen() {
   // Track the goals snapshot that was used for the last SIP auto-set.
   // Auto-set only fires again when goals actually change, not on every tab focus.
   const lastAutoSetGoalsKey = useRef<string | null>(null);
+
+  // Create Skia font for chart labels using system typeface (Skia.Font(undefined) crashes in release)
+  const fireAgeFont = useMemo(() => {
+    try { return matchFont({ fontSize: 11 }); } catch { return null; }
+  }, []);
 
   const handleLogout = useCallback(() => {
     logout();
@@ -369,9 +374,6 @@ export default function DashboardScreen() {
                 retPath.moveTo(retX, chartBounds.top);
                 retPath.lineTo(retX, canvasSize.height);
 
-                // Age label font
-                const font = Skia.Font(undefined, 11);
-
                 return <>
                   <Line points={points.netWorth} color="#1B5E20" strokeWidth={2.5} />
                   <Line points={points.totalOutflow} color="#C62828" strokeWidth={2} />
@@ -396,12 +398,12 @@ export default function DashboardScreen() {
                       style="stroke"
                     />
                     <SkiaCircle cx={fp.x} cy={fireY} r={5} color="#FF9800" />
-                    {font && (
+                    {fireAgeFont && (
                       <SkiaText
                         x={Math.max(chartBounds.left + 2, fp.x - 18)}
                         y={fireY - 9}
                         text={`Age ${result.fireAchievedAge}`}
-                        font={font}
+                        font={fireAgeFont}
                         color="#E65100"
                       />
                     )}
