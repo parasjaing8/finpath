@@ -16,6 +16,7 @@ architecture, and design decisions. It exists to prevent:
 | `ARCHITECTURE.md` | Codebase structure, DB schema, data flow, key decisions |
 | `DECISIONS_AND_LESSONS.md` | Running log of bugs fixed, edge cases, and non-obvious choices |
 | `DEV_ENVIRONMENT.md` | Build machine setup (Mac mini SSH), Ollama models, build commands |
+| `TRANSFORM.md` | Full product audit: UX, math bugs, IA, missing features, phased plan |
 
 ---
 
