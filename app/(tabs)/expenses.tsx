@@ -319,7 +319,7 @@ export default function ExpensesScreen() {
                 {EXPENSE_TYPES.map(t => (
                   <TouchableRipple key={t.key} onPress={() => setExpenseType(t.key)} style={styles.radioRow}>
                     <View style={styles.radioItem}>
-                      <RadioButton value={t.key} color="#B71C1C" />
+                      <RadioButton value={t.key} color="#37474F" />
                       <Text variant="bodySmall" style={styles.radioLabel}>{t.label}</Text>
                     </View>
                   </TouchableRipple>
@@ -379,20 +379,20 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 80 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   emptyContent: { justifyContent: 'center', alignItems: 'center', paddingVertical: 32 },
-  pvCard: { backgroundColor: '#B71C1C', marginBottom: 16, borderRadius: 12 },
+  pvCard: { backgroundColor: '#37474F', marginBottom: 16, borderRadius: 12 },
   pvValue: { color: '#FFFFFF', fontWeight: 'bold', marginTop: 4 },
   sectionTitle: { marginBottom: 12, fontWeight: '600' },
   chipRowWrapper: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   chipArrow: { margin: 0, padding: 0 },
   chipRow: { flexGrow: 1, flexShrink: 1 },
-  chip: { marginRight: 8, backgroundColor: '#FFEBEE' },
+  chip: { marginRight: 8, backgroundColor: '#ECEFF1' },
   chipText: { fontSize: 12 },
   emptyCard: { padding: 24, borderRadius: 12 },
-  groupTitle: { marginTop: 16, marginBottom: 8, fontWeight: '700', color: '#B71C1C' },
+  groupTitle: { marginTop: 16, marginBottom: 8, fontWeight: '700', color: '#37474F' },
   expCard: { marginBottom: 8, borderRadius: 8, backgroundColor: '#FFFFFF' },
   expRow: { flexDirection: 'row', alignItems: 'center' },
   modal: { backgroundColor: '#FFFFFF', margin: 16, padding: 20, borderRadius: 16, maxHeight: '85%' },
-  modalTitle: { fontWeight: 'bold', marginBottom: 16, color: '#B71C1C' },
+  modalTitle: { fontWeight: 'bold', marginBottom: 16, color: '#37474F' },
   input: { marginBottom: 8, backgroundColor: '#FFFFFF' },
   segment: { marginBottom: 12 },
   fieldLabel: { marginBottom: 8, marginTop: 4 },
