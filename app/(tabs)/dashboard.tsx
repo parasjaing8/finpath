@@ -247,10 +247,34 @@ export default function DashboardScreen() {
           <Card.Content>
             <Text variant="labelSmall" style={styles.columnHeaderProjections}>Projections</Text>
             <Text variant="labelSmall" style={styles.tileLabel}>At Retirement (Age {goals.retirement_age})</Text>
-            <Text variant="titleSmall" style={styles.tileValue}>
-              {formatCurrency(result.netWorthAtRetirement, currency)}
-            </Text>
-            <Text variant="bodySmall" style={styles.netWorthNote}>FIRE Corpus</Text>
+            {/* Projected corpus vs FIRE target */}
+            <View style={styles.projectionRow}>
+              <Text variant="labelSmall" style={styles.projectionRowLabel}>Projected</Text>
+              <Text variant="titleSmall" style={[styles.tileValue, { fontSize: 13 }]}>
+                {formatCurrency(result.netWorthAtRetirement, currency)}
+              </Text>
+            </View>
+            <View style={styles.projectionRow}>
+              <Text variant="labelSmall" style={styles.projectionRowLabel}>FIRE Target</Text>
+              <Text variant="titleSmall" style={[styles.tileValue, { fontSize: 13 }]}>
+                {formatCurrency(result.fireCorpus, currency)}
+              </Text>
+            </View>
+            {/* Surplus / deficit gap */}
+            {(() => {
+              const gap = result.netWorthAtRetirement - result.fireCorpus;
+              const isSurplus = gap >= 0;
+              const pct = result.fireCorpus > 0 ? Math.abs(Math.round(gap / result.fireCorpus * 100)) : 0;
+              return (
+                <View style={[styles.gapChip, { backgroundColor: isSurplus ? '#C8E6C9' : '#FFCDD2' }]}>
+                  <Text variant="labelSmall" style={{ color: isSurplus ? '#1B5E20' : '#C62828', fontWeight: '700', fontSize: 10 }}>
+                    {isSurplus
+                      ? `+${formatCurrency(gap, currency)} surplus (${pct}%)`
+                      : `${formatCurrency(Math.abs(gap), currency)} short (${pct}%)`}
+                  </Text>
+                </View>
+              );
+            })()}
             <View style={styles.horizontalDivider} />
             <Text variant="labelSmall" style={styles.tileLabel}>At Age 100</Text>
             <Text variant="titleSmall" style={[styles.tileValue, { color: result.netWorthAtAge100 < 0 ? '#C62828' : '#333' }]}>
@@ -517,6 +541,9 @@ const styles = StyleSheet.create({
   tileLabel: { color: '#666', marginBottom: 4 },
   tileValue: { fontWeight: 'bold' },
   netWorthNote: { color: '#888', marginTop: 2 },
+  projectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
+  projectionRowLabel: { color: '#666', flex: 1 },
+  gapChip: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, marginTop: 6, alignSelf: 'stretch', alignItems: 'center' },
   netWorthClarityCard: { borderRadius: 12, marginBottom: 12 },
   horizontalDivider: { height: 1, backgroundColor: '#DDD', marginVertical: 10 },
   columnHeaderToday: { fontWeight: '700', color: '#1B5E20', marginBottom: 8, letterSpacing: 0.5 },
