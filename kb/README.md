@@ -15,6 +15,7 @@ architecture, and design decisions. It exists to prevent:
 | `FINANCIAL_MODEL.md` | How FIRE calculations work, expense types, pension model, SWR |
 | `ARCHITECTURE.md` | Codebase structure, DB schema, data flow, key decisions |
 | `DECISIONS_AND_LESSONS.md` | Running log of bugs fixed, edge cases, and non-obvious choices |
+| `DEV_ENVIRONMENT.md` | Build machine setup (Mac mini SSH), Ollama models, build commands |
 
 ---
 
@@ -30,4 +31,10 @@ architecture, and design decisions. It exists to prevent:
 → Add an entry to `DECISIONS_AND_LESSONS.md` explaining what, why, and the fix.
 
 **When starting a new session (LLM or human):**
-→ Read all three files before touching any financial logic.
+→ Read all files before touching any financial logic.
+
+**When running build/dev commands:**
+→ Read `DEV_ENVIRONMENT.md` — all builds run on Mac mini via SSH.
+
+**Maintenance rule:**
+→ Update the relevant kb file after every meaningful code change. Update memory files for infra/tooling changes.
