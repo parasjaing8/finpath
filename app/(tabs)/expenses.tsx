@@ -44,12 +44,12 @@ export default function ExpensesScreen() {
     setExpenses(expList);
     setGoals(goalsData);
     const retirementAge = goalsData?.retirement_age ?? 60;
-    setPresentValue(calculatePresentValueOfExpenses(currentProfile, expList, retirementAge));
+    const discountRate = (goalsData?.inflation_rate ?? 6) / 100;
     // PV of future expenses that fall post-retirement (corpus-funded)
     const futureExps = expList.filter(e => e.expense_type !== 'CURRENT_RECURRING');
-    setPresentValue(calculatePresentValueOfExpenses(currentProfile, expList, retirementAge));
-    const postPV = calculatePresentValueOfExpenses(currentProfile, futureExps, 999);
-    const prePV  = calculatePresentValueOfExpenses(currentProfile, futureExps, retirementAge);
+    setPresentValue(calculatePresentValueOfExpenses(currentProfile, expList, retirementAge, discountRate));
+    const postPV = calculatePresentValueOfExpenses(currentProfile, futureExps, 999, discountRate);
+    const prePV  = calculatePresentValueOfExpenses(currentProfile, futureExps, retirementAge, discountRate);
     setPostRetirementPV(Math.max(0, postPV - prePV));
     setLoading(false);
   }, [currentProfile]);

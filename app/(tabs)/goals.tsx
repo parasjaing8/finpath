@@ -175,9 +175,10 @@ export default function GoalsScreen() {
             </>
           )}
 
-          <Text variant="labelLarge" style={styles.sectionLabel}>Post-Retirement Inflation</Text>
+          <Text variant="labelLarge" style={styles.sectionLabel}>Expense Discount Rate</Text>
           <Text variant="bodySmall" style={styles.sectionHint}>
-            Expected inflation rate for your post-retirement lifestyle expenses.
+            Used to discount future planned expenses (e.g. house at 55, college fees) back to today's value.
+            Does not affect your monthly withdrawal target — that grows at 6%/yr regardless.
           </Text>
           <Text variant="labelLarge" style={styles.sliderLabel}>
             Inflation: {inflationRate}%
