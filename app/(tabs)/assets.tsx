@@ -64,8 +64,6 @@ export default function AssetsScreen() {
   const [nextVestingDate, setNextVestingDate] = useState('');
   const [vestingEndDate, setVestingEndDate] = useState('');
   const [isSelfUse, setIsSelfUse] = useState(false);
-  const [goldSilverUnit, setGoldSilverUnit] = useState('VALUE');
-  const [goldSilverQuantity, setGoldSilverQuantity] = useState('');
   const [usdExchangeRate, setUsdExchangeRate] = useState('84');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -127,8 +125,6 @@ export default function AssetsScreen() {
       setNextVestingDate(asset.next_vesting_date ?? '');
       setVestingEndDate(asset.vesting_end_date ?? '');
       setIsSelfUse(!!asset.is_self_use);
-      setGoldSilverUnit(asset.gold_silver_unit ?? 'VALUE');
-      setGoldSilverQuantity(asset.gold_silver_quantity?.toString() ?? '');
     }
     setShowForm(true);
   }
@@ -165,8 +161,8 @@ export default function AssetsScreen() {
       next_vesting_date: isRecurring ? nextVestingDate || null : null,
       vesting_end_date: isRecurring ? vestingEndDate || null : null,
       is_self_use: isSelfUse ? 1 : 0,
-      gold_silver_unit: selectedCategory === 'GOLD_SILVER' ? goldSilverUnit : null,
-      gold_silver_quantity: selectedCategory === 'GOLD_SILVER' && goldSilverUnit === 'GRAMS' ? parseFloat(goldSilverQuantity) || null : null,
+      gold_silver_unit: selectedCategory === 'GOLD_SILVER' ? 'VALUE' : null,
+      gold_silver_quantity: null,
     };
 
     try {
@@ -381,20 +377,6 @@ export default function AssetsScreen() {
               </View>
             )}
 
-            {/* Gold/Silver Fields */}
-            {selectedCategory === 'GOLD_SILVER' && (
-              <View style={styles.extraFields}>
-                <SegmentedButtons value={goldSilverUnit}
-                  onValueChange={setGoldSilverUnit}
-                  buttons={[{ value: 'VALUE', label: 'Enter Value' }, { value: 'GRAMS', label: 'Enter Grams' }]}
-                  style={styles.segment} />
-                {goldSilverUnit === 'GRAMS' && (
-                  <TextInput label="Quantity (grams)" value={goldSilverQuantity}
-                    onChangeText={setGoldSilverQuantity} mode="outlined" style={styles.input}
-                    keyboardType="numeric" />
-                )}
-              </View>
-            )}
 
             {/* Real Estate Fields */}
             {selectedCategory === 'REAL_ESTATE' && (
