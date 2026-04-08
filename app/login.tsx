@@ -73,7 +73,7 @@ export default function LoginScreen() {
       await resetFailedAttempts(profile.id);
       await setCurrentProfileId(profile.id);
       await refreshProfiles();
-      router.replace('/(tabs)/assets');
+      router.replace('/(tabs)/dashboard');
     }
   }
 
@@ -118,7 +118,7 @@ export default function LoginScreen() {
         await resetFailedAttempts(selectedProfile.id);
         await setCurrentProfileId(selectedProfile.id);
         await refreshProfiles();
-        router.replace('/(tabs)/assets');
+        router.replace('/(tabs)/dashboard');
       } else {
         const { lockoutUntil } = await recordFailedAttempt(selectedProfile.id);
         const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);

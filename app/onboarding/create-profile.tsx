@@ -80,7 +80,7 @@ export default function CreateProfile() {
       if (enableBiometric) await setBiometricEnabled(profileId, true);
       await setCurrentProfileId(profileId);
       await refreshProfiles();
-      router.replace('/(tabs)/assets');
+      router.replace('/(tabs)/dashboard');
     } catch (e) {
       if (__DEV__) console.error('Failed to create profile:', e);
       Alert.alert('Error', 'Could not create profile. Please try again.');
