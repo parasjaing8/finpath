@@ -49,36 +49,25 @@ export default function GoalsScreen() {
     const correctedSipStopAge = Math.min(sipStopAge, retirementAge);
     if (correctedSipStopAge !== sipStopAge) setSipStopAge(correctedSipStopAge);
 
-    const doSave = async () => {
-      setLoading(true);
-      try {
-        await saveGoals(
-          currentProfile.id,
-          retirementAge,
-          correctedSipStopAge,
-          parseFloat(pensionIncome) > 0 ? parseFloat(pensionIncome) : 0,
-          fireType,
-          100,
-          withdrawalRate,
-          inflationRate,
-        );
-        setSaved(true);
-        setTimeout(() => { router.push('/(tabs)/dashboard'); }, 500);
-      } catch (e) {
-        Alert.alert('Error', 'Could not save goals. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    Alert.alert(
-      'Save Goals',
-      'This will overwrite your current goals and recalculate your FIRE projection. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Save', onPress: doSave },
-      ]
-    );
+    setLoading(true);
+    try {
+      await saveGoals(
+        currentProfile.id,
+        retirementAge,
+        correctedSipStopAge,
+        parseFloat(pensionIncome) > 0 ? parseFloat(pensionIncome) : 0,
+        fireType,
+        100,
+        withdrawalRate,
+        inflationRate,
+      );
+      setSaved(true);
+      setTimeout(() => { router.push('/(tabs)/dashboard'); }, 500);
+    } catch (e) {
+      Alert.alert('Error', 'Could not save goals. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (!currentProfile) {
