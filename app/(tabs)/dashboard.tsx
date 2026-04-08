@@ -309,7 +309,7 @@ export default function DashboardScreen() {
           </Text>
 
           <Text variant="labelMedium" style={styles.sliderLabel}>
-            Expected Return (SIP Phase): {sipReturnRateDisplay}%
+            Return While Investing (until age {goals.sip_stop_age}): {sipReturnRateDisplay}%
           </Text>
           <Slider
             value={sipReturnRateDisplay}
@@ -319,7 +319,7 @@ export default function DashboardScreen() {
             minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
           />
           <Text variant="labelMedium" style={styles.sliderLabel}>
-            Expected Return (Post-Retirement): {postSipReturnRateDisplay}%
+            Return After SIP Stops (from age {goals.sip_stop_age}): {postSipReturnRateDisplay}%
           </Text>
           <Slider
             value={postSipReturnRateDisplay}
