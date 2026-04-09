@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { updateProfile, saveProfilePin } from '../../db/queries';
 import { useProfile } from '../../hooks/useProfile';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { DateInput } from '../../components/DateInput';
 import * as Crypto from 'expo-crypto';
 
 export default function EditProfile() {
@@ -14,6 +15,7 @@ export default function EditProfile() {
   const [monthlyIncome, setMonthlyIncome] = useState(
     currentProfile?.monthly_income != null ? String(currentProfile.monthly_income) : ''
   );
+  const [dob, setDob] = useState(currentProfile?.dob ?? '');
   const [currency, setCurrency] = useState(currentProfile?.currency ?? 'INR');
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -27,6 +29,8 @@ export default function EditProfile() {
   function validate(): boolean {
     const e: Record<string, string> = {};
     if (!monthlyIncome || parseFloat(monthlyIncome) < 0) e.income = 'Enter a valid income';
+    if (!dob.match(/^\d{4}-\d{2}-\d{2}$/)) e.dob = 'Enter date as YYYY-MM-DD';
+    else { const d = new Date(dob); if (isNaN(d.getTime()) || d > new Date()) e.dob = 'Enter a valid past date'; }
     if (newPin.length > 0) {
       if (!/^\d{6}$/.test(newPin)) e.newPin = 'PIN must be 6 digits';
       if (newPin !== confirmPin) e.confirmPin = 'PINs do not match';
@@ -36,10 +40,10 @@ export default function EditProfile() {
   }
 
   async function handleSave() {
-    if (!validate()) return;
+    if (!currentProfile || !validate()) return;
     setLoading(true);
     try {
-      await updateProfile(currentProfile.id, parseFloat(monthlyIncome), currency);
+      await updateProfile(currentProfile.id, parseFloat(monthlyIncome), currency, dob);
       if (newPin.length === 6) {
         const saltBytes = Crypto.getRandomValues(new Uint8Array(16));
         const salt = Array.from(saltBytes).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -73,10 +77,14 @@ export default function EditProfile() {
           <Text variant="labelMedium" style={styles.readOnlyLabel}>Name</Text>
           <Text variant="bodyMedium" style={styles.readOnlyValue}>{currentProfile.name}</Text>
         </View>
-        <View style={[styles.readOnlyRow, { marginBottom: 20 }]}>
-          <Text variant="labelMedium" style={styles.readOnlyLabel}>Date of Birth</Text>
-          <Text variant="bodyMedium" style={styles.readOnlyValue}>{currentProfile.dob}</Text>
-        </View>
+        <DateInput
+          label="Date of Birth (YYYY-MM-DD)"
+          value={dob}
+          onChangeText={setDob}
+          style={styles.input}
+          error={!!errors.dob}
+        />
+        {errors.dob && <HelperText type="error">{errors.dob}</HelperText>}
 
         {/* Income */}
         <Text variant="labelSmall" style={styles.sectionLabel}>FINANCIALS</Text>

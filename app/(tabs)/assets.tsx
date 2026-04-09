@@ -3,7 +3,8 @@ import { View, StyleSheet, ScrollView, Alert, ActivityIndicator, RefreshControl 
 import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, HelperText } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { Asset, getAssets, createAsset, updateAsset, deleteAsset, getTotalNetWorth } from '../../db/queries';
-import { ASSET_CATEGORIES, FREQUENCIES } from '../../constants/categories';
+import { ASSET_CATEGORIES, FREQUENCIES, DEFAULT_GROWTH_RATES } from '../../constants/categories';
+import { Slider } from '@miblanchard/react-native-slider';
 import { formatCurrency } from '../../engine/calculator';
 import { DateInput } from '../../components/DateInput';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -65,6 +66,7 @@ export default function AssetsScreen() {
   const [vestingEndDate, setVestingEndDate] = useState('');
   const [isSelfUse, setIsSelfUse] = useState(false);
   const [usdExchangeRate, setUsdExchangeRate] = useState('84');
+  const [growthRate, setGrowthRate] = useState(8);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const chipScrollRef = useRef<ScrollView>(null);
@@ -93,15 +95,12 @@ export default function AssetsScreen() {
     setAssetName('');
     setCurrentValue('');
     setAssetCurrency(currentProfile?.currency ?? 'INR');
-    setExpectedRoi(12);
     setIsRecurring(false);
     setRecurringAmount('');
     setRecurringFrequency('QUARTERLY');
     setNextVestingDate('');
     setVestingEndDate('');
     setIsSelfUse(false);
-    setGoldSilverUnit('VALUE');
-    setGoldSilverQuantity('');
     setUsdExchangeRate('84');
     setErrors({});
     setEditingAsset(null);
@@ -125,6 +124,9 @@ export default function AssetsScreen() {
       setNextVestingDate(asset.next_vesting_date ?? '');
       setVestingEndDate(asset.vesting_end_date ?? '');
       setIsSelfUse(!!asset.is_self_use);
+      setGrowthRate(asset.expected_roi > 0 ? asset.expected_roi : (DEFAULT_GROWTH_RATES[asset.category] ?? 8));
+    } else {
+      setGrowthRate(DEFAULT_GROWTH_RATES[category] ?? 8);
     }
     setShowForm(true);
   }
@@ -154,7 +156,7 @@ export default function AssetsScreen() {
       name: assetName.trim(),
       current_value: convertedValue,
       currency: finalCurrency,
-      expected_roi: 0,
+      expected_roi: growthRate,
       is_recurring: isRecurring ? 1 : 0,
       recurring_amount: isRecurring ? parseFloat(recurringAmount) || null : null,
       recurring_frequency: isRecurring ? recurringFrequency : null,
@@ -387,6 +389,24 @@ export default function AssetsScreen() {
                 </Button>
               </View>
             )}
+
+            {/* Growth Rate Slider */}
+            <View style={{ marginTop: 8, marginBottom: 4 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text variant="labelMedium" style={{ fontWeight: '600', color: '#1B5E20' }}>
+                  Expected Annual Growth: {growthRate}%
+                </Text>
+              </View>
+              <Slider
+                value={growthRate}
+                onValueChange={(v: number[]) => setGrowthRate(Math.round(v[0]))}
+                minimumValue={0}
+                maximumValue={25}
+                step={1}
+                minimumTrackTintColor="#1B5E20"
+                thumbTintColor="#1B5E20"
+              />
+            </View>
 
             <View style={styles.formActions}>
               <Button mode="outlined" onPress={() => { setShowForm(false); resetForm(); }}

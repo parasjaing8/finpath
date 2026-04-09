@@ -71,3 +71,16 @@ export const DEFAULT_INFLATION_RATES: Record<string, number> = {
   PENSION_INCOME: 6.0,
   OTHERS: 6.0,
 };
+
+// Default expected annual growth rate (%) per asset category
+export const DEFAULT_GROWTH_RATES: Record<string, number> = {
+  ESOP_RSU: 12,
+  STOCKS: 12,
+  MUTUAL_FUND: 12,
+  SAVINGS: 7,
+  GOLD_SILVER: 8,
+  PF: 8,
+  NPS: 10,
+  REAL_ESTATE: 9,
+  OTHERS: 8,
+};

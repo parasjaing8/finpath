@@ -1,5 +1,5 @@
 import { Asset, Expense, Goals, Profile } from '../db/queries';
-import { FREQUENCIES } from '../constants/categories';
+import { FREQUENCIES, DEFAULT_GROWTH_RATES } from '../constants/categories';
 
 /** Inflation rate applied to pension income year-over-year (6%). */
 export const PENSION_INFLATION_RATE = 0.06;
@@ -186,6 +186,22 @@ function calculateFireCorpus(
   return pensionCorpus + postRetirementExpensesPV;
 }
 
+/**
+ * Compute the weighted-average expected growth rate (%) across all investable assets.
+ * Falls back to fallbackRate if no assets have expected_roi set.
+ */
+function computeBlendedGrowthRate(assets: Asset[], fallbackRate: number): number {
+  const investable = assets.filter(a => !(a.category === 'REAL_ESTATE' && a.is_self_use));
+  const totalValue = investable.reduce((s, a) => s + a.current_value, 0);
+  if (totalValue === 0) return fallbackRate;
+  const weighted = investable.reduce(
+    (s, a) => s + a.current_value * (a.expected_roi > 0 ? a.expected_roi : (DEFAULT_GROWTH_RATES[a.category] ?? fallbackRate)),
+    0,
+  );
+  return weighted / totalValue;
+}
+
+
 export function calculateProjections(input: CalculationInput): CalculationOutput {
   const { profile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpRate } = input;
   const currentAge = getAge(profile.dob);
@@ -252,9 +268,14 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     postRetirementExpensesPV,
   );
 
-  // Year-by-year projection
+  // Compute blended growth rate for initial (existing) assets
+  const blendedExistingRate = computeBlendedGrowthRate(assets, sipReturnRate);
+
+  // Year-by-year projection — two-bucket: existing assets grow at blendedExistingRate, SIP at sipReturnRate
   const projections: YearProjection[] = [];
-  let netWorth = investableNetWorth;
+  let existingBucket = investableNetWorth;
+  let sipBucket = 0;
+  let retirementMerged = false;
   let fireAchieved = false;
   let fireAchievedAge = -1;
 
@@ -295,13 +316,22 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     // Vesting income
     const vestingIncome = calculateVestingForYear(assets, year);
 
-    // Net worth calculation
-    const returnRate = age <= sipStopAge ? sipReturnRate : postSipReturnRate;
-    // Post-retirement corpus funds pension + any future expenses that year
+    // Net worth calculation — two-bucket approach
     const totalNetExpenses = age >= retirementAge ? (pensionIncome + plannedExpenses) : 0;
-    const returnOnInvestments = Math.max(0, netWorth) * (returnRate / 100);
-    const expenseWithdrawal = totalNetExpenses;
-    netWorth = netWorth + returnOnInvestments + annualSIP + vestingIncome - expenseWithdrawal;
+    if (age >= retirementAge && !retirementMerged) {
+      existingBucket = existingBucket + sipBucket;
+      sipBucket = 0;
+      retirementMerged = true;
+    }
+    if (!retirementMerged) {
+      const er = age <= sipStopAge ? blendedExistingRate / 100 : postSipReturnRate / 100;
+      const sr = age <= sipStopAge ? sipReturnRate / 100 : postSipReturnRate / 100;
+      existingBucket = Math.max(0, existingBucket) * (1 + er) + vestingIncome;
+      sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP;
+    } else {
+      existingBucket = Math.max(0, existingBucket) * (1 + postSipReturnRate / 100) + vestingIncome - totalNetExpenses;
+    }
+    const netWorth = existingBucket + sipBucket;
 
     // Check FIRE
     const isFireThisYear = !fireAchieved && netWorth >= fireCorpus && fireCorpus > 0;
@@ -423,10 +453,11 @@ function calculateRequiredSIP(
   fireTargetAge: number,
 ): number {
   // If corpus already survives to target age with zero SIP, no SIP needed
+  const blendedRate = computeBlendedGrowthRate(assets, sipReturnRate);
   const withNoSip = simulateCorpusAtAge(
     initialNetWorth, assets, expenses,
     currentAge, currentYear, currentMonth, retirementAge, sipStopAge,
-    sipReturnRate, postSipReturnRate, stepUpRate, 0, monthlyPension, fireTargetAge,
+    sipReturnRate, postSipReturnRate, stepUpRate, 0, monthlyPension, fireTargetAge, blendedRate,
   );
   if (withNoSip >= 0) return 0;
 
@@ -439,7 +470,7 @@ function calculateRequiredSIP(
     const corpus = simulateCorpusAtAge(
       initialNetWorth, assets, expenses,
       currentAge, currentYear, currentMonth, retirementAge, sipStopAge,
-      sipReturnRate, postSipReturnRate, stepUpRate, mid, monthlyPension, fireTargetAge,
+      sipReturnRate, postSipReturnRate, stepUpRate, mid, monthlyPension, fireTargetAge, blendedRate,
     );
 
     if (Math.abs(corpus) < tolerance) return Math.ceil(mid);
@@ -471,25 +502,31 @@ function simulateCorpusAtAge(
   monthlySIP: number,
   monthlyPension: number,
   targetAge: number,
+  blendedRate?: number,
 ): number {
   const futureExpenses = expenses.filter(e => e.expense_type !== 'CURRENT_RECURRING');
-  let netWorth = initialNetWorth;
+  const existingRate = blendedRate ?? sipReturnRate;
+  let existingBucket = initialNetWorth;
+  let sipBucket = 0;
+  let merged = false;
 
   for (let age = currentAge; age <= targetAge; age++) {
     const year = currentYear + (age - currentAge);
     const yearsFromStart = age - currentAge;
 
-    // SIP contribution (stops at sipStopAge)
     let annualSIP = 0;
     if (age <= sipStopAge) {
       annualSIP = monthlySIP * 12 * Math.pow(1 + stepUpRate / 100, yearsFromStart);
     }
 
     const vestingIncome = calculateVestingForYear(assets, year);
-    const returnRate = age <= sipStopAge ? sipReturnRate : postSipReturnRate;
-    const returnOnInvestments = Math.max(0, netWorth) * (returnRate / 100);
 
-    // Post-retirement: deduct pension + future expense dips from corpus
+    if (age >= retirementAge && !merged) {
+      existingBucket = existingBucket + sipBucket;
+      sipBucket = 0;
+      merged = true;
+    }
+
     let withdrawal = 0;
     if (age >= retirementAge) {
       if (monthlyPension > 0) {
@@ -500,10 +537,17 @@ function simulateCorpusAtAge(
       }
     }
 
-    netWorth = netWorth + returnOnInvestments + annualSIP + vestingIncome - withdrawal;
+    if (!merged) {
+      const er = age <= sipStopAge ? existingRate / 100 : postSipReturnRate / 100;
+      const sr = age <= sipStopAge ? sipReturnRate / 100 : postSipReturnRate / 100;
+      existingBucket = Math.max(0, existingBucket) * (1 + er) + vestingIncome;
+      sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP;
+    } else {
+      existingBucket = Math.max(0, existingBucket) * (1 + postSipReturnRate / 100) + vestingIncome - withdrawal;
+    }
   }
 
-  return netWorth;
+  return existingBucket + sipBucket;
 }
 
 export function formatCurrency(amount: number, currency: string = 'INR'): string {

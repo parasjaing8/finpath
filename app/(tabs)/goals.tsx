@@ -176,29 +176,10 @@ export default function GoalsScreen() {
             </>
           )}
 
-          <Text variant="labelLarge" style={styles.sectionLabel}>Expense Discount Rate</Text>
-          <Text variant="bodySmall" style={styles.sectionHint}>
-            Used to discount future planned expenses (e.g. house at 55, college fees) back to today's value.
-            Does not affect your monthly withdrawal target — that grows at 6%/yr regardless.
-          </Text>
-          <Text variant="labelLarge" style={styles.sliderLabel}>
-            Inflation: {inflationRate}%
-          </Text>
-          <Slider
-            value={inflationRate}
-            onValueChange={(v: number[]) => setInflationRate(Math.round(v[0]))}
-            minimumValue={0}
-            maximumValue={9}
-            step={1}
-            minimumTrackTintColor="#1B5E20"
-            thumbTintColor="#1B5E20"
-            accessibilityLabel={`Inflation rate: ${inflationRate} percent`}
-          />
-
           <Text variant="labelLarge" style={styles.sectionLabel}>Monthly Retirement Withdrawal</Text>
           <Text variant="bodySmall" style={styles.sectionHint}>
             How much you want to withdraw from your corpus each month after retiring (in today's value).
-            This sizes your FIRE corpus target via the SWR above. It grows at {(PENSION_INFLATION_RATE * 100).toFixed(0)}%/yr from retirement.
+            This sizes your corpus target via the withdrawal rate above.
           </Text>
           <TextInput
             label={`Monthly withdrawal target (${currentProfile.currency === 'INR' ? '₹' : '$'} today's value)`}
@@ -209,15 +190,7 @@ export default function GoalsScreen() {
             style={styles.input}
             left={<TextInput.Affix text={currentProfile.currency === 'INR' ? '₹' : '$'} />}
           />
-          {parseFloat(pensionIncome) > 0 && (
-            <HelperText type="info">
-              At retirement (age {retirementAge}) this becomes{' '}
-              {formatCurrency(
-                parseFloat(pensionIncome) * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsToRetirement),
-                currentProfile.currency
-              )}/yr in nominal terms.
-            </HelperText>
-          )}
+
 
           <Button mode="contained" onPress={handleSave} loading={loading} disabled={loading}
             style={styles.button} contentStyle={styles.buttonContent}>

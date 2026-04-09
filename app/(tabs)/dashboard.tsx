@@ -130,7 +130,7 @@ export default function DashboardScreen() {
           No plan set yet
         </Text>
         <Text variant="bodyMedium" style={{ textAlign: 'center', color: '#666', marginTop: 8, marginHorizontal: 32, lineHeight: 22 }}>
-          Set your retirement age, withdrawal target, and SWR to see your FIRE projection here.
+          Set your retirement age, withdrawal target, and withdrawal rate to see your projection here.
         </Text>
         <Button
           mode="contained"
@@ -232,9 +232,9 @@ export default function DashboardScreen() {
       <View style={styles.tilesRow}>
         <Card style={[styles.tile, { backgroundColor: '#FFF3E0' }]}>
           <Card.Content>
-            <Text variant="labelSmall" style={styles.tileLabel}>Time to FIRE</Text>
+            <Text variant="labelSmall" style={styles.tileLabel}>Financial Freedom Age</Text>
             <Text variant="titleMedium" style={styles.tileValue}>
-              {result.timeToFire > 0 ? `${result.timeToFire} years (age ${result.fireAchievedAge})` : result.fireAchievedAge > 0 ? `FIRE Reached! (age ${result.fireAchievedAge})` : 'Set goals first'}
+              {result.timeToFire > 0 ? `${result.timeToFire} years (age ${result.fireAchievedAge})` : result.fireAchievedAge > 0 ? `Corpus reached! (age ${result.fireAchievedAge})` : 'Set goals first'}
             </Text>
           </Card.Content>
         </Card>
@@ -279,7 +279,7 @@ export default function DashboardScreen() {
           <Card.Content>
             <Text variant="labelSmall" style={styles.columnHeaderProjections}>Projections</Text>
             <Text variant="labelSmall" style={styles.tileLabel}>At Retirement (Age {goals.retirement_age})</Text>
-            {/* Projected corpus vs FIRE target */}
+            {/* Projected corpus vs target */}
             <View style={styles.projectionRow}>
               <Text variant="labelSmall" style={styles.projectionRowLabel}>Projected</Text>
               <Text variant="titleSmall" style={[styles.tileValue, { fontSize: 13 }]}>
@@ -287,7 +287,7 @@ export default function DashboardScreen() {
               </Text>
             </View>
             <View style={styles.projectionRow}>
-              <Text variant="labelSmall" style={styles.projectionRowLabel}>FIRE Target</Text>
+              <Text variant="labelSmall" style={styles.projectionRowLabel}>Corpus Target</Text>
               <Text variant="titleSmall" style={[styles.tileValue, { fontSize: 13 }]}>
                 {formatCurrency(result.fireCorpus, currency)}
               </Text>
@@ -454,7 +454,7 @@ export default function DashboardScreen() {
                   <Line points={points.netWorth} color="#1B5E20" strokeWidth={2.5} />
                   <Line points={points.totalOutflow} color="#C62828" strokeWidth={2} />
 
-                  {/* FIRE corpus horizontal dashed line */}
+                  {/* Corpus target horizontal dashed line */}
                   <SkiaPath path={firePath} color="#FF9800" strokeWidth={2} style="stroke">
                     <DashPathEffect intervals={[10, 6]} />
                   </SkiaPath>
@@ -464,7 +464,7 @@ export default function DashboardScreen() {
                     <DashPathEffect intervals={[6, 4]} />
                   </SkiaPath>
 
-                  {/* FIRE intersection — vertical line + dot + age label */}
+                  {/* Corpus intersection — vertical line + dot + age label */}
                   {fp && <>
                     <SkiaLine
                       p1={vec(fp.x, chartBounds.top)}
@@ -478,7 +478,7 @@ export default function DashboardScreen() {
                       <SkiaText
                         x={Math.max(chartBounds.left + 2, fp.x - 18)}
                         y={fireY - 9}
-                        text={`Age ${result.fireAchievedAge}`}
+                        text={`Corpus @ ${result.fireAchievedAge}`}
                         font={fireAgeFont}
                         color="#E65100"
                       />
@@ -516,7 +516,7 @@ export default function DashboardScreen() {
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#FF9800', borderRadius: 0, height: 3, width: 16 }]} />
               <Text variant="bodySmall">
-                {result.fireAchievedAge > 0 ? `FIRE @ Age ${result.fireAchievedAge}` : 'FIRE Target'}
+                {result.fireAchievedAge > 0 ? `Corpus @ Age ${result.fireAchievedAge}` : 'Corpus Target'}
               </Text>
             </View>
             <View style={styles.legendItem}>

@@ -38,6 +38,10 @@ export default function LoginScreen() {
   const loadProfiles = useCallback(async () => {
     const all = await getAllProfiles();
     setProfiles(all);
+    // Auto-select single profile for Groww-like experience
+    if (all.length === 1 && !selectedProfile) {
+      selectProfile(all[0]);
+    }
   }, []);
 
   useFocusEffect(
@@ -73,7 +77,7 @@ export default function LoginScreen() {
       await resetFailedAttempts(profile.id);
       await setCurrentProfileId(profile.id);
       await refreshProfiles();
-      router.replace('/(tabs)/dashboard');
+      router.replace('/(tabs)/assets');
     }
   }
 
@@ -118,7 +122,7 @@ export default function LoginScreen() {
         await resetFailedAttempts(selectedProfile.id);
         await setCurrentProfileId(selectedProfile.id);
         await refreshProfiles();
-        router.replace('/(tabs)/dashboard');
+        router.replace('/(tabs)/assets');
       } else {
         const { lockoutUntil } = await recordFailedAttempt(selectedProfile.id);
         const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);

@@ -23,7 +23,7 @@ export default function CreateProfile() {
   const [confirmPin, setConfirmPin] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  const [enableBiometric, setEnableBiometric] = useState(false);
+  const [enableBiometric, setEnableBiometric] = useState(true);
   const [showPaywall, setShowPaywall] = useState(false);
   const { isPro } = usePro();
   const [biometricAvailable, setBiometricAvailable] = useState(false);
@@ -80,7 +80,7 @@ export default function CreateProfile() {
       if (enableBiometric) await setBiometricEnabled(profileId, true);
       await setCurrentProfileId(profileId);
       await refreshProfiles();
-      router.replace('/(tabs)/dashboard');
+      router.replace('/(tabs)/assets');
     } catch (e) {
       if (__DEV__) console.error('Failed to create profile:', e);
       Alert.alert('Error', 'Could not create profile. Please try again.');

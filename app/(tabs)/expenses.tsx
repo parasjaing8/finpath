@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 80 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   emptyContent: { justifyContent: 'center', alignItems: 'center', paddingVertical: 32 },
-  pvCard: { backgroundColor: '#37474F', marginBottom: 16, borderRadius: 12 },
+  pvCard: { backgroundColor: '#B71C1C', marginBottom: 16, borderRadius: 12 },
   pvValue: { color: '#FFFFFF', fontWeight: 'bold', marginTop: 4 },
   sectionTitle: { marginBottom: 12, fontWeight: '600' },
   chipRowWrapper: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
