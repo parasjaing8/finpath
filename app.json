@@ -21,8 +21,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "versionCode": 1,
-      "package": "com.parasjain.finpath"
+      "versionCode": 2,
+      "package": "com.anonymous.finpath"
     },
     "web": {
       "favicon": "./assets/favicon.png"
