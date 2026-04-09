@@ -283,10 +283,16 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     const year = currentYear + (age - currentAge);
     const yearsFromStart = age - currentAge;
 
-    // Annual SIP
+    // Annual SIP — FV of ordinary annuity (each monthly SIP compounds within the year)
+    // monthsThisYear: full 12 for future years; remaining months for current calendar year
+    const monthsThisYear = yearsFromStart === 0 ? (12 - currentMonth) : 12;
     let annualSIP = 0;
     if (age <= sipStopAge) {
-      annualSIP = sipAmount * 12 * Math.pow(1 + stepUpRate / 100, yearsFromStart);
+      const monthlyContrib = sipAmount * Math.pow(1 + stepUpRate / 100, yearsFromStart);
+      const monthlyRate = Math.pow(1 + sipReturnRate / 100, 1 / 12) - 1;
+      annualSIP = monthlyRate > 0
+        ? monthlyContrib * (Math.pow(1 + monthlyRate, monthsThisYear) - 1) / monthlyRate
+        : monthlyContrib * monthsThisYear;
     }
 
     // Pre-retirement: current lifestyle expenses shown for planning (salary-funded)
@@ -319,6 +325,8 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     // Net worth calculation — two-bucket approach
     const totalNetExpenses = age >= retirementAge ? (pensionIncome + plannedExpenses) : 0;
     if (age >= retirementAge && !retirementMerged) {
+      // If sipStop coincides with retirement, preserve the last SIP contribution before merging
+      if (age <= sipStopAge) existingBucket += annualSIP;
       existingBucket = existingBucket + sipBucket;
       sipBucket = 0;
       retirementMerged = true;
@@ -514,14 +522,21 @@ function simulateCorpusAtAge(
     const year = currentYear + (age - currentAge);
     const yearsFromStart = age - currentAge;
 
+    const monthsThisYear = yearsFromStart === 0 ? (12 - currentMonth) : 12;
     let annualSIP = 0;
     if (age <= sipStopAge) {
-      annualSIP = monthlySIP * 12 * Math.pow(1 + stepUpRate / 100, yearsFromStart);
+      const monthlyContrib = monthlySIP * Math.pow(1 + stepUpRate / 100, yearsFromStart);
+      const monthlyRate = Math.pow(1 + sipReturnRate / 100, 1 / 12) - 1;
+      annualSIP = monthlyRate > 0
+        ? monthlyContrib * (Math.pow(1 + monthlyRate, monthsThisYear) - 1) / monthlyRate
+        : monthlyContrib * monthsThisYear;
     }
 
     const vestingIncome = calculateVestingForYear(assets, year);
 
     if (age >= retirementAge && !merged) {
+      // If sipStop coincides with retirement, preserve the last SIP contribution before merging
+      if (age <= sipStopAge) existingBucket += annualSIP;
       existingBucket = existingBucket + sipBucket;
       sipBucket = 0;
       merged = true;
