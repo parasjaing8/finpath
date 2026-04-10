@@ -278,42 +278,14 @@ export default function DashboardScreen() {
         <Card style={[styles.tile, { backgroundColor: '#EDE7F6' }]}>
           <Card.Content>
             <Text variant="labelSmall" style={styles.columnHeaderProjections}>Projections</Text>
-            <Text variant="labelSmall" style={styles.tileLabel}>At Retirement (Age {goals.retirement_age})</Text>
-            {/* Projected corpus vs target */}
-            <View style={styles.projectionRow}>
-              <Text variant="labelSmall" style={styles.projectionRowLabel}>Projected</Text>
-              <Text variant="titleSmall" style={[styles.tileValue, { fontSize: 13 }]}>
-                {formatCurrency(result.netWorthAtRetirement, currency)}
-              </Text>
-            </View>
-            <View style={styles.projectionRow}>
-              <Text variant="labelSmall" style={styles.projectionRowLabel}>Corpus Target</Text>
-              <Text variant="titleSmall" style={[styles.tileValue, { fontSize: 13 }]}>
-                {formatCurrency(result.fireCorpus, currency)}
-              </Text>
-            </View>
-            {/* Surplus / deficit gap */}
-            {(() => {
-              const gap = result.netWorthAtRetirement - result.fireCorpus;
-              const isSurplus = gap >= 0;
-              const pct = result.fireCorpus > 0 ? Math.abs(Math.round(gap / result.fireCorpus * 100)) : 0;
-              return (
-                <View style={[styles.gapChip, { backgroundColor: isSurplus ? '#C8E6C9' : '#FFCDD2' }]}>
-                  <Text variant="labelSmall" style={{ color: isSurplus ? '#1B5E20' : '#C62828', fontWeight: '700', fontSize: 10 }}>
-                    {isSurplus
-                      ? `+${formatCurrency(gap, currency)} surplus (${pct}%)`
-                      : `${formatCurrency(Math.abs(gap), currency)} short (${pct}%)`}
-                  </Text>
-                </View>
-              );
-            })()}
+            <Text variant="labelSmall" style={styles.tileLabel}>Corpus Needed @ {goals.retirement_age}</Text>
+            <Text variant="titleSmall" style={styles.tileValue}>
+              {formatCurrency(result.fireCorpus, currency)}
+            </Text>
             <View style={styles.horizontalDivider} />
-            <Text variant="labelSmall" style={styles.tileLabel}>At Age 100</Text>
+            <Text variant="labelSmall" style={styles.tileLabel}>Corpus @ Age 100</Text>
             <Text variant="titleSmall" style={[styles.tileValue, { color: result.netWorthAtAge100 < 0 ? '#C62828' : '#333' }]}>
               {formatCurrency(result.netWorthAtAge100, currency)}
-            </Text>
-            <Text variant="bodySmall" style={styles.netWorthNote}>
-              {result.netWorthAtAge100 < 0 ? '⚠️ Corpus depleted' : 'Remaining corpus'}
             </Text>
           </Card.Content>
         </Card>
