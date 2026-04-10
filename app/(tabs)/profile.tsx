@@ -118,6 +118,13 @@ export default function ProfileScreen() {
             <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
           </TouchableOpacity>
           <Divider style={{ marginVertical: 4 }} />
+          <TouchableOpacity style={styles.settingRow} onPress={handleLogout} accessibilityRole="button">
+            <View style={styles.settingLeft}>
+              <MaterialCommunityIcons name="logout" size={22} color="#555" />
+              <Text style={styles.settingText}>Log Out</Text>
+            </View>
+          </TouchableOpacity>
+          <Divider style={{ marginVertical: 4 }} />
           <TouchableOpacity style={styles.settingRow} onPress={handleDeleteProfile} accessibilityRole="button">
             <View style={styles.settingLeft}>
               <MaterialCommunityIcons name="account-remove-outline" size={22} color="#C62828" />

@@ -14,7 +14,7 @@ import { ProPaywall } from '../../components/ProPaywall';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function DashboardScreen() {
-  const { currentProfile, logout } = useProfile();
+  const { currentProfile } = useProfile();
   const navigation = useNavigation();
   const router = useRouter();
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -50,21 +50,10 @@ export default function DashboardScreen() {
     try { return matchFont({ fontSize: 11 }); } catch { return null; }
   }, []);
 
-  const handleLogout = useCallback(() => {
-    logout();
-    router.replace('/login');
-  }, [logout, router]);
-
 
   useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity onPress={handleLogout} style={{ marginRight: 14, padding: 4 }} accessibilityLabel="Logout" accessibilityRole="button">
-          <MaterialCommunityIcons name="logout" size={22} color="#FFF" />
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation, handleLogout]);
+    navigation.setOptions({ headerRight: undefined });
+  }, [navigation]);
 
   const loadData = useCallback(async () => {
     if (!currentProfile) return;
