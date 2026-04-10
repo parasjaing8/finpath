@@ -86,7 +86,7 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
       active = false;
       purchaseListenerRef.current?.remove();
       errorListenerRef.current?.remove();
-      endConnection();
+      try { endConnection(); } catch {}
     };
   }, [unlockPro]);
 
