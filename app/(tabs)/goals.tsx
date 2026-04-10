@@ -84,6 +84,7 @@ export default function GoalsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.scroll}>
+      <CorpusPrimer profileId={currentProfile.id} />
       <Card style={styles.card}>
         <Card.Content>
           <Text variant="headlineSmall" style={styles.title}>Set Your Goals</Text>
@@ -199,8 +200,6 @@ export default function GoalsScreen() {
         </Card.Content>
       </Card>
 
-      {/* Corpus primer — shown on first visit to explain the withdrawal concept */}
-      <CorpusPrimer profileId={currentProfile.id} />
 
       {/* SWR Info Dialog */}
       <Portal>

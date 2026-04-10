@@ -1,44 +1,48 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Text, Button, Dialog, Portal } from 'react-native-paper';
 import * as SecureStore from 'expo-secure-store';
 
-const primerKey = (profileId: number) => `finpath_corpus_primer_seen_${profileId}`;
+const dialogKey = (id: number) => `finpath_corpus_primer_seen_${id}`;
+const hintKey   = (id: number) => `finpath_goal_hint_seen_${id}`;
 
 interface Props {
   profileId: number;
 }
 
 export function CorpusPrimer({ profileId }: Props) {
-  const [visible, setVisible] = useState(false);
+  const [showDialog, setShowDialog] = useState(false);
+  const [showHint,   setShowHint]   = useState(false);
   const { height } = useWindowDimensions();
 
   useEffect(() => {
     async function check() {
       try {
-        const seen = await SecureStore.getItemAsync(primerKey(profileId));
-        if (!seen) setVisible(true);
-      } catch {
-        // If SecureStore fails, don't block the user
-      }
+        const dialogSeen = await SecureStore.getItemAsync(dialogKey(profileId));
+        const hintSeen   = await SecureStore.getItemAsync(hintKey(profileId));
+        if (!dialogSeen)       setShowDialog(true);
+        else if (!hintSeen)    setShowHint(true);
+      } catch {}
     }
     check();
   }, [profileId]);
 
-  async function dismiss() {
-    setVisible(false);
-    try {
-      await SecureStore.setItemAsync(primerKey(profileId), '1');
-    } catch {
-      // Non-critical — worst case they see it again next visit
-    }
+  async function dismissDialog() {
+    setShowDialog(false);
+    setShowHint(true);
+    try { await SecureStore.setItemAsync(dialogKey(profileId), '1'); } catch {}
+  }
+
+  async function dismissHint() {
+    setShowHint(false);
+    try { await SecureStore.setItemAsync(hintKey(profileId), '1'); } catch {}
   }
 
   return (
     <>
-      {/* Main explainer dialog — scrollable, screen-adaptive height */}
+      {/* Explainer dialog — scrollable, screen-adaptive */}
       <Portal>
-        <Dialog visible={visible} onDismiss={dismiss} style={styles.dialog}>
+        <Dialog visible={showDialog} onDismiss={dismissDialog} style={styles.dialog}>
           <Dialog.Title style={styles.title}>How FinPath plans your retirement</Dialog.Title>
           <Dialog.ScrollArea style={[styles.scrollArea, { maxHeight: height * 0.6 }]}>
             <View style={styles.content}>
@@ -94,51 +98,43 @@ export function CorpusPrimer({ profileId }: Props) {
             </View>
           </Dialog.ScrollArea>
           <Dialog.Actions>
-            <Button mode="contained" onPress={dismiss} style={styles.button}>
+            <Button mode="contained" onPress={dismissDialog} style={styles.button}>
               Got it, let's plan!
             </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
 
-      {/* Lightbulb hint — separate Portal rendered after dialog so it sits on top */}
-      <Portal>
-        {visible && (
-          <View style={styles.hintContainer} pointerEvents="none">
-            <View style={styles.hintCard}>
-              <Text style={styles.hintEmoji}>💡</Text>
-              <Text variant="bodySmall" style={styles.hintText}>
-                Start by filling in your <Text style={{ fontWeight: '700' }}>retirement age</Text> and
-                {' '}<Text style={{ fontWeight: '700' }}>monthly withdrawal target</Text> below.
-                The Dashboard will instantly show your required SIP and projection.
-              </Text>
-            </View>
-          </View>
-        )}
-      </Portal>
+      {/* Lightbulb hint — inline card, shown after dialog dismissed, above the form */}
+      {showHint && (
+        <View style={styles.hintCard}>
+          <Text style={styles.hintEmoji}>💡</Text>
+          <Text variant="bodySmall" style={styles.hintText}>
+            Start by filling in your <Text style={{ fontWeight: '700' }}>retirement age</Text> and
+            {' '}<Text style={{ fontWeight: '700' }}>monthly withdrawal target</Text> below.
+            The Dashboard will instantly show your required SIP and projection.
+          </Text>
+          <TouchableOpacity onPress={dismissHint} style={styles.hintClose} accessibilityLabel="Dismiss hint">
+            <Text style={styles.hintCloseText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  dialog: { backgroundColor: '#FFF', borderRadius: 16 },
-  title: { fontWeight: '700', color: '#1B5E20', fontSize: 17 },
+  dialog:    { backgroundColor: '#FFF', borderRadius: 16 },
+  title:     { fontWeight: '700', color: '#1B5E20', fontSize: 17 },
   scrollArea: { paddingHorizontal: 0 },
-  content: { paddingHorizontal: 20, paddingVertical: 8 },
-  block: { flexDirection: 'row', gap: 12, marginBottom: 18, alignItems: 'flex-start' },
-  emoji: { fontSize: 22, marginTop: 1 },
+  content:   { paddingHorizontal: 20, paddingVertical: 8 },
+  block:     { flexDirection: 'row', gap: 12, marginBottom: 18, alignItems: 'flex-start' },
+  emoji:     { fontSize: 22, marginTop: 1 },
   blockText: { flex: 1 },
   blockTitle: { fontWeight: '700', color: '#1B5E20', marginBottom: 4 },
-  blockBody: { color: '#555', lineHeight: 19 },
-  button: { borderRadius: 8, marginBottom: 4, paddingHorizontal: 8 },
-  // Lightbulb hint — floats at bottom of screen above dialog
-  hintContainer: {
-    position: 'absolute',
-    bottom: 80,
-    left: 16,
-    right: 16,
-    zIndex: 999,
-  },
+  blockBody:  { color: '#555', lineHeight: 19 },
+  button:    { borderRadius: 8, marginBottom: 4, paddingHorizontal: 8 },
+  // Inline hint card
   hintCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -146,14 +142,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFDE7',
     borderRadius: 12,
     padding: 14,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#F9A825',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 6,
   },
-  hintEmoji: { fontSize: 20, marginTop: 1 },
-  hintText: { flex: 1, color: '#444', lineHeight: 20 },
+  hintEmoji:     { fontSize: 20, marginTop: 1 },
+  hintText:      { flex: 1, color: '#444', lineHeight: 20 },
+  hintClose:     { paddingLeft: 4, paddingTop: 2 },
+  hintCloseText: { fontSize: 14, color: '#888', fontWeight: '700' },
 });
