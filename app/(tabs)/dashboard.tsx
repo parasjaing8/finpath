@@ -7,7 +7,7 @@ import { calculateProjections, CalculationOutput, formatCurrency, formatCurrency
 import { exportToCSV } from '../../utils/export';
 import { Slider } from '@miblanchard/react-native-slider';
 import { CartesianChart, Line } from 'victory-native';
-import { Path as SkiaPath, Line as SkiaLine, Circle as SkiaCircle, Text as SkiaText, DashPathEffect, Skia, vec, matchFont } from '@shopify/react-native-skia';
+import { Path as SkiaPath, Circle as SkiaCircle, Text as SkiaText, DashPathEffect, Skia, vec, matchFont } from '@shopify/react-native-skia';
 import { useNavigation, useRouter, useFocusEffect } from 'expo-router';
 import { usePro } from '../../hooks/usePro';
 import { ProPaywall } from '../../components/ProPaywall';
@@ -278,9 +278,9 @@ export default function DashboardScreen() {
         <Card style={[styles.tile, { backgroundColor: '#EDE7F6' }]}>
           <Card.Content>
             <Text variant="labelSmall" style={styles.columnHeaderProjections}>Projections</Text>
-            <Text variant="labelSmall" style={styles.tileLabel}>Corpus Needed @ {goals.retirement_age}</Text>
+            <Text variant="labelSmall" style={styles.tileLabel}>Corpus @ Age {goals.retirement_age}</Text>
             <Text variant="titleSmall" style={styles.tileValue}>
-              {formatCurrency(result.fireCorpus, currency)}
+              {formatCurrency(result.netWorthAtRetirement, currency)}
             </Text>
             <View style={styles.horizontalDivider} />
             <Text variant="labelSmall" style={styles.tileLabel}>Corpus @ Age 100</Text>
@@ -412,16 +412,6 @@ export default function DashboardScreen() {
                 const fireIdx = points.netWorth.findIndex(pt => (pt.yValue ?? 0) >= result.fireCorpus);
                 const fp = fireIdx >= 0 ? points.netWorth[fireIdx] : null;
 
-                // Retirement age vertical dashed line
-                const retX = xScale(retirementAge);
-                const retPath = Skia.Path.Make();
-                retPath.moveTo(retX, chartBounds.top);
-                retPath.lineTo(retX, canvasSize.height);
-
-                // "You Are Here" — dot on net worth line at current age
-                const todayIdx = chartData.findIndex(d => d.age === currentAge);
-                const todayPt = todayIdx >= 0 ? points.netWorth[todayIdx] : null;
-
                 return <>
                   <Line points={points.netWorth} color="#1B5E20" strokeWidth={2.5} />
                   <Line points={points.totalOutflow} color="#C62828" strokeWidth={2} />
@@ -431,20 +421,9 @@ export default function DashboardScreen() {
                     <DashPathEffect intervals={[10, 6]} />
                   </SkiaPath>
 
-                  {/* Retirement age vertical dashed line */}
-                  <SkiaPath path={retPath} color="rgba(63,81,181,0.5)" strokeWidth={1.5} style="stroke">
-                    <DashPathEffect intervals={[6, 4]} />
-                  </SkiaPath>
 
                   {/* Corpus intersection — vertical line + dot + age label */}
                   {fp && <>
-                    <SkiaLine
-                      p1={vec(fp.x, chartBounds.top)}
-                      p2={vec(fp.x, canvasSize.height)}
-                      color="rgba(255,152,0,0.3)"
-                      strokeWidth={1.5}
-                      style="stroke"
-                    />
                     <SkiaCircle cx={fp.x} cy={fireY} r={5} color="#FF9800" />
                     {fireAgeFont && (
                       <SkiaText
@@ -457,20 +436,6 @@ export default function DashboardScreen() {
                     )}
                   </>}
 
-                  {/* You Are Here — ring dot + "Today" label at current age */}
-                  {todayPt && <>
-                    <SkiaCircle cx={todayPt.x} cy={todayPt.y ?? 0} r={7} color="#1B5E20" />
-                    <SkiaCircle cx={todayPt.x} cy={todayPt.y ?? 0} r={4} color="#FFFFFF" />
-                    {fireAgeFont && (
-                      <SkiaText
-                        x={Math.max(chartBounds.left + 2, (todayPt.x ?? 0) - 14)}
-                        y={(todayPt.y ?? 0) - 11}
-                        text="Today"
-                        font={fireAgeFont}
-                        color="#1B5E20"
-                      />
-                    )}
-                  </>}
                 </>;
               }}
             </CartesianChart>
@@ -491,14 +456,7 @@ export default function DashboardScreen() {
                 {result.fireAchievedAge > 0 ? `Corpus @ Age ${result.fireAchievedAge}` : 'Corpus Target'}
               </Text>
             </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: 'rgba(63,81,181,0.7)', borderRadius: 0, height: 3, width: 16 }]} />
-              <Text variant="bodySmall">{`Retire @ ${retirementAge}`}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { borderWidth: 2, borderColor: '#1B5E20', backgroundColor: '#FFF' }]} />
-              <Text variant="bodySmall">Today</Text>
-            </View>
+
           </View>
         </Card.Content>
       </Card>
