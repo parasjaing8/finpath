@@ -1,7 +1,7 @@
-# FinPath — Dev Environment
+# FinPath -- Dev Environment
 
-> Reference for the build/dev machine setup and AI tooling strategy.
-> Last updated: 2026-04-09
+> Reference for the build/dev machine setup.
+> Last updated: 2026-04-11
 
 ---
 
@@ -9,75 +9,67 @@
 
 | Role | Machine | OS | Notes |
 |---|---|---|---|
-| Editor / Claude sessions | Windows 11 PC | Windows 11 Home | Local machine; no Android SDK |
-| Build / Dev server | Mac mini (headless) | macOS | Accessed via SSH; all builds run here |
+| Editor / Claude sessions | Windows 11 laptop | Windows 11 Home | No Android SDK, no source code |
+| Build / Dev server | Mac mini (headless) | macOS | SSH: parasjain@192.168.0.130 |
+
+---
 
 ## Dev Workflow
 
-All compilation, Expo dev server, Android builds (`eas build`, `expo run:android`), and `adb` commands run on the **Mac mini via SSH**. The Windows machine is used for:
+All code, compilation, Expo dev server, Android builds, and adb commands run on the **Mac mini via SSH**. The Windows machine is used only for:
 - Running Claude Code sessions
-- File editing (synced via Dropbox to `/c/dropbox/Finpath/`)
-- Reviewing outputs
+- Reviewing APK outputs (via Dropbox)
 
-When suggesting terminal commands for build/run tasks, assume they execute on the Mac mini over SSH.
+**Never write or edit code on Windows. All code edits go through SSH to the Mac mini.**
 
----
-
-## Ollama on Mac mini
-
-The Mac mini runs [Ollama](https://ollama.ai) with local LLM models:
-
-| Model | Use case |
-|---|---|
-| Qwen (qwen3 or similar) | General reasoning, code review drafts, summarization |
-| DeepSeek (deepseek-coder) | Code-specific tasks, log analysis |
-
-### When to use Ollama (vs Claude)
-
-**Use Ollama for:**
-- Reducing Anthropic token consumption on repetitive/low-stakes tasks
-- Parallel background tasks (e.g. analyzing multiple log files simultaneously)
-- Summarizing large outputs before sending to Claude
-- Non-critical inference (formatting, boilerplate generation, diff summaries)
-
-**Keep in Claude (main session) for:**
-- Architecture and financial model decisions
-- Complex multi-file reasoning
-- Final code generation and review
-- Anything touching the FIRE calculation engine
-
-### Invoking Ollama
-
-```bash
-# Over SSH to Mac mini:
-ssh macmini "ollama run qwen3 'your prompt here'"
-ssh macmini "ollama run deepseek-coder 'review this diff: ...'"
-
-# Or pipe content:
-cat some_file.ts | ssh macmini "ollama run deepseek-coder"
-```
+**Never use `eas build`.** Always use `expo prebuild` + `./gradlew assembleRelease` on Mac mini.
 
 ---
 
-## Build Commands (run on Mac mini)
+## Build Commands (run on Mac mini via SSH)
 
 ```bash
+# Standard release build
+export PATH="/opt/homebrew/bin:$PATH"
+export JAVA_HOME="/opt/homebrew/opt/openjdk@17"
+export PATH="$JAVA_HOME/bin:$PATH"
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+cd ~/finpath/android && ./gradlew assembleRelease
+
+# Clean build (after native dep or plugin changes)
+cd ~/finpath
+rm -rf android
+npx expo prebuild --platform android
+# Fix signingConfig line (plugin step-3 regex broken)
+sed -i "" \
+  "s/signingConfig signingConfigs\.debug$/signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug/" \
+  android/app/build.gradle
+cd android && ./gradlew assembleRelease
+
 # Start Expo dev server
 cd ~/finpath && npx expo start --android
-
-# EAS local build (APK)
-cd ~/finpath && eas build --platform android --profile preview --local
-
-# Run on connected device
-cd ~/finpath && npx expo run:android
 
 # Lint + test
 cd ~/finpath && npm run lint && npm test
 ```
 
+APK output: `~/finpath/android/app/build/outputs/apk/release/app-release.apk` (~54 MB)
+
 ---
 
-## File Sync
+## File Sync (Dropbox)
 
-Project files sync via **Dropbox**: `C:\dropbox\Finpath\` (Windows) ↔ `~/Dropbox/Finpath/` (Mac mini).
-No manual rsync needed for source files.
+Dropbox is used for **outputs only** (APKs, memory files), not source code.
+- `C:\dropbox\Finpath\` (Windows) -- APK releases
+- `C:\dropbox\claude\` (Windows) -- memory system for Claude Code sessions
+- Source code lives only at `~/finpath/` on Mac mini (git-managed)
+
+---
+
+## Ollama on Mac mini
+
+The Mac mini runs Ollama with local LLM models (Qwen, DeepSeek) for low-stakes tasks like log analysis, diff summaries, and boilerplate generation. Use Claude for architecture decisions, financial model changes, and multi-file reasoning.
+
+```bash
+ssh parasjain@192.168.0.130 "ollama run qwen3 'your prompt here'"
+```
