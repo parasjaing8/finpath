@@ -31,7 +31,8 @@
       "expo-sqlite",
       "expo-router",
       "expo-secure-store",
-      "./plugins/withReleaseSigning"
+      "./plugins/withReleaseSigning",
+      "./plugins/withFlagSecure"
     ]
   }
 }
