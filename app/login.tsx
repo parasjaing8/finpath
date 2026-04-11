@@ -16,8 +16,6 @@ import * as Crypto from 'expo-crypto';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { getAllProfiles, Profile, recordFailedAttempt, resetFailedAttempts, getProfilePin, getBiometricEnabled } from '../db/queries';
 import { useProfile } from '../hooks/useProfile';
-import { usePro } from '../hooks/usePro';
-import { ProPaywall } from '../components/ProPaywall';
 
 const MAX_FREE_ATTEMPTS = 5; // lockout kicks in after this many failures
 
@@ -32,9 +30,6 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [lockoutSeconds, setLockoutSeconds] = useState(0);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
-  const [showPaywall, setShowPaywall] = useState(false);
-  const { isPro } = usePro();
-
   const loadProfiles = useCallback(async () => {
     const all = await getAllProfiles();
     setProfiles(all);
@@ -256,13 +251,7 @@ export default function LoginScreen() {
         {/* Add New Profile */}
         <Button
           mode="text"
-          onPress={() => {
-            if (!isPro && profiles.length >= 1) {
-              setShowPaywall(true);
-            } else {
-              router.push('/onboarding/create-profile');
-            }
-          }}
+          onPress={() => router.push('/onboarding/create-profile')}
           style={styles.newProfileBtn}
           textColor="#1B5E20"
           icon="account-plus-outline"
@@ -270,11 +259,6 @@ export default function LoginScreen() {
         >
           Add New Profile
         </Button>
-        <ProPaywall
-          visible={showPaywall}
-          onDismiss={() => setShowPaywall(false)}
-          reason="profiles"
-        />
 
         {/* Privacy Policy */}
         <TouchableOpacity

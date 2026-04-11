@@ -462,7 +462,7 @@ export default function DashboardScreen() {
               }}>
               {isPro ? 'CSV' : '👑 CSV'}
             </Button>
-            <ProPaywall visible={showPaywall} onDismiss={() => setShowPaywall(false)} reason="export" />
+            <ProPaywall visible={showPaywall} onDismiss={() => setShowPaywall(false)} />
           </View>
 
           <ScrollView horizontal>

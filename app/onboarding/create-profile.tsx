@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Switch } from 'react-native';
 import { TextInput, Button, Text, SegmentedButtons, HelperText } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { createProfile, setBiometricEnabled, getAllProfiles } from '../../db/queries';
-import { usePro } from '../../hooks/usePro';
-import { ProPaywall } from '../../components/ProPaywall';
+import { createProfile, setBiometricEnabled } from '../../db/queries';
 import { useProfile } from '../../hooks/useProfile';
 import * as Crypto from 'expo-crypto';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -24,8 +22,6 @@ export default function CreateProfile() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [enableBiometric, setEnableBiometric] = useState(true);
-  const [showPaywall, setShowPaywall] = useState(false);
-  const { isPro } = usePro();
   const [biometricAvailable, setBiometricAvailable] = useState(false);
 
   useEffect(() => {
@@ -54,12 +50,6 @@ export default function CreateProfile() {
 
   async function handleSubmit() {
     if (!validate()) return;
-    // Pro gate: check existing profile count before creating
-    const existing = await getAllProfiles();
-    if (!isPro && existing.length >= 1) {
-      setShowPaywall(true);
-      return;
-    }
     setLoading(true);
     try {
       // Generate a random 16-byte salt, encode as hex
@@ -203,7 +193,6 @@ export default function CreateProfile() {
           </Text>
         </View>
       </ScrollView>
-      <ProPaywall visible={showPaywall} onDismiss={() => setShowPaywall(false)} reason="profiles" />
     </KeyboardAvoidingView>
   );
 }

@@ -7,22 +7,18 @@ import { usePro } from '../hooks/usePro';
 interface ProPaywallProps {
   visible: boolean;
   onDismiss: () => void;
-  reason?: 'profiles' | 'export';
 }
 
 const FEATURES = [
-  { icon: 'account-multiple', text: 'Unlimited profiles' },
-  { icon: 'download', text: 'CSV export' },
+  { icon: 'download', text: 'CSV export — full year-by-year projection' },
   { icon: 'file-chart', text: 'PDF report with charts (coming soon)' },
   { icon: 'lightbulb-on', text: 'Personalized financial tips (coming soon)' },
 ];
 
-export function ProPaywall({ visible, onDismiss, reason = 'profiles' }: ProPaywallProps) {
+export function ProPaywall({ visible, onDismiss }: ProPaywallProps) {
   const { purchasePro, restorePurchases, purchasing } = usePro();
 
-  const headline = reason === 'export'
-    ? 'Export requires FinPath Pro'
-    : 'Multiple profiles require FinPath Pro';
+  const headline = 'Export your full projection to CSV';
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
