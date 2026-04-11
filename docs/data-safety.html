@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Safety Reference – FinPath</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 780px;
+      margin: 40px auto;
+      padding: 0 20px;
+      color: #222;
+      line-height: 1.7;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 4px; }
+    h2 { font-size: 1.2rem; margin-top: 36px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+    h3 { font-size: 1rem; margin-top: 24px; margin-bottom: 4px; }
+    .updated { color: #666; font-size: 0.9rem; margin-bottom: 8px; }
+    .note { background: #fff8e1; border-left: 4px solid #f9a825; padding: 10px 14px; font-size: 0.92rem; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.93rem; margin: 12px 0; }
+    th { background: #f5f5f5; text-align: left; padding: 8px 10px; border: 1px solid #ddd; }
+    td { padding: 8px 10px; border: 1px solid #ddd; vertical-align: top; }
+    .yes { color: #2e7d32; font-weight: 600; }
+    .no  { color: #c62828; font-weight: 600; }
+    .answer { background: #e8f5e9; padding: 2px 6px; border-radius: 3px; font-weight: 600; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Data Safety – Play Console Reference</h1>
+  <p class="updated">Last updated: April 11, 2026 &nbsp;·&nbsp; App: FinPath (com.anonymous.finpath)</p>
+
+  <div class="note">
+    This page provides exact answers for the <strong>Play Console → App content → Data safety</strong> form.
+    Fill the form exactly as described below. Do not publish this page publicly as a user-facing document —
+    use <a href="privacy-policy.html">privacy-policy.html</a> for that.
+  </div>
+
+  <!-- ─── SECTION 1 ─────────────────────────────────────────────────── -->
+  <h2>Section 1 – Data Collection and Security</h2>
+
+  <h3>Does your app collect or share any of the required user data types?</h3>
+  <p><span class="answer">Yes</span> — the app collects personal info, financial info, and app activity data.</p>
+
+  <h3>Is all of the user data collected by your app encrypted in transit?</h3>
+  <p><span class="answer">Yes</span> — all network connections use HTTPS (Google Play Billing only). No app data is transmitted to our own servers.</p>
+
+  <h3>Do you provide a way for users to request that their data is deleted?</h3>
+  <p><span class="answer">Yes</span> — users can delete a profile and all associated data from within the app (Profile tab → Delete Profile). Uninstalling the app removes all locally stored data.</p>
+
+  <!-- ─── SECTION 2 ─────────────────────────────────────────────────── -->
+  <h2>Section 2 – Data Types</h2>
+
+  <div class="note">
+    For each data type below, "Collected" = stored on device by the app. "Shared" = sent to a third party.
+    FinPath shares <strong>no data</strong> with third parties except purchase receipts with Google Play Billing.
+  </div>
+
+  <h3>Personal info</h3>
+  <table>
+    <tr><th>Data type</th><th>Collected?</th><th>Shared?</th><th>Purpose</th><th>Required?</th><th>Processed ephemerally?</th></tr>
+    <tr>
+      <td>Name</td>
+      <td class="yes">Yes</td><td class="no">No</td>
+      <td>App functionality</td><td>Yes (required)</td><td class="no">No</td>
+    </tr>
+    <tr>
+      <td>Date of birth</td>
+      <td class="yes">Yes</td><td class="no">No</td>
+      <td>App functionality (retirement age calculation)</td><td>Yes (required)</td><td class="no">No</td>
+    </tr>
+  </table>
+
+  <h3>Financial info</h3>
+  <table>
+    <tr><th>Data type</th><th>Collected?</th><th>Shared?</th><th>Purpose</th><th>Required?</th><th>Processed ephemerally?</th></tr>
+    <tr>
+      <td>Income information</td>
+      <td class="yes">Yes</td><td class="no">No</td>
+      <td>App functionality (FIRE projections)</td><td>Yes (required)</td><td class="no">No</td>
+    </tr>
+    <tr>
+      <td>Other financial info (assets, expenses, retirement goals)</td>
+      <td class="yes">Yes</td><td class="no">No</td>
+      <td>App functionality (FIRE projections)</td><td>Yes (required)</td><td class="no">No</td>
+    </tr>
+    <tr>
+      <td>Purchase history (IAP – CSV export / Pro upgrade)</td>
+      <td class="yes">Yes</td><td class="yes">Yes → Google Play</td>
+      <td>App functionality (feature unlock)</td><td>No (optional feature)</td><td class="no">No</td>
+    </tr>
+  </table>
+  <p><strong>For "Purchase history" shared with Google Play:</strong> Select <em>Google Play</em> as the party, purpose = <em>App functionality</em>.</p>
+
+  <h3>App activity</h3>
+  <table>
+    <tr><th>Data type</th><th>Collected?</th><th>Shared?</th><th>Purpose</th><th>Required?</th><th>Processed ephemerally?</th></tr>
+    <tr>
+      <td>App interactions</td>
+      <td class="no">No</td><td class="no">No</td><td>—</td><td>—</td><td>—</td>
+    </tr>
+    <tr>
+      <td>Crash logs</td>
+      <td class="no">No*</td><td class="no">No</td>
+      <td>—</td><td>—</td><td>—</td>
+    </tr>
+  </table>
+  <p><em>* Crash reporting (Sentry) is integrated but disabled by default (no DSN configured). If enabled in future, update this to Yes and add "Analytics / Developer communications" as purpose.</em></p>
+
+  <h3>All other categories — select No for:</h3>
+  <ul>
+    <li>Location — <span class="no">Not collected</span></li>
+    <li>Contacts — <span class="no">Not collected</span></li>
+    <li>Messages — <span class="no">Not collected</span></li>
+    <li>Photos and videos — <span class="no">Not collected</span></li>
+    <li>Audio files — <span class="no">Not collected</span></li>
+    <li>Files and docs — <span class="no">Not collected</span></li>
+    <li>Calendar — <span class="no">Not collected</span></li>
+    <li>Contacts — <span class="no">Not collected</span></li>
+    <li>Device or other IDs — <span class="no">Not collected</span></li>
+    <li>Health and fitness — <span class="no">Not collected</span></li>
+    <li>Web browsing — <span class="no">Not collected</span></li>
+  </ul>
+
+  <!-- ─── SECTION 3 ─────────────────────────────────────────────────── -->
+  <h2>Section 3 – Security Practices</h2>
+
+  <table>
+    <tr><th>Question</th><th>Answer</th></tr>
+    <tr>
+      <td>Is all user data encrypted in transit?</td>
+      <td><span class="answer">Yes</span> — HTTPS only (Google Play Billing)</td>
+    </tr>
+    <tr>
+      <td>Do you follow the Families Policy?</td>
+      <td><span class="answer">No</span> — app is for adults (18+)</td>
+    </tr>
+    <tr>
+      <td>Does your app use biometrics?</td>
+      <td><span class="answer">Yes</span> — fingerprint / face unlock. User-initiated, opt-in per profile. Raw biometric data handled entirely by Android OS; app never accesses it.</td>
+    </tr>
+  </table>
+
+  <!-- ─── BIOMETRICS DEEP DIVE ─────────────────────────────────────── -->
+  <h2>Biometric Data Declaration (special section)</h2>
+  <p>When Play Console asks about <strong>Biometrics</strong>:</p>
+  <table>
+    <tr><th>Question</th><th>Answer</th></tr>
+    <tr><td>Data type</td><td>Biometrics (fingerprint / face data)</td></tr>
+    <tr><td>Collected by app?</td><td><span class="answer">No</span> — raw biometric data is processed and stored by the Android OS only. The app stores a boolean opt-in flag, not biometric data.</td></tr>
+    <tr><td>Shared?</td><td><span class="answer">No</span></td></tr>
+    <tr><td>Purpose</td><td>App functionality (authentication)</td></tr>
+    <tr><td>User can opt out / delete?</td><td><span class="answer">Yes</span> — toggle in app; delete profile removes the flag.</td></tr>
+  </table>
+
+  <!-- ─── SUMMARY ──────────────────────────────────────────────────── -->
+  <h2>Quick Summary for Play Console Preview</h2>
+  <table>
+    <tr><th>Item</th><th>Status</th></tr>
+    <tr><td>Data encrypted in transit</td><td class="yes">Yes</td></tr>
+    <tr><td>User can request data deletion</td><td class="yes">Yes (in-app)</td></tr>
+    <tr><td>Data shared with third parties</td><td>Purchase history → Google Play only</td></tr>
+    <tr><td>Data sold</td><td class="no">No</td></tr>
+    <tr><td>Independent security review</td><td class="no">No</td></tr>
+    <tr><td>Follows Families Policy</td><td class="no">No — adults only (18+)</td></tr>
+  </table>
+
+</body>
+</html>
