@@ -154,6 +154,6 @@ When SIP stop age equals retirement age, the last annual SIP was silently droppe
   export ANDROID_HOME=$HOME/Library/Android/sdk
   export PATH=/opt/homebrew/bin:$JAVA_HOME/bin:$PATH
   cd /Users/parasjain/finpath/android
-  ./gradlew assembleRelease
+  ./gradlew bundleRelease
   ```
-- Output: `android/app/build/outputs/apk/release/app-release.apk`
+- Output: `android/app/build/outputs/bundle/release/app-release.aab`

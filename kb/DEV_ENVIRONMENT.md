@@ -22,7 +22,7 @@ All code, compilation, Expo dev server, Android builds, and adb commands run on 
 
 **Never write or edit code on Windows. All code edits go through SSH to the Mac mini.**
 
-**Never use `eas build`.** Always use `expo prebuild` + `./gradlew assembleRelease` on Mac mini.
+**Never use `eas build`.** Always use `expo prebuild` + `./gradlew bundleRelease` on Mac mini.
 
 ---
 
@@ -34,7 +34,7 @@ export PATH="/opt/homebrew/bin:$PATH"
 export JAVA_HOME="/opt/homebrew/opt/openjdk@17"
 export PATH="$JAVA_HOME/bin:$PATH"
 export ANDROID_HOME="$HOME/Library/Android/sdk"
-cd ~/finpath/android && ./gradlew assembleRelease
+cd ~/finpath/android && ./gradlew bundleRelease
 
 # Clean build (after native dep or plugin changes)
 cd ~/finpath
@@ -44,7 +44,7 @@ npx expo prebuild --platform android
 sed -i "" \
   "s/signingConfig signingConfigs\.debug$/signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug/" \
   android/app/build.gradle
-cd android && ./gradlew assembleRelease
+cd android && ./gradlew bundleRelease
 
 # Start Expo dev server
 cd ~/finpath && npx expo start --android
@@ -53,7 +53,7 @@ cd ~/finpath && npx expo start --android
 cd ~/finpath && npm run lint && npm test
 ```
 
-APK output: `~/finpath/android/app/build/outputs/apk/release/app-release.apk` (~54 MB)
+AAB output: `~/finpath/android/app/build/outputs/bundle/release/app-release.aab` (~25 MB)
 
 ---
 
