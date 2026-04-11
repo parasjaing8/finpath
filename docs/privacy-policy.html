@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy – FinPath</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 720px;
+      margin: 40px auto;
+      padding: 0 20px;
+      color: #222;
+      line-height: 1.7;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 4px; }
+    h2 { font-size: 1.2rem; margin-top: 32px; }
+    p, li { font-size: 0.97rem; }
+    .updated { color: #666; font-size: 0.9rem; margin-bottom: 32px; }
+    ul { padding-left: 20px; }
+    a { color: #1a73e8; }
+  </style>
+</head>
+<body>
+
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: April 11, 2026</p>
+
+  <p>
+    FinPath ("we", "our", or "us") is a personal finance and FIRE planning app. This policy
+    explains what data we collect, how it is used, and your rights with respect to that data.
+  </p>
+
+  <h2>1. Data We Collect</h2>
+  <p>FinPath collects only the data you enter directly into the app:</p>
+  <ul>
+    <li><strong>Profile information</strong> – name, date of birth, monthly income, currency preference.</li>
+    <li><strong>Financial data</strong> – assets, expenses, and retirement goal parameters you enter.</li>
+    <li><strong>Authentication credentials</strong> – a PIN you set. The PIN is stored as a salted SHA-256 hash using Android's Secure Storage (never in plaintext).</li>
+    <li><strong>Biometric preference</strong> – a flag indicating whether you have opted in to biometric login (fingerprint / face unlock). The biometric data itself is handled entirely by the Android operating system; FinPath never has access to raw biometric data.</li>
+    <li><strong>Purchase status</strong> – whether you have purchased the FinPath Pro upgrade (CSV export). This flag is stored locally and verified via Google Play Billing.</li>
+  </ul>
+
+  <h2>2. How Data Is Stored</h2>
+  <p>
+    All personal and financial data is stored <strong>locally on your device</strong> in an encrypted
+    SQLite database and Android Secure Storage. We do not operate any servers and we do not
+    transmit your financial data to any external service.
+  </p>
+
+  <h2>3. Data We Do Not Collect</h2>
+  <ul>
+    <li>We do not collect location data.</li>
+    <li>We do not collect contacts or call logs.</li>
+    <li>We do not place advertisements or share data with advertisers.</li>
+    <li>We do not collect analytics or tracking identifiers.</li>
+    <li>We do not sell or share your personal data with third parties.</li>
+  </ul>
+
+  <h2>4. Third-Party Services</h2>
+  <p>FinPath integrates with the following third-party services:</p>
+  <ul>
+    <li>
+      <strong>Google Play Billing</strong> – used solely to process and verify the one-time
+      FinPath Pro purchase (CSV export feature). Google's own privacy policy governs payment
+      data. We receive only a purchase receipt confirmation.
+    </li>
+  </ul>
+
+  <h2>5. Crash Reporting</h2>
+  <p>
+    FinPath may optionally integrate Sentry for crash reporting. If enabled, anonymised crash
+    reports (stack traces, device model, OS version) may be sent to Sentry. No personally
+    identifiable financial data is included in crash reports.
+    At present, crash reporting is disabled by default.
+  </p>
+
+  <h2>6. Data Backup</h2>
+  <p>
+    Android's Auto Backup may back up app data to your Google account as controlled by the
+    Android system. Sensitive credentials (PIN hash, biometric flag, Pro status) are excluded
+    from backups per Android's backup rules configured in the app. Financial data in the
+    local database may be included in your device backup, which is subject to your Google
+    account's privacy settings.
+  </p>
+
+  <h2>7. Children's Privacy</h2>
+  <p>
+    FinPath is intended for users aged 18 and above. We do not knowingly collect data from
+    children under 13. If you believe a child has provided data through the app, please
+    contact us and we will delete it promptly.
+  </p>
+
+  <h2>8. Your Rights</h2>
+  <p>
+    Because all your data is stored locally on your device, you have full control over it at
+    all times. You can:
+  </p>
+  <ul>
+    <li>Delete any profile and all associated data directly within the app (Profile tab → Delete Profile).</li>
+    <li>Uninstall the app to permanently remove all locally stored data from your device.</li>
+  </ul>
+
+  <h2>9. Changes to This Policy</h2>
+  <p>
+    We may update this policy from time to time. The "Last updated" date at the top of this
+    page will be revised accordingly. Continued use of the app after any changes constitutes
+    acceptance of the updated policy.
+  </p>
+
+  <h2>10. Contact</h2>
+  <p>
+    If you have any questions about this privacy policy, please contact us at:
+    <a href="mailto:support@finpath.app">support@finpath.app</a>
+  </p>
+
+</body>
+</html>

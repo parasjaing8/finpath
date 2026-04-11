@@ -22,7 +22,8 @@
         "backgroundColor": "#ffffff"
       },
       "versionCode": 2,
-      "package": "com.anonymous.finpath"
+      "package": "com.anonymous.finpath",
+      "privacyPolicyUrl": "https://parasjaing8.github.io/finpath/privacy-policy.html"
     },
     "web": {
       "favicon": "./assets/favicon.png"
