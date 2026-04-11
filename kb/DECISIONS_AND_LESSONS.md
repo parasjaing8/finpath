@@ -166,3 +166,89 @@ when the fallback contains arithmetic.
   ```
 - Output: `android/app/build/outputs/apk/release/app-release.apk`
 - Copy to releases: `releases/FinPath-v{version}-build{n}.apk`
+
+---
+
+## 2026-04-08/09 — Two-Bucket Growth Model + Bug Fix + UX Changes
+
+### Decision: Per-Asset Growth Rates via Two-Bucket Model
+
+**Context:** Previously all assets grew at the uniform `sipReturnRate`. User wanted ESOP/stocks/PF to grow at different rates.
+
+**Architecture:**
+- `existingBucket`: current investable assets, grows at `computeBlendedGrowthRate()` (weighted avg of per-asset `expected_roi`)
+- `sipBucket`: new SIP contributions, grows at `sipReturnRate`
+- At retirement: merge into `existingBucket`, then grow at `postSipReturnRate`
+- `expected_roi` stored in SQLite `assets` table as integer %; 0 = unset (uses `DEFAULT_GROWTH_RATES`)
+- Self-use real estate excluded from blended rate (not investable)
+
+**Why weighted blended:** Per-asset post-retirement tracking would require storing full asset history. Blended rate is a practical simplification that still correctly weights growth by asset size.
+
+**Consistency requirement:** `calculateProjections` and `simulateCorpusAtAge` must use identical logic, or the binary-search SIP sizing will be wrong. Verified by T20.
+
+---
+
+### Bug Fixed: sipStopAge == retirementAge Drops Last SIP
+
+**Bug:** When SIP stop age equals retirement age (the default), the last annual SIP was silently dropped.
+
+**Root cause:** Merge block ran `existingBucket += sipBucket; sipBucket = 0` before the final `annualSIP` could be added.
+
+**Fix:** Added `if (age <= sipStopAge) existingBucket += annualSIP` before the merge in BOTH `calculateProjections` and `simulateCorpusAtAge`.
+
+**Impact:** For 50k/mo SIP, 6,42,000 was being lost (would compound to ~96L by age 100 at 7%).
+
+**Lesson:** Any time sipStop and retirement coincide (the common case), verify the merge boundary handles the final period correctly. Always keep both projection functions in sync.
+
+---
+
+### UX Changes (session 2026-04-08)
+
+1. Asset form: growth rate slider (0–25%, defaults to category default); stored as `expected_roi`
+2. Login: auto-selects single profile; redirects to Assets tab (not Dashboard)
+3. Profile edit: DOB is now editable via DateInput
+4. Profile screen: removed "Switch Profile" (single-profile UX)
+5. Biometric: enabled by default on profile creation
+6. Expenses: total tile is now red (#B71C1C)
+7. Goals: removed FIRE terminology, removed expense discount rate section, removed "grows at 6%/yr" info text
+8. Dashboard: "FIRE" replaced with "Corpus"/"Financial Freedom"; chart simplified to net worth + expenses + corpus target line + vertical marker
+
+
+---
+
+## 2026-04-11 — Monetization: moved from 2-app to single-app + IAP
+
+**Decision:** Single app on Play Store. One non-consumable IAP (`finpath_pro`, Rs.199/$4.99) gates only CSV export. All other features free including unlimited profiles.
+
+**Old strategy:** Two separate Play Store listings — FinPath (free) + FinPath Pro (paid).
+**New strategy:** One listing, IAP for CSV export only.
+
+**Why changed:** Simpler discovery, lower friction, users do not need to find a second app. CSV export is a power-user feature that justifies a one-time purchase without blocking core value.
+
+**Stale code to fix:** login.tsx and create-profile.tsx still gate adding a second profile behind `isPro`. Must be removed — profiles are now free. Also ProPaywall.tsx lists "Unlimited profiles" as a Pro feature — needs updating.
+
+---
+
+## 2026-04-11 — ProPaywall feature list is stale
+
+**Issue:** `components/ProPaywall.tsx` FEATURES array lists "Unlimited profiles" and "CSV export" as Pro features. Under the new single-app strategy only CSV export is Pro.
+
+**Fix needed:** Remove "Unlimited profiles" from FEATURES. Update headline text. Remove isPro gate from login.tsx (line 260) and create-profile.tsx (lines 58-60).
+
+---
+
+## 2026-04-09/10 — Full UX overhaul (r7-r13 sessions)
+
+Summarised from git log — individual decisions not logged at the time.
+
+- CorpusPrimer: first-time onboarding dialog (Goals screen) + inline lightbulb hint. Shown once per profile via SecureStore flags.
+- Dashboard redesign: summary tiles simplified to corpus-needed + corpus-at-100. Today vs Projections two-column layout.
+- SIP burden warning: 4 severity levels (CRITICAL/HIGH/MODERATE/INFO) based on SIP-to-income ratio.
+- Collapsible Advanced section: SIP return rate, post-SIP return rate, step-up rate hidden by default.
+- Chart: post-retirement shows withdrawal line only (not pre-retirement expenses which are salary-funded).
+- Goals screen: FIRE type chips (Slim/Moderate/Fat/Custom) replace dropdown. "Monthly Retirement Withdrawal" replaces "Pension Income". Save navigates directly to Dashboard.
+- Assets: per-asset ROI slider removed from form — DEFAULT_GROWTH_RATES used, user cannot override per-asset (simplification).
+- Expenses: neutral blue-grey accent. Plain-language type labels with contextual hints.
+- Tab reorder: Assets first (tried Dashboard-first, reverted).
+- Logout: moved from Dashboard header to Profile screen (r13).
+- SIP engine: switched to FV annuity formula; current year prorated to remaining months.
