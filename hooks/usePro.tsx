@@ -74,7 +74,7 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
 
         errorListenerRef.current = purchaseErrorListener((error: PurchaseError) => {
           if (__DEV__) console.error('IAP error:', error);
-          setErrorMessage(error.message || 'Purchase failed. Please try again.');
+          setErrorMessage(`Billing error: ${error?.code || ''} ${error?.message || 'Unknown error'}`);
         });
 
         // Silently restore to catch purchases made on other devices
@@ -106,7 +106,7 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
       // Result handled by purchaseUpdatedListener
     } catch (e: any) {
       if (__DEV__) console.error('Purchase error:', e);
-      setErrorMessage('Purchase failed. Please check your connection and try again.');
+      setErrorMessage(`Purchase failed: ${e?.code || ''} ${e?.message || 'Unknown error'}`);
     } finally {
       setPurchasing(false);
     }
