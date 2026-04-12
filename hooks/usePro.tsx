@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import {
   initConnection,
   endConnection,
-  getProducts,
+  fetchProducts,
   requestPurchase,
   getAvailablePurchases,
   purchaseUpdatedListener,
@@ -101,8 +101,15 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
   const purchasePro = useCallback(async () => {
     setPurchasing(true);
     try {
-      await getProducts({ skus: [PRO_PRODUCT_ID] });
-      await requestPurchase({ skus: [PRO_PRODUCT_ID] });
+      await fetchProducts({ skus: [PRO_PRODUCT_ID], type: "inapp" });
+      await requestPurchase({
+        request: {
+          google: {
+            skus: [PRO_PRODUCT_ID],
+          },
+        },
+        type: "in-app",
+      });
       // Result handled by purchaseUpdatedListener
     } catch (e: any) {
       if (__DEV__) console.error('Purchase error:', e);
