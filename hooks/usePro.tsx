@@ -20,22 +20,27 @@ interface ProContextType {
   isPro: boolean;
   loading: boolean;
   purchasing: boolean;
+  errorMessage: string | null;
   purchasePro: () => Promise<void>;
   restorePurchases: () => Promise<void>;
+  clearError: () => void;
 }
 
 const ProContext = createContext<ProContextType>({
   isPro: false,
   loading: true,
   purchasing: false,
+  errorMessage: null,
   purchasePro: async () => {},
   restorePurchases: async () => {},
+  clearError: () => {},
 });
 
 export function ProProvider({ children }: { children: React.ReactNode }) {
   const [isPro, setIsPro] = useState(false);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const purchaseListenerRef = useRef<any>(null);
   const errorListenerRef = useRef<any>(null);
 
@@ -43,6 +48,8 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
     await SecureStore.setItemAsync(PRO_STORE_KEY, '1');
     setIsPro(true);
   }, []);
+
+  const clearError = useCallback(() => setErrorMessage(null), []);
 
   // Restore from SecureStore + Play Store on mount
   useEffect(() => {
@@ -67,6 +74,7 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
 
         errorListenerRef.current = purchaseErrorListener((error: PurchaseError) => {
           if (__DEV__) console.error('IAP error:', error);
+          setErrorMessage(error.message || 'Purchase failed. Please try again.');
         });
 
         // Silently restore to catch purchases made on other devices
@@ -96,8 +104,9 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
       await getProducts({ skus: [PRO_PRODUCT_ID] });
       await requestPurchase({ skus: [PRO_PRODUCT_ID] });
       // Result handled by purchaseUpdatedListener
-    } catch (e) {
+    } catch (e: any) {
       if (__DEV__) console.error('Purchase error:', e);
+      setErrorMessage('Purchase failed. Please check your connection and try again.');
     } finally {
       setPurchasing(false);
     }
@@ -117,7 +126,7 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
   }, [unlockPro]);
 
   return (
-    <ProContext.Provider value={{ isPro, loading, purchasing, purchasePro, restorePurchases }}>
+    <ProContext.Provider value={{ isPro, loading, purchasing, errorMessage, purchasePro, restorePurchases, clearError }}>
       {children}
     </ProContext.Provider>
   );
