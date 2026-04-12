@@ -279,6 +279,19 @@ export default function DashboardScreen() {
           </Card.Content>
         </Card>
       </View>
+      {/* Corpus depletion warning — shown when corpus depletes within projection window */}
+      {result.failureAge > 0 && (
+        <Card style={[styles.netWorthClarityCard, { backgroundColor: '#FFF3E0', borderLeftWidth: 3, borderLeftColor: '#E65100' }]}>
+          <Card.Content>
+            <Text variant="labelMedium" style={{ color: '#E65100', fontWeight: '700', marginBottom: 4 }}>
+              ⚠ Corpus depletes at age {result.failureAge}
+            </Text>
+            <Text variant="bodySmall" style={{ color: '#BF360C', lineHeight: 18 }}>
+              At this SIP, your corpus runs out at age {result.failureAge}. Increase your monthly SIP or consider a later retirement age.
+            </Text>
+          </Card.Content>
+        </Card>
+      )}
       {/* SIP burden warning — shown when required SIP exceeds or strains salary */}
       {sipWarningCard}
 
