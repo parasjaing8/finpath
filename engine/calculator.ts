@@ -60,6 +60,8 @@ export interface CalculationOutput {
   netWorthAtRetirement: number;
   /** Projected net worth at age 100 — negative means corpus depleted before 100. */
   netWorthAtAge100: number;
+  /** Age at which post-retirement corpus depletes. -1 if survives full horizon. */
+  failureAge: number;
 }
 
 function getAge(dob: string, onDate: Date = new Date()): number {
@@ -165,6 +167,13 @@ export const FIRE_WITHDRAWAL_RATES: Record<string, number> = {
   slim: 7,
 };
 
+/** Target survival ages for each FIRE safety level. */
+export const FIRE_TARGET_AGES: Record<string, number> = {
+  slim: 85,       // Lean -- corpus survives to 85
+  moderate: 100,  // Comfortable -- corpus survives to 100
+  fat: 120,       // Rich -- corpus preserved to 120
+};
+
 /**
  * Calculate the FIRE corpus:
  *   Base  = pension / SWR  (sustains ongoing monthly withdrawals)
@@ -209,7 +218,6 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
   const { retirement_age: retirementAge, sip_stop_age: sipStopAge } = goals;
-  const withdrawalRate = goals.withdrawal_rate ?? 5;
 
   // Calculate initial net worth from all assets
   let initialNetWorth = 0;
@@ -260,12 +268,12 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     postRetirementExpensesPV += annualAmt / Math.pow(1 + discountRate, yearsFromNow);
   }
 
-  // FIRE corpus = pension/SWR base + PV of corpus-funded post-retirement future expenses
-  const fireCorpus = calculateFireCorpus(
-    monthlyPensionPV,
-    retirementAge - currentAge,
-    withdrawalRate,
-    postRetirementExpensesPV,
+  // FIRE corpus -- simulation-based: min corpus at retirement surviving to fireTargetAge
+  const fireTargetAge = goals.fire_target_age ?? 100;
+  const fireCorpus = calculateSimulationFireCorpus(
+    expenses, currentAge, currentYear, currentMonth,
+    retirementAge, postSipReturnRate, monthlyPensionPV,
+    fireTargetAge, goals.fire_type ?? 'moderate',
   );
 
   // Compute blended growth rate for initial (existing) assets
@@ -278,6 +286,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
   let retirementMerged = false;
   let fireAchieved = false;
   let fireAchievedAge = -1;
+  let failureAge = -1;
 
   for (let age = currentAge; age <= 100; age++) {
     const year = currentYear + (age - currentAge);
@@ -337,7 +346,9 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
       existingBucket = Math.max(0, existingBucket) * (1 + er) + vestingIncome;
       sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP;
     } else {
-      existingBucket = Math.max(0, existingBucket) * (1 + postSipReturnRate / 100) + vestingIncome - totalNetExpenses;
+      const newCorpus = Math.max(0, existingBucket) * (1 + postSipReturnRate / 100) + vestingIncome - totalNetExpenses;
+      if (newCorpus < 0 && failureAge === -1) failureAge = age;
+      existingBucket = Math.max(0, newCorpus);
     }
     const netWorth = existingBucket + sipBucket;
 
@@ -367,7 +378,6 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
   const netWorthAtAge100 = projections[projections.length - 1]?.netWorthEOY ?? 0;
 
   // Calculate required monthly SIP using binary search targeting corpus survival to fire_target_age
-  const fireTargetAge = goals.fire_target_age ?? 100;
   const requiredMonthlySIP = calculateRequiredSIP(
     investableNetWorth, assets, expenses,
     currentAge, currentYear, currentMonth, retirementAge, sipStopAge,
@@ -415,6 +425,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     sipBurdenWarning,
     netWorthAtRetirement,
     netWorthAtAge100,
+    failureAge,
   };
 }
 
@@ -439,6 +450,77 @@ export function calculatePresentValueOfExpenses(
     pv += annualExpenses / Math.pow(1 + discountRate, age - currentAge);
   }
   return pv;
+}
+
+/**
+ * Simulate corpus from retirement age to targetAge WITHOUT clamping at 0.
+ * Used for binary search in calculateSimulationFireCorpus.
+ * Returns negative if corpus depletes -- intentional, for accurate binary search.
+ */
+function simulatePostRetirementCorpus(
+  startCorpus: number,
+  retirementAge: number,
+  targetAge: number,
+  currentAge: number,
+  currentYear: number,
+  currentMonth: number,
+  postSipReturnRate: number,
+  monthlyPension: number,
+  expenses: Expense[],
+): number {
+  const futureExpenses = expenses.filter(e => e.expense_type !== 'CURRENT_RECURRING');
+  let corpus = startCorpus;
+  for (let age = retirementAge; age <= targetAge; age++) {
+    const year = currentYear + (age - currentAge);
+    const yearsFromStart = age - currentAge;
+    let withdrawal = 0;
+    if (monthlyPension > 0)
+      withdrawal += monthlyPension * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsFromStart);
+    for (const exp of futureExpenses)
+      withdrawal += calculateExpenseForYear(exp, year, currentYear, currentMonth);
+    corpus = corpus * (1 + postSipReturnRate / 100) - withdrawal;
+  }
+  return corpus;
+}
+
+/**
+ * Binary-search for minimum corpus AT retirement age that survives to fireTargetAge.
+ * For fat/Rich: corpus at targetAge must also >= starting corpus (wealth preservation).
+ * Replaces the SWR-formula approach (calculateFireCorpus) for consistency with SIP simulation.
+ */
+function calculateSimulationFireCorpus(
+  expenses: Expense[],
+  currentAge: number,
+  currentYear: number,
+  currentMonth: number,
+  retirementAge: number,
+  postSipReturnRate: number,
+  monthlyPension: number,
+  fireTargetAge: number,
+  fireType: string,
+): number {
+  if (monthlyPension <= 0) return 0;
+  const isRich = fireType === 'fat';
+
+  // residual > 0 means corpus survived (or preserved for Rich); < 0 means depleted
+  function residual(corpus: number): number {
+    const final = simulatePostRetirementCorpus(
+      corpus, retirementAge, fireTargetAge,
+      currentAge, currentYear, currentMonth,
+      postSipReturnRate, monthlyPension, expenses,
+    );
+    return isRich ? final - corpus : final;
+  }
+
+  // Binary search -- residual is monotone increasing in starting corpus
+  let low = 0, high = 2_000_000_000; // 200 Cr cap
+  for (let i = 0; i < 60; i++) {
+    const mid = (low + high) / 2;
+    const r = residual(mid);
+    if (Math.abs(r) < 10_000) return Math.ceil(mid);
+    if (r < 0) low = mid; else high = mid;
+  }
+  return Math.ceil((low + high) / 2);
 }
 
 /**
