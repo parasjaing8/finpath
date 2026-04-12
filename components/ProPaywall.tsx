@@ -16,13 +16,15 @@ const FEATURES = [
 ];
 
 export function ProPaywall({ visible, onDismiss }: ProPaywallProps) {
-  const { purchasePro, restorePurchases, purchasing } = usePro();
+  const { purchasePro, restorePurchases, purchasing, errorMessage, clearError } = usePro();
 
   const headline = 'Export your full projection to CSV';
 
+  const handleDismiss = () => { clearError(); onDismiss(); };
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onDismiss} />
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleDismiss}>
+      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleDismiss} />
       <View style={styles.sheet}>
 
         {/* Header */}
@@ -71,6 +73,10 @@ export function ProPaywall({ visible, onDismiss }: ProPaywallProps) {
           Upgrade to Pro
         </Button>
 
+        {errorMessage && (
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        )}
+
         <Button
           mode="text"
           onPress={restorePurchases}
@@ -81,7 +87,7 @@ export function ProPaywall({ visible, onDismiss }: ProPaywallProps) {
           Restore purchase
         </Button>
 
-        <TouchableOpacity onPress={onDismiss} style={styles.closeBtn}>
+        <TouchableOpacity onPress={handleDismiss} style={styles.closeBtn}>
           <Text style={styles.closeText}>Maybe later</Text>
         </TouchableOpacity>
       </View>
@@ -161,6 +167,12 @@ const styles = StyleSheet.create({
   },
   buyBtnContent: {
     height: 52,
+  },
+  errorText: {
+    color: '#C62828',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 4,
   },
   restoreBtn: {
     marginBottom: 4,
