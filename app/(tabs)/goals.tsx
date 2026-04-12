@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { useProfile } from '../../hooks/useProfile';
 import { getGoals, saveGoals, FireType } from '../../db/queries';
 import { Slider } from '@miblanchard/react-native-slider';
-import { formatCurrency, PENSION_INFLATION_RATE, FIRE_WITHDRAWAL_RATES } from '../../engine/calculator';
+import { formatCurrency, PENSION_INFLATION_RATE, FIRE_TARGET_AGES } from '../../engine/calculator';
 import { FREQUENCIES } from '../../constants/categories';
 import { CorpusPrimer } from '../../components/CorpusPrimer';
 
@@ -16,7 +16,7 @@ export default function GoalsScreen() {
   const [sipStopAge, setSipStopAge] = useState(55);
   const [pensionIncome, setPensionIncome] = useState('');
   const [fireType, setFireType] = useState<FireType>('moderate');
-  const [withdrawalRate, setWithdrawalRate] = useState(5);
+  const [fireTargetAge, setFireTargetAge] = useState(100);
   const [inflationRate, setInflationRate] = useState(6);
   const [showSWRDialog, setShowSWRDialog] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -37,8 +37,11 @@ export default function GoalsScreen() {
         };
         const mappedType = typeMap[goals.fire_type] ?? 'moderate';
         setFireType(mappedType);
-        const rate = goals.withdrawal_rate ?? (FIRE_WITHDRAWAL_RATES[mappedType] ?? 5);
-        setWithdrawalRate(rate);
+        if (mappedType === 'custom') {
+          setFireTargetAge(goals.fire_target_age ?? 100);
+        } else {
+          setFireTargetAge(FIRE_TARGET_AGES[mappedType] ?? 100);
+        }
         setInflationRate(goals.inflation_rate ?? 6);
       }
     }
@@ -58,8 +61,8 @@ export default function GoalsScreen() {
         correctedSipStopAge,
         parseFloat(pensionIncome) > 0 ? parseFloat(pensionIncome) : 0,
         fireType,
-        100,
-        withdrawalRate,
+        fireTargetAge,
+        0,
         inflationRate,
       );
       setSaved(true);
@@ -123,18 +126,18 @@ export default function GoalsScreen() {
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 24 }}>
             <Text variant="labelLarge" style={[styles.sectionLabel, { marginTop: 0, flex: 1 }]}>
-              FIRE Type — Withdrawal Rate (SWR)
+              Retirement Safety Level
             </Text>
-            <IconButton icon="information-outline" size={20} onPress={() => setShowSWRDialog(true)} accessibilityLabel="Learn about withdrawal rates" />
+            <IconButton icon="information-outline" size={20} onPress={() => setShowSWRDialog(true)} accessibilityLabel="Learn about retirement safety levels" />
           </View>
           <Text variant="bodySmall" style={styles.sectionHint}>
-            Annual withdrawal % from your corpus post-retirement. Lower rate = larger corpus, safer.
+            How safely do you want your corpus to last? Lean = 85 yrs, Comfortable = 100 yrs, Rich = 120 yrs.
           </Text>
           <View style={styles.fireTypeRow}>
             {([
-              { type: 'slim' as FireType, label: 'Slim (7%)' },
-              { type: 'moderate' as FireType, label: 'Moderate (5%)' },
-              { type: 'fat' as FireType, label: 'Fat (3%)' },
+              { type: 'slim' as FireType, label: 'Lean' },
+              { type: 'moderate' as FireType, label: 'Comfortable' },
+              { type: 'fat' as FireType, label: 'Rich' },
               { type: 'custom' as FireType, label: 'Custom' },
             ]).map(({ type, label }) => {
               const selected = fireType === type;
@@ -144,7 +147,7 @@ export default function GoalsScreen() {
                   style={[styles.fireTypeChip, selected && styles.fireTypeChipSelected]}
                   onPress={() => {
                     setFireType(type);
-                    if (type !== 'custom') setWithdrawalRate(FIRE_WITHDRAWAL_RATES[type]);
+                    if (type !== 'custom') setFireTargetAge(FIRE_TARGET_AGES[type]);
                   }}
                   accessibilityLabel={`FIRE type: ${label}`}
                   accessibilityState={{ selected }}
@@ -159,20 +162,20 @@ export default function GoalsScreen() {
           {fireType === 'custom' && (
             <>
               <Text variant="labelLarge" style={styles.sliderLabel}>
-                Withdrawal Rate: {withdrawalRate}%
+                Corpus Survival Target: Age {fireTargetAge}
               </Text>
               <Slider
-                value={withdrawalRate}
-                onValueChange={(v: number[]) => setWithdrawalRate(Math.round(v[0]))}
-                minimumValue={3}
-                maximumValue={10}
+                value={fireTargetAge}
+                onValueChange={(v: number[]) => setFireTargetAge(Math.round(v[0]))}
+                minimumValue={75}
+                maximumValue={120}
                 step={1}
                 minimumTrackTintColor="#1B5E20"
                 thumbTintColor="#1B5E20"
-                accessibilityLabel={`Withdrawal rate: ${withdrawalRate} percent`}
+                accessibilityLabel={`Corpus survival target age: ${fireTargetAge}`}
               />
               <HelperText type="info">
-                Lower rate = larger corpus, safer. Higher rate = smaller corpus, riskier.
+                How long should your corpus last? Earlier = smaller corpus needed. Later = larger, safer.
               </HelperText>
             </>
           )}
@@ -204,7 +207,7 @@ export default function GoalsScreen() {
       {/* SWR Info Dialog */}
       <Portal>
         <Dialog visible={showSWRDialog} onDismiss={() => setShowSWRDialog(false)} style={{ backgroundColor: '#FFF' }}>
-          <Dialog.Title>Safe Withdrawal Rate (SWR)</Dialog.Title>
+          <Dialog.Title>Retirement Safety Level</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium" style={{ lineHeight: 22, marginBottom: 10 }}>
               SWR is the percentage of your corpus you withdraw each year in retirement. It originated from the
