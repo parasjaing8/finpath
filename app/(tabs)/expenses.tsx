@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
   emptyCard: { padding: 24, borderRadius: 12 },
   groupTitle: { marginTop: 16, marginBottom: 8, fontWeight: '700', color: '#37474F' },
   expCard: { marginBottom: 8, borderRadius: 8, backgroundColor: '#FFFFFF' },
-  expRow: { flexDirection: 'row', alignItems: 'center' },
+  expRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12 },
   modal: { backgroundColor: '#FFFFFF', margin: 16, padding: 20, borderRadius: 16, maxHeight: '85%' },
   modalTitle: { fontWeight: 'bold', marginBottom: 16, color: '#37474F' },
   input: { marginBottom: 8, backgroundColor: '#FFFFFF' },

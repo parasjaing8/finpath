@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Alert, ActivityIndicator, RefreshControl } from 'react-native';
-import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, HelperText } from 'react-native-paper';
+import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, HelperText, Icon } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { Asset, getAssets, createAsset, updateAsset, deleteAsset, getTotalNetWorth } from '../../db/queries';
 import { ASSET_CATEGORIES, FREQUENCIES, DEFAULT_GROWTH_RATES } from '../../constants/categories';
@@ -287,16 +287,17 @@ export default function AssetsScreen() {
                   <Card key={asset.id} style={styles.assetCard} onPress={() => openForm(asset.category, asset)}>
                     <Card.Content style={styles.assetContent}>
                       <View style={styles.assetRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text variant="bodyMedium" style={styles.assetName}>{asset.name}</Text>
-                        <Text variant="bodySmall" style={styles.assetMetaText}>{asset.currency}</Text>
-                      </View>
-                      <View style={styles.assetMeta}>
-                        <Text variant="bodyMedium" style={styles.assetValue}>
-                          {formatCurrency(asset.current_value, asset.currency)}
-                        </Text>
-                        <IconButton icon="delete-outline" size={16} onPress={() => handleDelete(asset.id)} style={styles.assetDeleteIcon} accessibilityLabel={`Delete ${asset.name}`} />
-                      </View>
+                        <Icon source={catInfo?.icon ?? 'dots-horizontal-circle-outline'} size={16} color="#777" />
+                        <View style={{ flex: 1, marginLeft: 8 }}>
+                          <Text variant="bodyMedium" style={styles.assetName}>{asset.name}</Text>
+                          <Text variant="bodySmall" style={styles.assetMetaText}>{asset.expected_roi}% p.a.</Text>
+                        </View>
+                        <View style={styles.assetMeta}>
+                          <Text variant="bodyMedium" style={styles.assetValue}>
+                            {formatCurrency(asset.current_value, asset.currency)}
+                          </Text>
+                          <IconButton icon="delete-outline" size={16} onPress={() => handleDelete(asset.id)} style={styles.assetDeleteIcon} accessibilityLabel={`Delete ${asset.name}`} />
+                        </View>
                       </View>
                     </Card.Content>
                   </Card>
