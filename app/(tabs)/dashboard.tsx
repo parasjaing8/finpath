@@ -156,7 +156,6 @@ export default function DashboardScreen() {
   const chartData = projections.map(p => ({
     age: p.age,
     netWorth: p.netWorthEOY,
-    totalOutflow: p.age >= retirementAge ? p.totalOutflow : 0,
   }));
   const firstFireYear = projections.find(p => p.isFireAchieved)?.year ?? -1;
   const hasVesting = projections.some(p => p.vestingIncome > 0);
@@ -203,81 +202,61 @@ export default function DashboardScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
 
 
-      {/* Section A — Summary Tiles */}
-      <Card style={[styles.tileFullWidth, { backgroundColor: '#E8F5E9' }]}>
-        <Card.Content>
-          <Text variant="labelSmall" style={styles.tileLabel}>Monthly SIP Required</Text>
-          {result.requiredMonthlySIP > 0 ? (
-            <Text variant="headlineSmall" style={[styles.tileValue, { color: '#1B5E20' }]}>
-              {formatCurrencyFull(result.requiredMonthlySIP, currency)}
-            </Text>
-          ) : (
-            <Text variant="headlineSmall" style={[styles.tileValue, { color: '#1B5E20' }]}>
-              No SIP needed
-            </Text>
+      {/* Section A — Hero Card */}
+      <View style={styles.heroCard}>
+        <Text style={styles.heroLabel}>YOUR PLAN</Text>
+        {result.requiredMonthlySIP > 0 ? (
+          <Text style={styles.heroAmount}>{formatCurrencyFull(result.requiredMonthlySIP, currency)}</Text>
+        ) : (
+          <Text style={styles.heroAmount}>No SIP needed</Text>
+        )}
+        <Text style={styles.heroSubtitle}>Monthly SIP · To retire at age {retirementAge}</Text>
+        <View style={styles.heroPillRow}>
+          <View style={styles.heroPill}>
+            <Text style={styles.heroPillText}>{result.isOnTrack ? '🟢 On Track' : '🔴 Off Track'}</Text>
+          </View>
+          {result.fireAchievedAge > 0 && (
+            <View style={styles.heroPill}>
+              <Text style={styles.heroPillText}>
+                {result.failureAge > 0 ? `⚠ Runs out at ${result.failureAge}` : `✓ Lasts till ${goals.fire_target_age ?? 100}`}
+              </Text>
+            </View>
           )}
-        </Card.Content>
-      </Card>
-      <View style={styles.tilesRow}>
-        <Card style={[styles.tile, { backgroundColor: '#FFF3E0' }]}>
-          <Card.Content>
-            <Text variant="labelSmall" style={styles.tileLabel}>Financial Freedom Age</Text>
-            <Text variant="titleMedium" style={styles.tileValue}>
-              {result.timeToFire > 0 ? `${result.timeToFire} years (age ${result.fireAchievedAge})` : result.fireAchievedAge > 0 ? `Corpus reached! (age ${result.fireAchievedAge})` : 'Set goals first'}
-            </Text>
-          </Card.Content>
-        </Card>
-        <Card style={[styles.tile, { backgroundColor: result.isOnTrack ? '#E8F5E9' : '#FFEBEE' }]}>
-          <Card.Content>
-            <Text variant="labelSmall" style={styles.tileLabel}>Goal Status</Text>
-            <Text variant="titleMedium" style={[styles.tileValue, { color: result.isOnTrack ? '#1B5E20' : '#C62828' }]}>
-              {result.isOnTrack ? '🟢 On Track' : '🔴 Off Track'}
-            </Text>
-            {result.requiredMonthlySIP > 0 && (() => {
-              const delta = sipAmount - result.requiredMonthlySIP;
-              const label = delta >= 0
-                ? `+${formatCurrency(delta, currency)}/mo surplus`
-                : `${formatCurrency(Math.abs(delta), currency)}/mo short`;
-              return (
-                <Text variant="labelMedium" style={{ color: result.isOnTrack ? '#2E7D32' : '#C62828', marginTop: 4, fontWeight: '700' }}>
-                  {label}
-                </Text>
-              );
-            })()}
-          </Card.Content>
-        </Card>
+        </View>
       </View>
 
-      {/* Row 3 — Today (left) vs Projections (right) */}
+      {/* Inflation Insight Card */}
+      {(() => {
+        const yearsToRetire = retirementAge - currentAge;
+        const inflRate = (goals.inflation_rate ?? 6);
+        const monthlyW = (goals.pension_income ?? 0);
+        if (monthlyW <= 0 || yearsToRetire <= 0) return null;
+        const inflatedMonthly = Math.round(monthlyW * Math.pow(1 + inflRate / 100, yearsToRetire));
+        const annualNeed = Math.round(inflatedMonthly * 12);
+        return (
+          <View style={styles.insightCard}>
+            <Text style={styles.insightTitle}>💡 Why {formatCurrency(result.fireCorpus, currency)}?</Text>
+            <Text style={styles.insightBody}>
+              {formatCurrencyFull(monthlyW, currency)}/month today{' = '}
+              <Text style={styles.insightHighlight}>{formatCurrencyFull(inflatedMonthly, currency)}/month</Text>
+              {' at age '}{retirementAge}{' ('}{inflRate}{'% inflation, '}{yearsToRetire}{' yrs). Corpus must cover '}{formatCurrency(annualNeed, currency)}{'/year.'}
+            </Text>
+          </View>
+        );
+      })()}
+
+      {/* Snapshot Row */}
       <View style={styles.tilesRow}>
-        <Card style={[styles.tile, { backgroundColor: '#F9FBF9' }]}>
-          <Card.Content>
-            <Text variant="labelSmall" style={styles.columnHeaderToday}>Today</Text>
-            <Text variant="labelSmall" style={styles.tileLabel}>Investable Net Worth</Text>
-            <Text variant="titleSmall" style={[styles.tileValue, { color: '#1B5E20' }]}>
-              {formatCurrencyFull(result.investableNetWorth, currency)}
-            </Text>
-            <View style={styles.horizontalDivider} />
-            <Text variant="labelSmall" style={styles.tileLabel}>Total NW (incl. home/car)</Text>
-            <Text variant="titleSmall" style={styles.tileValue}>
-              {formatCurrencyFull(result.totalNetWorth, currency)}
-            </Text>
-          </Card.Content>
-        </Card>
-        <Card style={[styles.tile, { backgroundColor: '#EDE7F6' }]}>
-          <Card.Content>
-            <Text variant="labelSmall" style={styles.columnHeaderProjections}>Projections</Text>
-            <Text variant="labelSmall" style={styles.tileLabel}>Corpus @ Age {goals.retirement_age}</Text>
-            <Text variant="titleSmall" style={styles.tileValue}>
-              {formatCurrency(result.netWorthAtRetirement, currency)}
-            </Text>
-            <View style={styles.horizontalDivider} />
-            <Text variant="labelSmall" style={styles.tileLabel}>Corpus @ Age 100</Text>
-            <Text variant="titleSmall" style={[styles.tileValue, { color: result.netWorthAtAge100 < 0 ? '#C62828' : '#333' }]}>
-              {formatCurrency(result.netWorthAtAge100, currency)}
-            </Text>
-          </Card.Content>
-        </Card>
+        <View style={[styles.snapTile, { backgroundColor: '#E8F5E9' }]}>
+          <Text style={[styles.snapLabel, { color: '#1B5E20' }]}>TODAY</Text>
+          <Text style={[styles.snapNumber, { color: '#1B5E20' }]}>{formatCurrency(result.investableNetWorth, currency)}</Text>
+          <Text style={styles.snapSub}>Investable Net Worth</Text>
+        </View>
+        <View style={[styles.snapTile, { backgroundColor: '#EDE7F6' }]}>
+          <Text style={[styles.snapLabel, { color: '#5E35B1' }]}>AT AGE {retirementAge}</Text>
+          <Text style={[styles.snapNumber, { color: '#5E35B1' }]}>{formatCurrency(result.netWorthAtRetirement, currency)}</Text>
+          <Text style={styles.snapSub}>Projected Corpus</Text>
+        </View>
       </View>
       {/* Corpus depletion warning — shown when corpus depletes within projection window */}
       {result.failureAge > 0 && (
@@ -310,9 +289,29 @@ export default function DashboardScreen() {
             minimumValue={1000} maximumValue={500000} step={1000}
             minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
           />
-          <Text variant="bodySmall" style={styles.infoText}>
-            SIP stops at age {goals.sip_stop_age} · Step-up {stepUpEnabled ? `${stepUpRate}%/yr` : 'off'} · Returns {sipReturnRate}% → {postSipReturnRate}%
-          </Text>
+          {(() => {
+            if (result.requiredMonthlySIP <= 0) {
+              return (
+                <Text variant="bodySmall" style={[styles.infoText, { color: '#2E7D32', fontWeight: '700', fontStyle: 'normal' }]}>
+                  ✓ Your existing assets cover retirement — no SIP needed
+                </Text>
+              );
+            }
+            const delta = sipAmount - result.requiredMonthlySIP;
+            if (delta > 500 && result.fireAchievedAge > 0 && result.fireAchievedAge < retirementAge) {
+              const ageDelta = retirementAge - result.fireAchievedAge;
+              return (
+                <Text variant="bodySmall" style={[styles.infoText, { color: '#2E7D32', fontWeight: '700', fontStyle: 'normal' }]}>
+                  📍 At {formatCurrencyFull(sipAmount, currency)} → retire at {result.fireAchievedAge}, {ageDelta} yr{ageDelta !== 1 ? 's' : ''} earlier
+                </Text>
+              );
+            }
+            return (
+              <Text variant="bodySmall" style={[styles.infoText, { color: '#616161', fontStyle: 'italic' }]}>
+                Minimum to retire at {retirementAge} · SIP stops at {goals.sip_stop_age} · Step-up {stepUpEnabled ? `${stepUpRate}%/yr` : 'off'}
+              </Text>
+            );
+          })()}
 
           {/* Advanced toggle */}
           <TouchableOpacity
@@ -388,7 +387,7 @@ export default function DashboardScreen() {
             <CartesianChart
               data={chartData}
               xKey="age"
-              yKeys={["netWorth", "totalOutflow"]}
+              yKeys={["netWorth"]}
               domainPadding={{ top: 20, bottom: 20 }}
               axisOptions={{
                 formatXLabel: (v) => `${Math.round(v)}`,
@@ -404,36 +403,56 @@ export default function DashboardScreen() {
               }}
             >
               {({ points, yScale, xScale, canvasSize, chartBounds }) => {
-                // FIRE corpus horizontal dashed line
-                const fireY = yScale(result.fireCorpus);
-                const firePath = Skia.Path.Make();
-                firePath.moveTo(chartBounds.left, fireY);
-                firePath.lineTo(chartBounds.right, fireY);
+                const retX = xScale(retirementAge);
+                const retY = yScale(result.netWorthAtRetirement);
+                const retPath = Skia.Path.Make();
+                retPath.moveTo(retX, chartBounds.top);
+                retPath.lineTo(retX, chartBounds.bottom);
 
-                // FIRE intersection point (net worth crosses FIRE corpus)
-                const fireIdx = points.netWorth.findIndex(pt => (pt.yValue ?? 0) >= result.fireCorpus);
-                const fp = fireIdx >= 0 ? points.netWorth[fireIdx] : null;
+                const failX = result.failureAge > 0 ? xScale(result.failureAge) : null;
+                const failY = result.failureAge > 0 ? yScale(0) : null;
 
                 return <>
                   <Line points={points.netWorth} color="#1B5E20" strokeWidth={2.5} />
-                  <Line points={points.totalOutflow} color="#C62828" strokeWidth={2} />
 
-                  {/* Corpus target horizontal dashed line */}
-                  <SkiaPath path={firePath} color="#FF9800" strokeWidth={2} style="stroke">
-                    <DashPathEffect intervals={[10, 6]} />
+                  {/* Retirement age vertical dashed line */}
+                  <SkiaPath path={retPath} color="#1B5E20" strokeWidth={1.5} style="stroke">
+                    <DashPathEffect intervals={[8, 5]} />
                   </SkiaPath>
 
+                  {/* Age label at top of retirement line */}
+                  {fireAgeFont && (
+                    <SkiaText
+                      x={Math.max(chartBounds.left + 2, retX - 20)}
+                      y={chartBounds.top + 14}
+                      text={`Age ${retirementAge}`}
+                      font={fireAgeFont}
+                      color="#1B5E20"
+                    />
+                  )}
 
-                  {/* Corpus intersection — vertical line + dot + age label */}
-                  {fp && <>
-                    <SkiaCircle cx={fp.x} cy={fireY} r={5} color="#FF9800" />
+                  {/* Peak corpus dot + value label at retirement age */}
+                  <SkiaCircle cx={retX} cy={retY} r={5} color="#1B5E20" />
+                  {fireAgeFont && (
+                    <SkiaText
+                      x={Math.max(chartBounds.left + 2, retX - 30)}
+                      y={retY - 9}
+                      text={formatCurrency(result.netWorthAtRetirement, currency)}
+                      font={fireAgeFont}
+                      color="#1B5E20"
+                    />
+                  )}
+
+                  {/* Failure age red dot + label — only when corpus depletes */}
+                  {failX != null && failY != null && <>
+                    <SkiaCircle cx={failX} cy={failY} r={6} color="#C62828" />
                     {fireAgeFont && (
                       <SkiaText
-                        x={Math.max(chartBounds.left + 2, fp.x - 18)}
-                        y={fireY - 9}
-                        text={`Corpus @ ${result.fireAchievedAge}`}
+                        x={Math.max(chartBounds.left + 2, failX - 35)}
+                        y={failY - 9}
+                        text={`Runs out at ${result.failureAge}`}
                         font={fireAgeFont}
-                        color="#E65100"
+                        color="#C62828"
                       />
                     )}
                   </>}
@@ -446,8 +465,19 @@ export default function DashboardScreen() {
           <View style={styles.legendRow}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#1B5E20' }]} />
-              <Text variant="bodySmall">Your Corpus</Text>
+              <Text variant="bodySmall">Net Worth</Text>
             </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#1B5E20', borderRadius: 0, height: 3, width: 16 }]} />
+              <Text variant="bodySmall">Retirement (Age {retirementAge})</Text>
+            </View>
+            {result.failureAge > 0 && (
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#C62828' }]} />
+                <Text variant="bodySmall" style={{ color: '#C62828' }}>Depletes at {result.failureAge}</Text>
+              </View>
+            )}
+          </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#C62828' }]} />
               <Text variant="bodySmall">Withdrawals</Text>
@@ -569,5 +599,20 @@ const styles = StyleSheet.create({
   tableHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   colNarrow: { width: 60 },
   colWide: { width: 100 },
+  heroCard: { backgroundColor: '#1B5E20', borderRadius: 16, padding: 20, marginBottom: 12 },
+  heroLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: 'rgba(255,255,255,0.7)', marginBottom: 4 },
+  heroAmount: { fontSize: 36, fontWeight: '800', color: '#fff', marginBottom: 4 },
+  heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 14 },
+  heroPillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  heroPill: { backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  heroPillText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  insightCard: { backgroundColor: '#FFFDE7', borderLeftWidth: 3, borderLeftColor: '#F9A825', borderRadius: 8, padding: 14, marginBottom: 12 },
+  insightTitle: { fontSize: 13, fontWeight: '800', color: '#4E342E', marginBottom: 6 },
+  insightBody: { fontSize: 12, color: '#4E342E', lineHeight: 18 },
+  insightHighlight: { fontWeight: '800', color: '#BF360C' },
+  snapTile: { flex: 1, borderRadius: 12, padding: 14 },
+  snapLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginBottom: 4 },
+  snapNumber: { fontSize: 20, fontWeight: '800', marginBottom: 2 },
+  snapSub: { fontSize: 11, color: '#666' },
   fireRow: { backgroundColor: '#C8E6C9' },
 });
