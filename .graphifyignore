@@ -1,0 +1,17 @@
+projects/
+backups/
+static/
+.venv/
+__pycache__/
+*.db
+*.db-wal
+*.db-shm
+*.log
+*.jsonl
+graphify-out/
+tests/
+docs/
+kb/
+memory/
+skills/
+logs/

@@ -1,0 +1,1 @@
+- [2026-04-04] [tetris12] Validate HTML structure and script loading order to ensure game logic executes correctly on startup.

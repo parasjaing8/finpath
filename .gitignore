@@ -1,0 +1,41 @@
+# Secrets
+.env
+
+# Database
+chat.db
+chat.db-wal
+chat.db-shm
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Runtime
+backups/
+projects/
+logs/
+*.log
+ai-chat.log
+
+# Graphify outputs
+graphify-out/cache/
+graphify-out/graph.html
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverrideIcon
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo

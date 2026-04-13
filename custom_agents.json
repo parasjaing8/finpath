@@ -1,0 +1,6 @@
+{
+  "qwen35": {
+    "model": "qwen3.5:9b",
+    "label": "Qwen"
+  }
+}
