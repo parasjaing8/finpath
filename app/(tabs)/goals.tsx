@@ -180,6 +180,20 @@ export default function GoalsScreen() {
             </>
           )}
 
+          <Text variant="labelLarge" style={styles.sliderLabel}>
+            Inflation Rate: {inflationRate}%/year
+          </Text>
+          <Slider
+            value={inflationRate}
+            onValueChange={(v: number[]) => setInflationRate(Math.round(v[0]))}
+            minimumValue={3} maximumValue={12} step={1}
+            minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
+            accessibilityLabel={`Inflation rate: ${inflationRate} percent`}
+          />
+          <HelperText type="info">
+            Rate at which prices rise each year. Affects how much your monthly withdrawal must grow by retirement.
+          </HelperText>
+
           <Text variant="labelLarge" style={styles.sectionLabel}>Monthly Retirement Withdrawal</Text>
           <Text variant="bodySmall" style={styles.sectionHint}>
             How much you want to withdraw from your corpus each month after retiring (in today's value).
@@ -194,6 +208,20 @@ export default function GoalsScreen() {
             style={styles.input}
             left={<TextInput.Affix text={currentProfile.currency === 'INR' ? '₹' : '$'} />}
           />
+          {parseFloat(pensionIncome) > 0 && yearsToRetirement > 0 && (() => {
+            const monthly = parseFloat(pensionIncome);
+            const inflatedMonthly = Math.round(monthly * Math.pow(1 + inflationRate / 100, yearsToRetirement));
+            return (
+              <View style={styles.fvCard}>
+                <Text style={styles.fvText}>
+                  {formatCurrency(monthly, currentProfile.currency)}/month today
+                  {' = '}
+                  <Text style={styles.fvHighlight}>{formatCurrency(inflatedMonthly, currentProfile.currency)}/month</Text>
+                  {' at age '}{retirementAge}{' ('}{inflationRate}{'% inflation, '}{yearsToRetirement}{' yrs)'}
+                </Text>
+              </View>
+            );
+          })()}
 
 
           <Button mode="contained" onPress={handleSave} loading={loading} disabled={loading}
@@ -255,4 +283,7 @@ const styles = StyleSheet.create({
   fireTypeChipSelected: { backgroundColor: '#1B5E20' },
   fireTypeChipText: { fontSize: 13, fontWeight: '600', color: '#1B5E20' },
   fireTypeChipTextSelected: { color: '#FFF' },
+  fvCard: { backgroundColor: '#FFFDE7', borderLeftWidth: 2, borderLeftColor: '#F9A825', borderRadius: 6, padding: 10, marginTop: 8, marginBottom: 4 },
+  fvText: { fontSize: 12, color: '#4E342E', lineHeight: 18 },
+  fvHighlight: { fontWeight: '800', color: '#BF360C' },
 });
