@@ -478,18 +478,7 @@ export default function DashboardScreen() {
               </View>
             )}
           </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#C62828' }]} />
-              <Text variant="bodySmall">Withdrawals</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#FF9800', borderRadius: 0, height: 3, width: 16 }]} />
-              <Text variant="bodySmall">
-                {result.fireAchievedAge > 0 ? `Corpus @ Age ${result.fireAchievedAge}` : 'Corpus Target'}
-              </Text>
-            </View>
 
-          </View>
         </Card.Content>
       </Card>
 
