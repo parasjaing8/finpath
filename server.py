@@ -5,6 +5,8 @@ Access from any home network device: http://192.168.0.130:8080
 """
 from __future__ import annotations
 import asyncio
+import gc
+from contextlib import aclosing
 from collections import defaultdict, deque
 import json
 import logging
@@ -1468,6 +1470,7 @@ async def ws_endpoint(ws: WebSocket):
             active_task.cancel()
         finally:
             active_task = None
+            gc.collect()  # prompt release of LLM response strings / httpx buffers
 
     try:
         await ws.send_json({"type": "history", "messages": load_history()})
@@ -1665,11 +1668,12 @@ async def ws_endpoint(ws: WebSocket):
                     gen  = (stream_claude(ctx, cancel_event=cancel_event)
                             if agent == "claude"
                             else stream_ollama(agent, ctx, cancel_event=cancel_event))
-                    async for chunk in gen:
-                        if cancel_event.is_set():
-                            break
-                        await ws.send_json({"type": "chunk", "agent": agent, "content": chunk})
-                        full += chunk
+                    async with aclosing(gen):
+                        async for chunk in gen:
+                            if cancel_event.is_set():
+                                break
+                            await ws.send_json({"type": "chunk", "agent": agent, "content": chunk})
+                            full += chunk
                     if full.strip():
                         save_message(agent, full.strip())
                         ctx = load_history(CONTEXT_LEN)

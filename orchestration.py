@@ -1,6 +1,7 @@
 """Orchestration — intent detection, planning, evaluation, execution, memory/lessons."""
 from __future__ import annotations
 import asyncio
+from contextlib import aclosing
 import hashlib
 import json
 import logging
@@ -1673,6 +1674,11 @@ async def run_orchestration(ws: WebSocket, project_id: int, goal: str, resume: b
                 tmap = {t["task_number"]: t for t in refreshed}
                 if tmap.get(wave[0]["task_number"], {}).get("status") == "errored":
                     errored_task_numbers.add(wave[0]["task_number"])
+            except asyncio.CancelledError:
+                # WS disconnect triggers active_task.cancel() → CancelledError bypasses
+                # except Exception. Reset task to pending so it survives reconnect/resume.
+                update_task(wave[0]["id"], status="pending")
+                raise
             except Exception as e:
                 t = wave[0]
                 logging.error("Task %d failed: %s", t["task_number"], e)
@@ -1688,7 +1694,10 @@ async def run_orchestration(ws: WebSocket, project_id: int, goal: str, resume: b
             refreshed = get_all_tasks(project_id)
             tmap = {t["task_number"]: t for t in refreshed}
             for t, result in zip(wave, results):
-                if isinstance(result, Exception):
+                if isinstance(result, asyncio.CancelledError):
+                    # WS disconnected mid-parallel-wave — reset to pending for resume
+                    update_task(t["id"], status="pending")
+                elif isinstance(result, Exception):
                     logging.error("Task %d failed: %s", t["task_number"], result)
                     append_devlog(project, f"**Task {t['task_number']} ERRORED**: {result}")
                     update_task(t["id"], status="errored", completed_at=datetime.now(timezone.utc).isoformat())
@@ -1863,19 +1872,18 @@ async def _execute_task(ws: WebSocket, project: dict, task: dict, goal: str,
 
     full = ""
     tok: dict = {}
-    if agent == "claude":
-        gen = stream_claude(history, system_prompt=worker_system, cancel_event=cancel_event, usage=tok, max_tokens=8192)
-    else:
-        gen = stream_ollama(agent, history, system_prompt=worker_system, cancel_event=cancel_event, usage=tok)
+    gen = (stream_claude(history, system_prompt=worker_system, cancel_event=cancel_event, usage=tok, max_tokens=8192)
+           if agent == "claude"
+           else stream_ollama(agent, history, system_prompt=worker_system, cancel_event=cancel_event, usage=tok))
 
-    async for chunk in gen:
-        if cancel_event and cancel_event.is_set():
-            break
-        await ws.send_json({"type": "chunk", "agent": agent, "content": chunk})
-        full += chunk
-    # Always close the generator explicitly so _ollama_lock is released immediately
-    # instead of waiting for GC — avoids a deadlock in the evaluation step below.
-    await gen.aclose()
+    # aclosing() guarantees gen.aclose() on any exit — normal, break, exception,
+    # or asyncio.CancelledError — so _ollama_lock is always released.
+    async with aclosing(gen):
+        async for chunk in gen:
+            if cancel_event and cancel_event.is_set():
+                break
+            await ws.send_json({"type": "chunk", "agent": agent, "content": chunk})
+            full += chunk
 
     await ws.send_json({"type": "done", "agent": agent})
 
@@ -1887,11 +1895,12 @@ async def _execute_task(ws: WebSocket, project: dict, task: dict, goal: str,
         tok = {}
         fallback_agent = _get_master_model()
         await ws.send_json({"type": "typing", "agent": fallback_agent})
-        async for chunk in stream_master(history, system_prompt=worker_system, cancel_event=cancel_event, usage=tok, max_tokens=8192):
-            if cancel_event and cancel_event.is_set():
-                break
-            await ws.send_json({"type": "chunk", "agent": fallback_agent, "content": chunk})
-            full += chunk
+        async with aclosing(stream_master(history, system_prompt=worker_system, cancel_event=cancel_event, usage=tok, max_tokens=8192)) as fb_gen:
+            async for chunk in fb_gen:
+                if cancel_event and cancel_event.is_set():
+                    break
+                await ws.send_json({"type": "chunk", "agent": fallback_agent, "content": chunk})
+                full += chunk
         await ws.send_json({"type": "done", "agent": fallback_agent})
         agent = fallback_agent
 
@@ -1934,11 +1943,12 @@ async def _execute_task(ws: WebSocket, project: dict, task: dict, goal: str,
         await ws.send_json({"type": "typing", "agent": "claude"})
         full = ""
         tok2: dict = {}
-        async for chunk in stream_claude(escalate_history, system_prompt=worker_system, cancel_event=cancel_event, usage=tok2):
-            if cancel_event and cancel_event.is_set():
-                break
-            await ws.send_json({"type": "chunk", "agent": "claude", "content": chunk})
-            full += chunk
+        async with aclosing(stream_claude(escalate_history, system_prompt=worker_system, cancel_event=cancel_event, usage=tok2)) as esc_gen:
+            async for chunk in esc_gen:
+                if cancel_event and cancel_event.is_set():
+                    break
+                await ws.send_json({"type": "chunk", "agent": "claude", "content": chunk})
+                full += chunk
         await ws.send_json({"type": "done", "agent": "claude"})
         agent = "claude"
         if stats:
@@ -2032,12 +2042,12 @@ async def _execute_task(ws: WebSocket, project: dict, task: dict, goal: str,
             if retry_agent == "claude"
             else stream_ollama(retry_agent, retry_history, system_prompt=worker_system,
                                cancel_event=cancel_event))
-    async for chunk in gen2:
-        if cancel_event and cancel_event.is_set():
-            break
-        await ws.send_json({"type": "chunk", "agent": retry_agent, "content": chunk})
-        retry_full += chunk
-    await gen2.aclose()  # release _ollama_lock immediately
+    async with aclosing(gen2):
+        async for chunk in gen2:
+            if cancel_event and cancel_event.is_set():
+                break
+            await ws.send_json({"type": "chunk", "agent": retry_agent, "content": chunk})
+            retry_full += chunk
     await ws.send_json({"type": "done", "agent": retry_agent})
     save_project_message(project["id"], retry_agent, retry_full.strip(), task_id=tid)
     update_task(tid, retry_count=1)
@@ -2105,12 +2115,13 @@ async def _execute_task(ws: WebSocket, project: dict, task: dict, goal: str,
     ]
     await ws.send_json({"type": "typing", "agent": "claude"})
     escalate_full = ""
-    async for chunk in stream_claude(escalate_history, system_prompt=worker_system,
-                                      cancel_event=cancel_event):
-        if cancel_event and cancel_event.is_set():
-            break
-        await ws.send_json({"type": "chunk", "agent": "claude", "content": chunk})
-        escalate_full += chunk
+    async with aclosing(stream_claude(escalate_history, system_prompt=worker_system,
+                                       cancel_event=cancel_event)) as esc3_gen:
+        async for chunk in esc3_gen:
+            if cancel_event and cancel_event.is_set():
+                break
+            await ws.send_json({"type": "chunk", "agent": "claude", "content": chunk})
+            escalate_full += chunk
     await ws.send_json({"type": "done", "agent": "claude"})
     save_project_message(project["id"], "claude", escalate_full.strip(), task_id=tid)
     update_task(tid, retry_count=2, escalated_to="claude")

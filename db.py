@@ -28,6 +28,7 @@ def _db_connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH, timeout=5, check_same_thread=False)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA cache_size = -4096")  # cap page cache at 4 MB per connection
     return conn
 
 
