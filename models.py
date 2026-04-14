@@ -131,26 +131,57 @@ _ollama_status: dict = {"online": False, "checked_at": 0.0}
 
 # ── T14.1: Single-model-at-a-time scheduling ──────────────────────────────────
 
+async def _get_ollama_running_models() -> list[str]:
+    """Return names of models currently loaded in Ollama memory via /api/ps."""
+    try:
+        r = await _http_client.get(f"{OLLAMA_BASE}/api/ps", timeout=5.0)
+        if r.status_code == 200:
+            return [m["name"] for m in r.json().get("models", [])]
+    except Exception:
+        pass
+    return []
+
+
 async def _ensure_model_loaded(model_name: str) -> None:
-    """Unload the previously-loaded Ollama model before loading a different one.
+    """Enforce one-model-at-a-time: unload every other model before loading this one.
 
     Must be called *inside* _ollama_lock to avoid races.
-    No-op when SINGLE_MODEL_MODE is False or the requested model is already loaded.
+
+    Strategy:
+    1. Query /api/ps for ground truth of what Ollama actually has in RAM —
+       this handles keep_alive expiry and server restarts where _loaded_model
+       may be stale.
+    2. Unload any model that is loaded but isn't the one we need.
+    3. Update _loaded_model to reflect reality.
+
+    No-op when SINGLE_MODEL_MODE is False.
     """
     global _loaded_model
     if not SINGLE_MODEL_MODE:
         _loaded_model = model_name
         return
-    if _loaded_model and _loaded_model != model_name:
-        try:
-            await _http_client.post(
-                f"{OLLAMA_BASE}/api/generate",
-                json={"model": _loaded_model, "keep_alive": "0"},
-                timeout=10.0,
-            )
-            logging.info("ollama: unloaded %s before loading %s", _loaded_model, model_name)
-        except Exception as e:
-            logging.warning("ollama: failed to unload %s: %s", _loaded_model, e)
+
+    # Ground-truth check: what does Ollama actually have in RAM right now?
+    running = await _get_ollama_running_models()
+
+    # Sync our in-process tracker in case keep_alive evicted the model.
+    if _loaded_model and _loaded_model not in running:
+        logging.debug("ollama: %s evicted from RAM (keep_alive expired or restart)", _loaded_model)
+        _loaded_model = None
+
+    # Unload every model that is loaded but isn't the one we want.
+    for loaded in running:
+        if loaded != model_name:
+            try:
+                await _http_client.post(
+                    f"{OLLAMA_BASE}/api/generate",
+                    json={"model": loaded, "keep_alive": "0"},
+                    timeout=10.0,
+                )
+                logging.info("ollama: unloaded %s before loading %s", loaded, model_name)
+            except Exception as e:
+                logging.warning("ollama: failed to unload %s: %s", loaded, e)
+
     _loaded_model = model_name
 
 
