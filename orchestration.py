@@ -1873,6 +1873,9 @@ async def _execute_task(ws: WebSocket, project: dict, task: dict, goal: str,
             break
         await ws.send_json({"type": "chunk", "agent": agent, "content": chunk})
         full += chunk
+    # Always close the generator explicitly so _ollama_lock is released immediately
+    # instead of waiting for GC — avoids a deadlock in the evaluation step below.
+    await gen.aclose()
 
     await ws.send_json({"type": "done", "agent": agent})
 
@@ -1960,6 +1963,12 @@ async def _execute_task(ws: WebSocket, project: dict, task: dict, goal: str,
     append_devlog(project, f"**Task {tnum}** ({agent}): {task['title']}\nFiles: {files_str}")
 
     # ── Evaluation + retry budget (T9.4) ─────────────────────────────────────
+    # If cancelled, mark task pending (so it can be resumed) and return early.
+    if cancel_event and cancel_event.is_set():
+        update_task(tid, status="pending")
+        await ws.send_json({"type": "orch_task_done", "task_id": tid, "files": written})
+        return
+
     # Attempt 1: initial evaluation
     evaluation = await claude_evaluate_task(project, task, full)
     update_task(tid, evaluation_json=json.dumps(evaluation))
@@ -2028,6 +2037,7 @@ async def _execute_task(ws: WebSocket, project: dict, task: dict, goal: str,
             break
         await ws.send_json({"type": "chunk", "agent": retry_agent, "content": chunk})
         retry_full += chunk
+    await gen2.aclose()  # release _ollama_lock immediately
     await ws.send_json({"type": "done", "agent": retry_agent})
     save_project_message(project["id"], retry_agent, retry_full.strip(), task_id=tid)
     update_task(tid, retry_count=1)
@@ -2045,6 +2055,11 @@ async def _execute_task(ws: WebSocket, project: dict, task: dict, goal: str,
     if retry_written:
         git_commit(project["folder_path"], f"Task {tnum} (retry): {task['title']}")
         written = retry_written
+
+    if cancel_event and cancel_event.is_set():
+        update_task(tid, status="pending")
+        await ws.send_json({"type": "orch_task_done", "task_id": tid, "files": written})
+        return
 
     retry_eval = await claude_evaluate_task(project, task, retry_full)
     update_task(tid, evaluation_json=json.dumps(retry_eval))

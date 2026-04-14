@@ -335,6 +335,7 @@ from db import (  # noqa: E402, F401
     create_project, get_project, list_projects, update_project_status, update_project_stats,
     save_project_message, load_project_messages,
     save_tasks, get_pending_tasks, reset_stuck_tasks, get_resumable_tasks,
+    reset_all_stuck_tasks,
     get_last_project_goal, get_all_tasks, update_task,
 )
 from files_io import (  # noqa: E402, F401
@@ -597,6 +598,10 @@ async def startup():
     _load_custom_agents()
     PROJECTS_DIR.mkdir(exist_ok=True)
     BACKUP_DIR.mkdir(exist_ok=True)
+    # Recover tasks left in-flight by a previous crash or hard restart.
+    recovered = reset_all_stuck_tasks()
+    if recovered:
+        logging.warning("startup: reset %d stuck in_progress task(s) to pending", recovered)
     try:
         subprocess.run(["git", "--version"], capture_output=True, timeout=5, check=True)
     except (FileNotFoundError, subprocess.CalledProcessError):

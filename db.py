@@ -333,6 +333,17 @@ def reset_stuck_tasks(project_id: int) -> int:
         return c.execute("SELECT changes()").fetchone()[0]
 
 
+def reset_all_stuck_tasks() -> int:
+    """Reset ALL in_progress tasks across all projects back to pending.
+
+    Called once at server startup to recover tasks that were left in-flight
+    when the server crashed or was restarted.  Returns count reset.
+    """
+    with _db_connect() as c:
+        c.execute("UPDATE tasks SET status='pending' WHERE status='in_progress'")
+        return c.execute("SELECT changes()").fetchone()[0]
+
+
 def get_resumable_tasks(project_id: int) -> list[dict]:
     """Return pending tasks for a project (for resume). Resets stuck in_progress first."""
     reset_stuck_tasks(project_id)
