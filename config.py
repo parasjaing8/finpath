@@ -25,6 +25,13 @@ def _str(key: str, default: str) -> str:
     return os.getenv(key, default)
 
 
+def _bool(key: str, default: bool) -> bool:
+    v = os.getenv(key)
+    if v is None:
+        return default
+    return v.lower() not in ("0", "false", "no", "off")
+
+
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
 BASE_DIR     = Path(__file__).parent
@@ -109,3 +116,31 @@ LOG_BACKUP_COUNT: int = _int("LOG_BACKUP_COUNT", 3)
 
 # Every N project lessons, one is sampled and added to universal_lessons.md.
 LESSON_SAMPLE_RATE: int = _int("LESSON_SAMPLE_RATE", 3)
+
+# ── Scalability ───────────────────────────────────────────────────────────────
+
+# Max simultaneous project builds.  On 16GB Mac Mini with one-model-at-a-time
+# Ollama scheduling, 1 is safest; set to 2+ on machines with more RAM.
+BUILD_WORKERS: int = _int("BUILD_WORKERS", 1)
+
+# Unload the previous Ollama model before loading a new one.
+# Prevents OOM on 16 GB machines running deepseek (9 GB) + qwen (5 GB) together.
+# Disable on machines with 32 GB+ RAM that can hold both models simultaneously.
+SINGLE_MODEL_MODE: bool = _bool("SINGLE_MODEL_MODE", True)
+
+# ── Model capability hints (used by planner to size tasks) ────────────────────
+
+# Per-agent reliable output ceiling (lines), accuracy %, and cost per 1k tokens.
+# Values inform the planner prompt and adapt via feedback loop (T14.6).
+MODEL_CAPABILITY: dict = {
+    "claude":   {"max_output_lines": 800, "accuracy_pct": 95, "cost_per_1k": 0.015},
+    "deepseek": {"max_output_lines": 300, "accuracy_pct": 75, "cost_per_1k": 0.0},
+    "qwen35":   {"max_output_lines": 200, "accuracy_pct": 70, "cost_per_1k": 0.0},
+}
+
+# ── Session / auth ────────────────────────────────────────────────────────────
+
+# Comma-separated list of accepted bearer tokens.  When empty, all connections
+# are treated as the single implicit user (original single-user behaviour).
+# Example:  AUTH_TOKENS=abc123,xyz789
+AUTH_TOKENS: str = _str("AUTH_TOKENS", "")

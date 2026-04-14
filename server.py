@@ -5,15 +5,19 @@ Access from any home network device: http://192.168.0.130:8080
 """
 from __future__ import annotations
 import asyncio
+from collections import defaultdict, deque
 import json
 import logging
 import logging.handlers
 import os
 import re
+import statistics
 import subprocess
+import textwrap
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 import psutil
 
@@ -79,7 +83,7 @@ from config import (  # noqa: E402
     MEMORY_DIR, BACKUP_DIR, CONTEXT_LEN, DISPLAY_LEN, SERVER_HOST,
     CLAUDE_COST_INPUT_PER_M, CLAUDE_COST_OUTPUT_PER_M,
     CUSTOM_AGENTS_PATH, SKILLS_DIR, BACKUP_KEEP_COUNT, BACKUP_INTERVAL,
-    OLLAMA_CONCURRENCY,
+    OLLAMA_CONCURRENCY, BUILD_WORKERS, AUTH_TOKENS, SINGLE_MODEL_MODE,
 )
 MEMORY_DIR.mkdir(exist_ok=True)
 
@@ -192,17 +196,22 @@ def get_enabled_agents() -> list[str]:
 
 
 def get_master_model() -> str:
-    if _config["claude_enabled"] and os.getenv("ANTHROPIC_API_KEY", ""):
+    disabled = set(_config.get("disabled_agents", []))
+    if _config["claude_enabled"] and os.getenv("ANTHROPIC_API_KEY", "") and "claude" not in disabled:
         return _config["master_model"]   # "claude" or a local model key
-    # Claude offline — honour configured master if it is a known local model
+    # Claude offline/disabled — honour configured master if it is a known local model
     master = _config["master_model"]
     if master != "claude":
         # "qwen" is an alias users set via /settings/master; map to OLLAMA key
-        if master == "qwen" and "qwen35" in OLLAMA_MODELS:
+        if master == "qwen" and "qwen35" in OLLAMA_MODELS and "qwen35" not in disabled:
             return "qwen35"
-        if master in OLLAMA_MODELS:
+        if master in OLLAMA_MODELS and master not in disabled:
             return master
-    return "deepseek"
+    # Fall back to the first enabled local model rather than always deepseek
+    for agent in OLLAMA_MODELS:
+        if agent not in disabled:
+            return agent
+    return "deepseek"  # last resort — no enabled agents at all
 
 
 def is_claude_available() -> bool:
@@ -304,6 +313,7 @@ _models.configure(
     get_master_model=get_master_model,
     is_claude_available=is_claude_available,
     ollama_concurrency=OLLAMA_CONCURRENCY,
+    single_model_mode=SINGLE_MODEL_MODE,
 )
 
 # Wire up orchestration module
@@ -322,7 +332,7 @@ _orch.configure(
 
 from db import (  # noqa: E402, F401
     _db_connect, init_db, save_message, load_history, slugify,
-    create_project, get_project, list_projects, update_project_status,
+    create_project, get_project, list_projects, update_project_status, update_project_stats,
     save_project_message, load_project_messages,
     save_tasks, get_pending_tasks, reset_stuck_tasks, get_resumable_tasks,
     get_last_project_goal, get_all_tasks, update_task,
@@ -351,6 +361,7 @@ from orchestration import (  # noqa: E402, F401
     stream_project_query, claude_plan_project, claude_evaluate_task,
     claude_project_summary,
     safe_send, run_orchestration, run_fix_task, run_test_phase,
+    close_project_thread, find_relevant_lessons,
 )
 
 
@@ -367,9 +378,217 @@ def _init_net_snap() -> None:
 _init_net_snap()
 _server_start = time.monotonic()
 
+# ── Session auth ─────────────────────────────────────────────────────────────
+# Optional token-based auth.  When AUTH_TOKENS is empty every connection is
+# treated as the single implicit user (preserves single-user behaviour).
+
+_VALID_TOKENS: frozenset[str] = (
+    frozenset(t.strip() for t in AUTH_TOKENS.split(",") if t.strip())
+    if AUTH_TOKENS else frozenset()
+)
+
+def _auth_enabled() -> bool:
+    return bool(_VALID_TOKENS)
+
+def _validate_token(token: str) -> bool:
+    """Return True when auth is disabled, or when the token is valid."""
+    if not _auth_enabled():
+        return True
+    return token in _VALID_TOKENS
+
+
+# ── Connected WebSocket clients registry ─────────────────────────────────────
+# Clients are grouped by project subscription.
+# Key None = no project open (global); key <int> = project_id.
+# System-wide alerts go to ALL clients; project events go only to subscribed ones.
+
+_ws_subscriptions: dict[int | None, set[WebSocket]] = defaultdict(set)
+
+
+def _all_ws_clients() -> set[WebSocket]:
+    """Return the union of all connected WebSocket clients."""
+    result: set[WebSocket] = set()
+    for clients in _ws_subscriptions.values():
+        result.update(clients)
+    return result
+
+
+def _ws_subscribe(ws: WebSocket, project_id: int | None) -> None:
+    """Move a WebSocket to a new subscription bucket, removing from any old one."""
+    for key in list(_ws_subscriptions):
+        _ws_subscriptions[key].discard(ws)
+        if not _ws_subscriptions[key]:
+            del _ws_subscriptions[key]
+    _ws_subscriptions[project_id].add(ws)
+
+
+def _ws_disconnect(ws: WebSocket) -> None:
+    """Remove a disconnected WebSocket from all subscription buckets."""
+    for key in list(_ws_subscriptions):
+        _ws_subscriptions[key].discard(ws)
+        if not _ws_subscriptions[key]:
+            del _ws_subscriptions[key]
+
+
+async def _broadcast_global(payload: dict) -> None:
+    """Send a JSON payload to every connected WebSocket client (system alerts)."""
+    dead: set[WebSocket] = set()
+    for ws in _all_ws_clients():
+        try:
+            await ws.send_json(payload)
+        except Exception:
+            dead.add(ws)
+    for ws in dead:
+        _ws_disconnect(ws)
+
+
+async def _broadcast_to_project(project_id: int, payload: dict) -> None:
+    """Send a JSON payload only to clients subscribed to project_id."""
+    targets = set(_ws_subscriptions.get(project_id, set()))
+    dead: set[WebSocket] = set()
+    for ws in targets:
+        try:
+            await ws.send_json(payload)
+        except Exception:
+            dead.add(ws)
+    for ws in dead:
+        _ws_disconnect(ws)
+
+
+# Keep backward-compat alias used by the alert monitor below.
+_broadcast_json = _broadcast_global
+
+
+# ── Build concurrency ─────────────────────────────────────────────────────────
+# Limits simultaneous project builds to prevent Ollama OOM on 16 GB machines.
+
+_build_semaphore = asyncio.Semaphore(BUILD_WORKERS)
+_build_queue_depth = 0           # approximate number of builds waiting
+_build_queue_lock  = asyncio.Lock()
+
+
+async def _acquire_build_slot(ws: WebSocket) -> None:
+    """Wait for a build slot, notifying the user if they must queue."""
+    global _build_queue_depth
+    if _build_semaphore.locked():
+        async with _build_queue_lock:
+            _build_queue_depth += 1
+        pos = _build_queue_depth
+        try:
+            await ws.send_json({
+                "type":    "build_queued",
+                "position": pos,
+                "message": f"Server is busy — your build is queued (position {pos}). "
+                           "It will start automatically when a slot opens.",
+            })
+        except Exception:
+            pass
+    await _build_semaphore.acquire()
+
+
+def _release_build_slot() -> None:
+    global _build_queue_depth
+    _build_semaphore.release()
+    if _build_queue_depth > 0:
+        _build_queue_depth -= 1
+
+
+# ── Agent registry isolation during builds ────────────────────────────────────
+# Tracks how many tasks are actively using each agent so that admin operations
+# (agent deletion, model swap) can refuse while the agent is in use.
+
+_agent_use_counts: dict[str, int] = defaultdict(int)
+_agent_use_lock = asyncio.Lock()
+
+
+async def _agent_acquire(agent_key: str) -> None:
+    async with _agent_use_lock:
+        _agent_use_counts[agent_key] += 1
+
+
+async def _agent_release(agent_key: str) -> None:
+    async with _agent_use_lock:
+        _agent_use_counts[agent_key] = max(0, _agent_use_counts[agent_key] - 1)
+
+
+def _agent_in_use(agent_key: str) -> bool:
+    return _agent_use_counts.get(agent_key, 0) > 0
+
+
+async def _ollama_alert_monitor() -> None:
+    """Broadcast a WebSocket alert when Ollama has been offline for > 2 minutes."""
+    _offline_since: float | None = None
+    _alerted = False
+    while True:
+        await asyncio.sleep(15)
+        online: bool = _models._ollama_status.get("online", False)
+        if not online:
+            now = time.monotonic()
+            if _offline_since is None:
+                _offline_since = now
+                _alerted = False
+            elif not _alerted and (now - _offline_since) >= 120:
+                mins = int((now - _offline_since) / 60)
+                await _broadcast_json({
+                    "type":     "system_alert",
+                    "severity": "error",
+                    "message":  f"Ollama has been offline for {mins}+ minute(s) — local model calls will fail",
+                })
+                _alerted = True
+        else:
+            if _offline_since is not None:
+                # Recovery — notify clients
+                await _broadcast_json({
+                    "type":     "system_alert",
+                    "severity": "info",
+                    "message":  "Ollama is back online",
+                })
+            _offline_since = None
+            _alerted = False
+
+
+# ── Request metrics ───────────────────────────────────────────────────────────
+# Per-path rolling window of latencies + counters.  Paths are normalised so
+# slug/ID parts don't create unbounded cardinality.
+
+_METRICS_WINDOW = 200   # keep last N latencies per path
+
+_req_counts:    dict[str, int]         = defaultdict(int)
+_req_errors:    dict[str, int]         = defaultdict(int)
+_req_latencies: dict[str, deque]       = defaultdict(lambda: deque(maxlen=_METRICS_WINDOW))
+
+
+def _normalise_path(path: str) -> str:
+    """Collapse variable route segments into placeholders."""
+    # /projects/123  → /projects/{id}
+    path = re.sub(r"/projects/\d+", "/projects/{id}", path)
+    # /play/my-slug/  → /play/{slug}/
+    path = re.sub(r"/play/[^/]+", "/play/{slug}", path)
+    # /admin/agents/my-agent  → /admin/agents/{key}
+    path = re.sub(r"/(agents|agent)/[^/]+", r"/\1/{key}", path)
+    return path
+
+
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 
 app = FastAPI()
+
+
+@app.middleware("http")
+async def _metrics_middleware(request: Request, call_next):
+    path = _normalise_path(request.url.path)
+    t0 = time.monotonic()
+    try:
+        response = await call_next(request)
+        _req_counts[path] += 1
+        if response.status_code >= 500:
+            _req_errors[path] += 1
+        _req_latencies[path].append(round(time.monotonic() - t0, 4))
+        return response
+    except Exception:
+        _req_counts[path] += 1
+        _req_errors[path] += 1
+        raise
 
 
 @app.on_event("startup")
@@ -388,6 +607,7 @@ async def startup():
     else:
         logging.warning("Ollama is NOT reachable at startup — local model calls will fail until it starts")
     asyncio.create_task(_ollama_monitor())
+    asyncio.create_task(_ollama_alert_monitor())
     asyncio.create_task(_backup_scheduler())
 
 
@@ -505,6 +725,14 @@ def _require_localhost(request: Request) -> None:
     host = request.client.host if request.client else ""
     if host not in ("127.0.0.1", "::1", "localhost"):
         raise HTTPException(status_code=403, detail="This endpoint is restricted to localhost.")
+
+
+def _get_request_token(request: Request) -> str:
+    """Extract bearer token from Authorization header or ?token= query param."""
+    auth = request.headers.get("Authorization", "")
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    return request.query_params.get("token", "")
 
 
 @app.get("/health")
@@ -680,33 +908,59 @@ async def get_stats():
     except Exception:
         total_cost_usd = None
 
+    # Per-path request metrics
+    def _pct(vals: deque, p: int) -> float | None:
+        if not vals:
+            return None
+        s = sorted(vals)
+        idx = max(0, int(len(s) * p / 100) - 1)
+        return round(s[idx], 3)
+
+    request_metrics: dict[str, dict] = {}
+    all_paths = set(_req_counts) | set(_req_errors)
+    for path in sorted(all_paths):
+        lats = _req_latencies[path]
+        request_metrics[path] = {
+            "requests":   _req_counts[path],
+            "errors":     _req_errors[path],
+            "p50_s":      _pct(lats, 50),
+            "p95_s":      _pct(lats, 95),
+            "p99_s":      _pct(lats, 99),
+        }
+
     return {
-        "cpu":            round(cpu, 1),
-        "ram_used":       round(mem.used  / 1073741824, 1),
-        "ram_total":      round(mem.total / 1073741824, 1),
-        "swap_used":      round(swap.used  / 1073741824, 2),
-        "swap_total":     round(swap.total / 1073741824, 1),
-        "rx_kbs":         round(rx_kbs, 1),
-        "tx_kbs":         round(tx_kbs, 1),
-        "ollama_online":  _models._ollama_status["online"],
-        "total_cost_usd": total_cost_usd,
+        "cpu":             round(cpu, 1),
+        "ram_used":        round(mem.used  / 1073741824, 1),
+        "ram_total":       round(mem.total / 1073741824, 1),
+        "swap_used":       round(swap.used  / 1073741824, 2),
+        "swap_total":      round(swap.total / 1073741824, 1),
+        "rx_kbs":          round(rx_kbs, 1),
+        "tx_kbs":          round(tx_kbs, 1),
+        "ollama_online":   _models._ollama_status["online"],
+        "total_cost_usd":  total_cost_usd,
+        "request_metrics": request_metrics,
     }
 
 
 # ── REST endpoints for projects ──────────────────────────────────────────────
 
 @app.get("/projects")
-async def api_list_projects():
-    return list_projects()
+async def api_list_projects(request: Request):
+    # When auth is enabled and a bearer token is present, filter by owner.
+    owner = _get_request_token(request)
+    filter_token = owner if _auth_enabled() and owner else None
+    return list_projects(filter_token)
 
 
 @app.post("/projects")
-async def api_create_project(data: dict):
+async def api_create_project(data: dict, request: Request):
     name = data.get("name", "").strip()
     if not name:
         return {"error": "Name is required"}
     description = data.get("description", "").strip()
-    project = create_project(name, description)
+    owner = _get_request_token(request)
+    owner_tok = owner if _auth_enabled() and owner else ""
+    project = create_project(name, description, owner_token=owner_tok)
     return project
 
 
@@ -716,6 +970,23 @@ async def api_get_project(project_id: int):
     if not p:
         return {"error": "Not found"}
     return p
+
+
+@app.get("/projects/{project_id}/messages")
+async def api_get_project_messages(project_id: int, limit: int = 30, before_id: Optional[int] = None):
+    """Return project messages with optional cursor-based pagination.
+
+    Pass ?before_id=<id> to load messages older than that id (scroll-up to
+    load earlier history).  The response includes a ``has_more`` boolean so
+    the frontend knows whether a "Load earlier" button should be shown.
+    """
+    p = get_project(project_id)
+    if not p:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    limit = min(max(1, limit), 100)   # clamp: 1–100
+    msgs = load_project_messages(project_id, limit=limit + 1, before_id=before_id)
+    has_more = len(msgs) > limit
+    return {"messages": msgs[:limit], "has_more": has_more}
 
 
 @app.get("/projects/{project_id}/files")
@@ -823,6 +1094,8 @@ async def set_coder_model(data: dict):
     label = data.get("label", "").strip()
     if not model:
         return {"error": "model required"}
+    if _agent_in_use("deepseek"):
+        return JSONResponse({"error": "deepseek is currently running a task — try again shortly."}, status_code=409)
     async with _agent_lock:
         _models.OLLAMA_MODELS["deepseek"] = model
         if label:
@@ -945,6 +1218,8 @@ async def remove_ollama_agent(key: str):
         return JSONResponse({"error": "Cannot remove built-in agents"}, status_code=400)
     if key not in OLLAMA_MODELS:
         return JSONResponse({"error": "Agent not found"}, status_code=404)
+    if _agent_in_use(key):
+        return JSONResponse({"error": f"Agent '{key}' is currently running a task — try again shortly."}, status_code=409)
     async with _agent_lock:
         OLLAMA_MODELS.pop(key, None)
         AGENT_LABEL.pop(key, None)
@@ -980,6 +1255,123 @@ async def uninstall_ollama_model(model_name: str):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+# ── Admin: quality dashboard (T8.8) ─────────────────────────────────────────
+
+
+@app.get("/admin/quality")
+async def admin_quality(_: None = Depends(_require_localhost)):
+    """Return quality metrics: project stats, fix cycles, agent profiles, skill mutations."""
+    projs  = list_projects()
+    total  = len(projs)
+    completed  = sum(1 for p in projs if p.get("status") == "completed")
+    finalized  = sum(1 for p in projs if p.get("status") == "finalized")
+
+    fix_cycles: list[int] = []
+    for p in projs:
+        fh = Path(p.get("folder_path", "")) / "fix_history.json"
+        if fh.exists():
+            try:
+                entries = json.loads(fh.read_text(encoding="utf-8"))
+                fix_cycles.append(len(entries))
+            except Exception:
+                pass
+
+    avg_cycles = round(sum(fix_cycles) / len(fix_cycles), 2) if fix_cycles else 0
+
+    profiles_text = ""
+    profiles_path = MEMORY_DIR / "agent_profiles.md"
+    if profiles_path.exists():
+        profiles_text = profiles_path.read_text(encoding="utf-8")[:4000]
+
+    mutations_raw: list[str] = []
+    mutations_log = MEMORY_DIR / "skill_mutations.log"
+    if mutations_log.exists():
+        mutations_raw = [
+            ln.strip() for ln in mutations_log.read_text(encoding="utf-8").splitlines()
+            if ln.strip()
+        ]
+
+    return {
+        "projects": {"total": total, "completed": completed, "finalized": finalized},
+        "fix_cycles": {
+            "projects_with_fixes": len(fix_cycles),
+            "avg_cycles": avg_cycles,
+            "total_cycles": sum(fix_cycles),
+        },
+        "agent_profiles_preview": profiles_text,
+        "skill_mutations": {
+            "count": len(mutations_raw),
+            "recent": mutations_raw[-20:],
+        },
+    }
+
+
+@app.get("/admin/skill-mutations")
+async def admin_skill_mutations(_: None = Depends(_require_localhost)):
+    """List all skill file mutations from the auto-learning feedback loop."""
+    mutations_log = MEMORY_DIR / "skill_mutations.log"
+    if not mutations_log.exists():
+        return {"mutations": []}
+    entries = []
+    for idx, ln in enumerate(mutations_log.read_text(encoding="utf-8").splitlines()):
+        ln = ln.strip()
+        if ln:
+            entries.append({"id": idx, "entry": ln})
+    return {"mutations": entries}
+
+
+@app.post("/admin/skill-mutations/{mutation_id}/revert")
+async def admin_revert_mutation(mutation_id: int, _: None = Depends(_require_localhost)):
+    """No-op placeholder — skill revert requires manual review of the skill file."""
+    return {"status": "not_implemented",
+            "message": "Review the skill file manually and remove the auto-learned rule."}
+
+
+@app.get("/admin/dashboard")
+async def admin_dashboard(_: None = Depends(_require_localhost)):
+    """Serve a simple HTML quality dashboard."""
+    html = textwrap.dedent("""\
+        <!DOCTYPE html>
+        <html lang="en">
+        <head><meta charset="UTF-8"><title>ai-chat quality dashboard</title>
+        <style>
+          body{font-family:monospace;background:#0d1117;color:#c9d1d9;padding:2rem;}
+          h1{color:#f0f6fc;}h2{color:#58a6ff;}
+          pre{background:#161b22;padding:1rem;border-radius:6px;overflow:auto;white-space:pre-wrap;}
+          .card{background:#161b22;border:1px solid #30363d;border-radius:6px;
+                padding:1.2rem 1.6rem;margin-bottom:1.2rem;}
+          .num{font-size:2rem;font-weight:bold;color:#3fb950;}
+          .label{color:#8b949e;font-size:.85rem;}
+        </style></head>
+        <body>
+        <h1>📊 ai-chat Quality Dashboard</h1>
+        <div id="root"><p>Loading…</p></div>
+        <script>
+        fetch('/admin/quality').then(r=>r.json()).then(d=>{
+          const p=d.projects, f=d.fix_cycles, m=d.skill_mutations;
+          document.getElementById('root').innerHTML=`
+            <div class="card">
+              <span class="num">${p.total}</span> <span class="label">total projects</span> &nbsp;
+              <span class="num">${p.completed}</span> <span class="label">completed</span> &nbsp;
+              <span class="num">${p.finalized}</span> <span class="label">finalized (user said done)</span>
+            </div>
+            <div class="card">
+              <span class="num">${f.avg_cycles}</span> <span class="label">avg fix cycles/project</span> &nbsp;
+              <span class="num">${f.total_cycles}</span> <span class="label">total fix cycles</span>
+            </div>
+            <div class="card">
+              <span class="num">${m.count}</span> <span class="label">skill mutations</span>
+              <pre>${m.recent.join('\\n') || '(none yet)'}</pre>
+            </div>
+            <h2>Agent Profiles</h2>
+            <pre>${d.agent_profiles_preview || '(none yet)'}</pre>
+          `;
+        }).catch(e=>document.getElementById('root').innerHTML='<pre>Error: '+e+'</pre>');
+        </script></body></html>
+    """)
+    return HTMLResponse(html)
+
+
 # ── WebSocket ─────────────────────────────────────────────────────────────────
 
 # Simple token-bucket rate limiter for WebSocket messages.
@@ -1009,7 +1401,23 @@ class _TokenBucket:
 
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket):
+    # ── T13.5: Optional token auth ────────────────────────────────────────────
+    # Accept the connection first so we can send a proper auth-error message
+    # rather than just closing the TCP socket.
     await ws.accept()
+
+    token = ws.query_params.get("token", "")
+    if not _validate_token(token):
+        await ws.send_json({"type": "auth_error", "message": "Invalid or missing token."})
+        await ws.close(code=4001)
+        return
+
+    # Derive a stable user identifier from the token (hash avoids storing raw token).
+    import hashlib
+    user_id: str = hashlib.sha256(token.encode()).hexdigest()[:16] if token else ""
+
+    # Register with global subscription bucket initially.
+    _ws_subscribe(ws, None)
 
     recv_q: asyncio.Queue = asyncio.Queue()
     cancel_event = asyncio.Event()
@@ -1077,13 +1485,17 @@ async def ws_endpoint(ws: WebSocket):
                 continue
 
             if msg_type == "get_projects":
-                await ws.send_json({"type": "project_list", "projects": list_projects()})
+                # T13.5: filter to user's own projects when auth is active
+                filter_token = user_id if _auth_enabled() else None
+                await ws.send_json({"type": "project_list", "projects": list_projects(filter_token)})
                 continue
 
             if msg_type == "load_project":
                 pid = data.get("project_id")
                 proj = get_project(pid)
                 if proj:
+                    # T13.1: subscribe this WS to project-specific broadcasts
+                    _ws_subscribe(ws, pid)
                     await ws.send_json({
                         "type":     "project_loaded",
                         "project":  proj,
@@ -1096,7 +1508,11 @@ async def ws_endpoint(ws: WebSocket):
                 pid  = data.get("project_id")
                 goal = data.get("goal", "")
                 if pid and goal:
-                    await _run_task(run_orchestration(ws, pid, goal, cancel_event=cancel_event))
+                    await _acquire_build_slot(ws)
+                    try:
+                        await _run_task(run_orchestration(ws, pid, goal, cancel_event=cancel_event))
+                    finally:
+                        _release_build_slot()
                     if cancel_event.is_set():
                         reset_stuck_tasks(pid)
                         await ws.send_json({"type": "cancelled"})
@@ -1105,7 +1521,11 @@ async def ws_endpoint(ws: WebSocket):
             if msg_type == "resume_orchestration":
                 pid = data.get("project_id")
                 if pid:
-                    await _run_task(run_orchestration(ws, pid, goal="", resume=True, cancel_event=cancel_event))
+                    await _acquire_build_slot(ws)
+                    try:
+                        await _run_task(run_orchestration(ws, pid, goal="", resume=True, cancel_event=cancel_event))
+                    finally:
+                        _release_build_slot()
                     if cancel_event.is_set():
                         reset_stuck_tasks(pid)
                         await ws.send_json({"type": "cancelled"})
@@ -1115,7 +1535,11 @@ async def ws_endpoint(ws: WebSocket):
                 pid      = data.get("project_id")
                 feedback = data.get("feedback", "").strip()
                 if pid and feedback:
-                    await _run_task(run_fix_task(ws, pid, feedback, cancel_event))
+                    await _acquire_build_slot(ws)
+                    try:
+                        await _run_task(run_fix_task(ws, pid, feedback, cancel_event))
+                    finally:
+                        _release_build_slot()
                     if cancel_event.is_set():
                         await ws.send_json({"type": "cancelled"})
                 continue
@@ -1156,6 +1580,12 @@ async def ws_endpoint(ws: WebSocket):
                     else:
                         routing = await detect_intent_in_project(content, proj["name"])
 
+                if routing == "done":
+                    await _run_task(close_project_thread(ws, project_id_ctx, cancel_event))
+                    if cancel_event.is_set():
+                        await ws.send_json({"type": "cancelled"})
+                    continue
+
                 if routing == "query":
                     await _run_task(stream_project_query(ws, project_id_ctx, content, cancel_event))
                     if cancel_event.is_set():
@@ -1164,12 +1594,20 @@ async def ws_endpoint(ws: WebSocket):
 
                 if routing == "build":
                     if not prior_tasks_quick:
-                        await _run_task(run_orchestration(ws, project_id_ctx, content, cancel_event=cancel_event))
+                        await _acquire_build_slot(ws)
+                        try:
+                            await _run_task(run_orchestration(ws, project_id_ctx, content, cancel_event=cancel_event))
+                        finally:
+                            _release_build_slot()
                         if cancel_event.is_set():
                             reset_stuck_tasks(project_id_ctx)
                             await ws.send_json({"type": "cancelled"})
                     elif proj.get("status") == "completed":
-                        await _run_task(run_fix_task(ws, project_id_ctx, content, cancel_event))
+                        await _acquire_build_slot(ws)
+                        try:
+                            await _run_task(run_fix_task(ws, project_id_ctx, content, cancel_event))
+                        finally:
+                            _release_build_slot()
                         if cancel_event.is_set():
                             await ws.send_json({"type": "cancelled"})
                     else:
@@ -1239,6 +1677,7 @@ async def ws_endpoint(ws: WebSocket):
     except WebSocketDisconnect:
         pass
     finally:
+        _ws_disconnect(ws)
         recv.cancel()
         if active_task and not active_task.done():
             active_task.cancel()

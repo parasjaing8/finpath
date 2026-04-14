@@ -109,6 +109,26 @@ CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role);
         "add cost_usd column to tasks",
         "ALTER TABLE tasks ADD COLUMN cost_usd REAL DEFAULT 0.0;",
     ),
+    (
+        4,
+        "add retry/escalation/evaluation/blocking columns to tasks",
+        """
+ALTER TABLE tasks ADD COLUMN retry_count INTEGER DEFAULT 0;
+ALTER TABLE tasks ADD COLUMN escalated_to TEXT DEFAULT NULL;
+ALTER TABLE tasks ADD COLUMN evaluation_json TEXT DEFAULT NULL;
+ALTER TABLE tasks ADD COLUMN blocked_by INTEGER DEFAULT NULL;
+""",
+    ),
+    (
+        5,
+        "add owner_token column to projects for session management",
+        "ALTER TABLE projects ADD COLUMN owner_token TEXT DEFAULT '';",
+    ),
+    (
+        6,
+        "add stats_json column to projects for contribution visualization",
+        "ALTER TABLE projects ADD COLUMN stats_json TEXT DEFAULT NULL;",
+    ),
 ]
 
 
@@ -150,7 +170,7 @@ def slugify(name: str) -> str:
     return slug or "project"
 
 
-def create_project(name: str, description: str) -> dict:
+def create_project(name: str, description: str, owner_token: str = "") -> dict:
     slug = slugify(name)
     now = datetime.now(timezone.utc).isoformat()
     folder = str(PROJECTS_DIR / slug)
@@ -161,8 +181,8 @@ def create_project(name: str, description: str) -> dict:
         try:
             with _db_connect() as c:
                 c.execute(
-                    "INSERT INTO projects (name, slug, description, folder_path, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
-                    (name, slug, description, folder, 'active', now, now),
+                    "INSERT INTO projects (name, slug, description, folder_path, status, created_at, updated_at, owner_token) VALUES (?,?,?,?,?,?,?,?)",
+                    (name, slug, description, folder, 'active', now, now, owner_token),
                 )
                 project_id = c.execute("SELECT last_insert_rowid()").fetchone()[0]
             break
@@ -183,6 +203,7 @@ def create_project(name: str, description: str) -> dict:
         "status": "active",
         "created_at": now,
         "updated_at": now,
+        "owner_token": owner_token,
     }
 
     init_devlog(project)
@@ -194,7 +215,7 @@ def create_project(name: str, description: str) -> dict:
 def get_project(project_id: int) -> dict | None:
     with _db_connect() as c:
         row = c.execute(
-            "SELECT id, name, slug, description, folder_path, status, created_at, updated_at FROM projects WHERE id=?",
+            "SELECT id, name, slug, description, folder_path, status, created_at, updated_at, owner_token FROM projects WHERE id=?",
             (project_id,),
         ).fetchone()
     if not row:
@@ -202,17 +223,25 @@ def get_project(project_id: int) -> dict | None:
     return {
         "id": row[0], "name": row[1], "slug": row[2], "description": row[3],
         "folder_path": row[4], "status": row[5], "created_at": row[6], "updated_at": row[7],
+        "owner_token": row[8] or "",
     }
 
 
-def list_projects() -> list[dict]:
+def list_projects(owner_token: str | None = None) -> list[dict]:
     with _db_connect() as c:
-        rows = c.execute(
-            "SELECT id, name, slug, description, folder_path, status, created_at, updated_at FROM projects ORDER BY updated_at DESC"
-        ).fetchall()
+        if owner_token:
+            rows = c.execute(
+                "SELECT id, name, slug, description, folder_path, status, created_at, updated_at, owner_token FROM projects WHERE owner_token=? ORDER BY updated_at DESC",
+                (owner_token,),
+            ).fetchall()
+        else:
+            rows = c.execute(
+                "SELECT id, name, slug, description, folder_path, status, created_at, updated_at, owner_token FROM projects ORDER BY updated_at DESC"
+            ).fetchall()
     return [
         {"id": r[0], "name": r[1], "slug": r[2], "description": r[3],
-         "folder_path": r[4], "status": r[5], "created_at": r[6], "updated_at": r[7]}
+         "folder_path": r[4], "status": r[5], "created_at": r[6], "updated_at": r[7],
+         "owner_token": r[8] or ""}
         for r in rows
     ]
 
@@ -223,6 +252,16 @@ def update_project_status(project_id: int, status: str) -> None:
         c.execute("UPDATE projects SET status=?, updated_at=? WHERE id=?", (status, now, project_id))
 
 
+def update_project_stats(project_id: int, stats_json: str) -> None:
+    """T14.5: Persist OrchStats summary JSON to the projects table."""
+    now = datetime.now(timezone.utc).isoformat()
+    with _db_connect() as c:
+        c.execute(
+            "UPDATE projects SET stats_json=?, updated_at=? WHERE id=?",
+            (stats_json, now, project_id),
+        )
+
+
 def save_project_message(project_id: int, role: str, content: str, task_id: int | None = None) -> None:
     with _db_connect() as c:
         c.execute(
@@ -231,12 +270,19 @@ def save_project_message(project_id: int, role: str, content: str, task_id: int 
         )
 
 
-def load_project_messages(project_id: int, limit: int = 30) -> list[dict]:
+def load_project_messages(project_id: int, limit: int = 30, before_id: int | None = None) -> list[dict]:
+    """Load project messages, newest-last. Pass before_id to paginate backwards."""
     with _db_connect() as c:
-        rows = c.execute(
-            "SELECT id, role, content, task_id, timestamp FROM project_messages WHERE project_id=? ORDER BY id DESC LIMIT ?",
-            (project_id, limit),
-        ).fetchall()
+        if before_id is not None:
+            rows = c.execute(
+                "SELECT id, role, content, task_id, timestamp FROM project_messages WHERE project_id=? AND id<? ORDER BY id DESC LIMIT ?",
+                (project_id, before_id, limit),
+            ).fetchall()
+        else:
+            rows = c.execute(
+                "SELECT id, role, content, task_id, timestamp FROM project_messages WHERE project_id=? ORDER BY id DESC LIMIT ?",
+                (project_id, limit),
+            ).fetchall()
     return [
         {"id": r[0], "role": r[1], "content": r[2], "task_id": r[3], "timestamp": r[4]}
         for r in reversed(rows)
@@ -334,7 +380,8 @@ def _task_row_to_dict(r) -> dict:
     }
 
 
-ALLOWED_TASK_COLS = {"status", "output_result", "completed_at", "cost_usd"}
+ALLOWED_TASK_COLS = {"status", "output_result", "completed_at", "cost_usd",
+                    "retry_count", "escalated_to", "evaluation_json", "blocked_by"}
 
 def update_task(task_id: int, **kwargs) -> None:
     if not kwargs:

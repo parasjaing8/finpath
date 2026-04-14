@@ -23,6 +23,11 @@ def _safe_filename(raw: str) -> str | None:
     return name
 
 
+def _strip_trailing_fence(code: str) -> str:
+    """Remove a stray closing ``` that Qwen-style models sometimes append after file content."""
+    return re.sub(r'\n?```[\w]*\s*$', '', code)
+
+
 def extract_files_from_response(content: str) -> list[dict]:
     """Parse LLM output for code blocks with file paths.
 
@@ -49,11 +54,11 @@ def extract_files_from_response(content: str) -> list[dict]:
 
         cb = re.match(r'[ \t]*\n{0,2}[ \t]*```[\w\-]*[ \t]*\n(.*?)```', rest, re.DOTALL)
         if cb:
-            code = cb.group(1).rstrip()
+            code = _strip_trailing_fence(cb.group(1).rstrip())
         else:
             next_marker = FILE_MARKER.search(rest)
             end = next_marker.start() if next_marker else len(rest)
-            code = rest[:end].strip()
+            code = _strip_trailing_fence(rest[:end].strip())
 
         if code:
             seen.add(filename)
@@ -93,7 +98,7 @@ def extract_files_from_response(content: str) -> list[dict]:
         fm = re.match(r'^(?://|#|<!--|--|;)\s*FILE:\s*(.+?)(?:\s*-->)?$', first_line)
         if fm:
             filename = _safe_filename(fm.group(1))
-            code = (lines[1] if len(lines) > 1 else '').rstrip()
+            code = _strip_trailing_fence((lines[1] if len(lines) > 1 else '').rstrip())
             if filename and code and filename not in seen:
                 seen.add(filename)
                 files.append({"filename": filename, "content": code})

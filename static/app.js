@@ -26,6 +26,7 @@ let pendingIntentMsg = null;      // original message that triggered intent dial
 let sidebarOpen      = true;
 let cachedChatHistory = [];       // last received general chat history — used by switchToChat()
 let _fvProjectId     = null;      // currently open project in file viewer
+let _fixCycleCount   = 0;         // fix cycle counter for current project session
 
 // ── marked.js ─────────────────────────────────────────────────────────────────
 
@@ -81,7 +82,8 @@ function toggleSidebar() {
 
 function renderSidebarProjects(projects) {
   const list = document.getElementById('sidebar-list');
-  // Keep the "General Chat" item, remove others
+  // Remove loading indicator and old project items
+  document.getElementById('sidebar-loading')?.remove();
   const items = list.querySelectorAll('.sidebar-item:not(.sidebar-chat-item)');
   items.forEach(el => el.remove());
 
@@ -111,6 +113,16 @@ function updateSidebarActive() {
 
 function refreshProjectList() {
   if (ws && ws.readyState === WebSocket.OPEN) {
+    // Show subtle loading state in sidebar
+    const list = document.getElementById('sidebar-list');
+    const existing = list.querySelectorAll('.sidebar-item:not(.sidebar-chat-item)');
+    if (existing.length === 0) {
+      const loading = document.createElement('div');
+      loading.className = 'sidebar-loading';
+      loading.id = 'sidebar-loading';
+      loading.textContent = 'Loading…';
+      list.appendChild(loading);
+    }
     ws.send(JSON.stringify({ type: 'get_projects' }));
   }
 }
@@ -139,6 +151,7 @@ function switchToProject(project, messages, tasks) {
   activeProjectId = project.id;
   activeProject = project;
   projectTasks = tasks || [];
+  _fixCycleCount = 0;
 
   document.getElementById('header-title-text').textContent = project.name;
   document.getElementById('send-btn-text').textContent = 'Add to Project';
@@ -334,11 +347,20 @@ function handle(msg) {
       _notifyTabTitle('✅ Build complete!');
       break;
 
+    case 'orch_blocked':
+      appendOrchStatus(`⛔ Tasks ${(msg.blocked_tasks||[]).join(', ')} blocked — ${msg.message||'upstream task failed'}`);
+      (msg.blocked_tasks || []).forEach(num => {
+        const t = projectTasks.find(t => t.task_number === num);
+        if (t) updateTaskChip(t.id, 'errored');
+      });
+      break;
+
     case 'fix_complete':
-      { const slug = msg.project_slug || (activeProject && activeProject.slug);
+      { _fixCycleCount++;
+        const slug = msg.project_slug || (activeProject && activeProject.slug);
         const n = msg.files_fixed && msg.files_fixed.length
-          ? `✅ Fixed ${msg.files_fixed.length} file(s): ${msg.files_fixed.join(', ')}`
-          : '✅ No file changes needed.';
+          ? `✅ Fixed ${msg.files_fixed.length} file(s): ${msg.files_fixed.join(', ')} — Fix cycle ${_fixCycleCount}`
+          : `✅ No file changes needed. — Fix cycle ${_fixCycleCount}`;
         appendOrchStatus(n);
         if (msg.lesson) appendLessonCard(msg.lesson);
         showOpenProjectBtn(slug);
@@ -348,6 +370,14 @@ function handle(msg) {
 
     case 'orch_stats':
       appendStatsCard(msg);
+      break;
+
+    case 'system_alert':
+      showToast(msg.message || 'System alert', msg.severity || 'warning');
+      break;
+
+    case 'project_finalized':
+      _handleProjectFinalized(msg);
       break;
 
     case 'cancelled':
@@ -427,7 +457,7 @@ function showContinueDialog() {
       `;
     }
     document.getElementById('intent-overlay').classList.add('open');
-  });
+  }).catch(e => showToast(e.message || 'Failed to load projects', 'error'));
 }
 
 function continueWithProject() {
@@ -533,10 +563,12 @@ async function confirmDelete() {
     const data = await res.json();
     if (!data.ok) {
       console.error('Delete failed:', data.error);
+      showToast(data.error || 'Delete failed', 'error');
       refreshProjectList(); // restore list if delete actually failed
     }
   } catch (e) {
     console.error('Delete failed', e);
+    showToast(e.message || 'Delete failed', 'error');
     refreshProjectList();
   }
 }
@@ -561,6 +593,7 @@ async function createAndStartProject() {
     const project = await res.json();
 
     if (project.error) {
+      showToast(project.error, 'error');
       btn.disabled = false;
       btn.textContent = 'Create & Start';
       return;
@@ -598,6 +631,7 @@ async function createAndStartProject() {
     }
   } catch (e) {
     console.error('Failed to create project', e);
+    showToast(e.message || 'Failed to create project', 'error');
   }
 
   btn.disabled = false;
@@ -634,16 +668,17 @@ function appendStatsCard(s) {
   const localTok  = s.local_tokens || 0;
   const costUsd   = s.cost_usd || 0;
   const totalTasks = s.total_tasks || 0;
+  const modelSwitches = s.model_switch_count || 0;
 
-  // Agent bar colors
-  const colors = { claude: '#f59e0b', deepseek: '#60a5fa' };
+  // T14.5: Agent bar colors (claude=amber, deepseek=blue, qwen35=green)
+  const colors = { claude: '#f59e0b', deepseek: '#60a5fa', qwen35: '#34d399' };
 
-  // Build rows
+  // Build rows using token-based percentages
   let rows = '';
   agents.forEach(agent => {
     const d = byAgent[agent];
     const tot = (d.input_tokens||0) + (d.output_tokens||0);
-    const pct = totalTasks > 0 ? Math.round((d.tasks / totalTasks) * 100) : 0;
+    const pct = totalTok > 0 ? Math.round((tot / totalTok) * 100) : 0;
     const tokLabel = agent === 'claude' ? `${tot.toLocaleString()} tokens` : `~${tot.toLocaleString()} tokens`;
     rows += `<tr>
       <td><span style="color:${colors[agent]||'#ccc'}">${agent.charAt(0).toUpperCase()+agent.slice(1)}</span></td>
@@ -652,17 +687,25 @@ function appendStatsCard(s) {
     </tr>`;
   });
 
-  // Bar segments
+  // T14.5: Token-based bar segments
   let bars = '';
+  let labelParts = [];
   agents.forEach(agent => {
     const d = byAgent[agent];
     const tot = (d.input_tokens||0) + (d.output_tokens||0);
     const w = totalTok > 0 ? Math.round((tot / totalTok) * 100) : 0;
-    if (w > 0) bars += `<div class="stats-bar-seg" style="width:${w}%;background:${colors[agent]||'#888'}"></div>`;
+    if (w > 0) {
+      bars += `<div class="stats-bar-seg" style="width:${w}%;background:${colors[agent]||'#888'}" title="${agent} ${w}%"></div>`;
+      labelParts.push(`<span style="color:${colors[agent]||'#ccc'}">${agent.charAt(0).toUpperCase()+agent.slice(1)} ${w}%</span>`);
+    }
   });
+  const barLabel = labelParts.length > 1 ? `<div style="margin-top:4px;font-size:11px;">${labelParts.join(' · ')}</div>` : '';
 
   const savingsLine = localTok > 0
     ? `~${localTok.toLocaleString()} tokens handled locally — saved ~$${(localTok * 9 / 1_000_000).toFixed(3)} vs all-Claude`
+    : '';
+  const switchLine = modelSwitches > 0
+    ? `⚡ Model switches: ${modelSwitches}`
     : '';
 
   const div = document.createElement('div');
@@ -671,8 +714,10 @@ function appendStatsCard(s) {
     <div class="stats-title">📊 Build Stats &nbsp;<span style="font-weight:400;color:var(--muted)">⏱ ${s.elapsed||'–'}</span></div>
     <table>${rows}</table>
     <div class="stats-bar">${bars}</div>
+    ${barLabel}
     ${claudeTot > 0 ? `<div style="margin-top:6px;font-size:11px;">Claude API: ${claudeIn.toLocaleString()} in + ${claudeOut.toLocaleString()} out = $${costUsd}</div>` : ''}
     ${savingsLine ? `<div class="stats-savings">💰 ${savingsLine}</div>` : ''}
+    ${switchLine ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;">${switchLine}</div>` : ''}
   `;
   c.appendChild(div);
   c.scrollTop = c.scrollHeight;
@@ -732,6 +777,67 @@ function updateStatus(online) {
     setTimeout(() => toast.classList.remove('show'), 4000);
   }
   prevOnline = online;
+}
+
+// ── Toast stack ───────────────────────────────────────────────────────────────────────
+function showToast(message, severity) {
+  const sev = severity || 'info';
+  const stack = document.getElementById('toast-stack');
+  if (!stack) return;
+  const item = document.createElement('div');
+  item.className = `toast-item ${sev}`;
+  item.innerHTML = `<span class="toast-item-msg">${escHtml(message)}</span>`
+    + `<button class="toast-item-close" onclick="event.stopPropagation();_dismissToast(this.parentNode)">&times;</button>`;
+  stack.appendChild(item);
+  requestAnimationFrame(() => item.classList.add('show'));
+  const timer = setTimeout(() => _dismissToast(item), 8000);
+  item.addEventListener('click', () => { clearTimeout(timer); _dismissToast(item); });
+}
+
+function _dismissToast(el) {
+  if (!el || !el.parentNode) return;
+  el.classList.remove('show');
+  setTimeout(() => el.remove(), 300);
+}
+
+// ── Project finalized ──────────────────────────────────────────────────────────────
+function _handleProjectFinalized(msg) {
+  const c = document.getElementById('messages');
+  if (!c) return;
+
+  // Mark sidebar badge as finalized
+  if (activeProjectId) {
+    const badge = document.querySelector(`.sidebar-item[data-project-id="${activeProjectId}"] .sidebar-badge`);
+    if (badge) { badge.textContent = 'finalized'; badge.className = 'sidebar-badge finalized'; }
+  }
+
+  const slug = msg.slug || (activeProject && activeProject.slug);
+  const url  = 'http://' + SERVER_HOST + '/play/' + slug + '/';
+
+  const issues = (msg.agent_issues || []);
+  let issuesHtml = '';
+  if (issues.length > 0) {
+    const items = issues.map(i =>
+      `<li><strong>${escHtml(i.agent)}</strong>: ${escHtml(i.pattern || '')}`
+      + (i.rule ? `<br><em>${escHtml(i.rule)}</em>` : '')
+      + '</li>'
+    ).join('');
+    issuesHtml = `<details class="finalized-issues">`
+      + `<summary>${issues.length} pattern${issues.length !== 1 ? 's' : ''} detected</summary>`
+      + `<ul>${items}</ul></details>`;
+  }
+
+  const div = document.createElement('div');
+  div.className = 'finalized-card';
+  div.innerHTML =
+    `<div class="finalized-header"><span class="finalized-icon">🏁</span>`
+    + `<span class="finalized-title">Project Finalized</span></div>`
+    + `<div class="finalized-summary">${escHtml(msg.analysis_summary || 'Build session closed.')}</div>`
+    + issuesHtml
+    + (slug ? `<a href="${url}" target="_blank" class="finalized-play-btn">▶ Open Project</a>` : '');
+  c.appendChild(div);
+  c.scrollTop = c.scrollHeight;
+  setSending(false);
 }
 
 // ── History ───────────────────────────────────────────────────────────────────
@@ -981,17 +1087,33 @@ document.getElementById('input').addEventListener('keydown', e => {
     e.preventDefault();
     sendMessage();
   }
+  // Cmd+Enter or Ctrl+Enter also sends
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault();
+    sendMessage();
+  }
 });
 
 document.getElementById('input').addEventListener('input', function () {
   autoResize(this);
 });
 
-// ESC closes any open dialog
+// ESC closes any open dialog; Ctrl+/ focuses input; Ctrl+Shift+N opens new project
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeIntentDialog();
     closeProjectCreator();
+  }
+  // Ctrl+/ or Cmd+/ — focus chat input
+  if (e.key === '/' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    const input = document.getElementById('input');
+    if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+  }
+  // Ctrl+Shift+N — open new project creator
+  if (e.key === 'N' && e.ctrlKey && e.shiftKey) {
+    e.preventDefault();
+    openProjectCreator();
   }
 });
 
@@ -1001,7 +1123,11 @@ let currentModalAgent = null;
 let settingsCache = null;
 
 async function loadSettings() {
-  if (!settingsCache) settingsCache = await fetch('/settings').then(r => r.json());
+  try {
+    if (!settingsCache) settingsCache = await fetch('/settings').then(r => r.json());
+  } catch (e) {
+    showToast(e.message || 'Failed to load settings', 'error');
+  }
   return settingsCache;
 }
 
@@ -1093,11 +1219,18 @@ async function saveApiKey() {
   const btn = document.querySelector('.btn-claude');
   btn.disabled = true; btn.textContent = 'Saving...';
 
-  const res = await fetch('/settings/apikey', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ key }),
-  }).then(r => r.json());
+  let res;
+  try {
+    res = await fetch('/settings/apikey', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ key }),
+    }).then(r => r.json());
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Save Key';
+    showToast(e.message || 'Network error saving API key', 'error');
+    return;
+  }
 
   btn.disabled = false; btn.textContent = 'Save Key';
   invalidateSettings();
@@ -1113,10 +1246,15 @@ async function saveApiKey() {
 async function testClaude() {
   const btn = document.querySelector('.btn-ghost');
   btn.disabled = true; btn.textContent = 'Testing...';
-  const res = await fetch('/settings/test/claude').then(r => r.json());
-  btn.disabled = false; btn.textContent = 'Test Connection';
-  showKeyMsg(res.online ? 'ok' : 'error',
-    res.online ? 'Claude is reachable' : 'Cannot reach Claude -- check key or network');
+  try {
+    const res = await fetch('/settings/test/claude').then(r => r.json());
+    btn.disabled = false; btn.textContent = 'Test Connection';
+    showKeyMsg(res.online ? 'ok' : 'error',
+      res.online ? 'Claude is reachable' : 'Cannot reach Claude -- check key or network');
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Test Connection';
+    showToast(e.message || 'Network error testing Claude', 'error');
+  }
 }
 
 function showKeyMsg(type, text) {
@@ -1164,25 +1302,34 @@ function renderLocalModal(agent, cfg) {
 async function testLocal(agent) {
   const btn = document.querySelector(`.btn-${agent}`);
   btn.disabled = true; btn.textContent = 'Testing...';
-  const res = await fetch(`/settings/test/${agent}`).then(r => r.json());
-  btn.disabled = false; btn.textContent = 'Test Connection';
-  const el = document.getElementById('local-msg');
-  el.className = `msg-status ${res.online ? 'ok' : 'error'}`;
-  el.textContent = res.online
-    ? `${AGENTS[agent].label} is loaded and ready`
-    : 'Cannot reach model -- is Ollama running?';
+  try {
+    const res = await fetch(`/settings/test/${agent}`).then(r => r.json());
+    btn.disabled = false; btn.textContent = 'Test Connection';
+    const el = document.getElementById('local-msg');
+    el.className = `msg-status ${res.online ? 'ok' : 'error'}`;
+    el.textContent = res.online
+      ? `${AGENTS[agent].label} is loaded and ready`
+      : 'Cannot reach model -- is Ollama running?';
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Test Connection';
+    showToast(e.message || 'Network error testing model', 'error');
+  }
 }
 
 async function setAgentEnabled(agent, enabled) {
-  await fetch('/settings/agent', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ agent, enabled }),
-  });
-  invalidateSettings();
-  applyPillState(agent, enabled);
-  // Special: if disabling Claude, mirror to master model toggle
-  if (agent === 'claude') updateStatus(enabled && prevOnline);
+  try {
+    await fetch('/settings/agent', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ agent, enabled }),
+    });
+    invalidateSettings();
+    applyPillState(agent, enabled);
+    // Special: if disabling Claude, mirror to master model toggle
+    if (agent === 'claude') updateStatus(enabled && prevOnline);
+  } catch (e) {
+    showToast(e.message || 'Failed to update agent setting', 'error');
+  }
 }
 
 function applyPillState(agent, enabled) {
@@ -1200,7 +1347,10 @@ function applyPillState(agent, enabled) {
 }
 
 async function syncPillStates() {
-  const settings = await fetch('/settings').then(r => r.json());
+  let settings;
+  try {
+    settings = await fetch('/settings').then(r => r.json());
+  } catch (e) { return; }
   ['claude', 'deepseek'].forEach(a => {
     applyPillState(a, settings[a]?.enabled !== false);
   });
@@ -1538,17 +1688,47 @@ async function _loadFileContent(filePath, rowEl) {
     return;
   }
 
-  const escaped = escHtml(data.content || '');
-  pane.innerHTML = `
-    <div class="fv-file-header">
-      <span>${_fileIcon(filePath)} ${escHtml(filePath)}</span>
-      <button class="fv-copy-btn" onclick="_copyFileContent(this)">Copy</button>
-    </div>
-    <pre class="fv-code"><code>${escaped}</code></pre>`;
+  const content = data.content || '';
+  const langMap = { js: 'javascript', css: 'css', html: 'html', py: 'python',
+                    json: 'json', md: 'markdown', ts: 'typescript', sh: 'bash' };
+  const lang = langMap[ext] || '';
+
+  // Build syntax-highlighted code block
+  const codeEl = document.createElement('code');
+  if (lang) codeEl.className = `language-${lang}`;
+  codeEl.textContent = content;
+  if (lang) hljs.highlightElement(codeEl);
+
+  // Line numbers
+  const lineCount = content.split('\n').length;
+  const lineNums = document.createElement('div');
+  lineNums.className = 'fv-line-nums';
+  lineNums.innerHTML = Array.from({ length: lineCount }, (_, i) =>
+    `<span>${i + 1}</span>`).join('');
+
+  const preEl = document.createElement('pre');
+  preEl.className = 'fv-code';
+  preEl.appendChild(codeEl);
+
+  const codeWrap = document.createElement('div');
+  codeWrap.className = 'fv-code-wrap';
+  codeWrap.appendChild(lineNums);
+  codeWrap.appendChild(preEl);
+
+  // Assemble pane
+  pane.innerHTML = '';
+  const header = document.createElement('div');
+  header.className = 'fv-file-header';
+  header.innerHTML = `<span>${_fileIcon(filePath)} ${escHtml(filePath)}</span>`
+    + `<button class="fv-copy-btn" onclick="_copyFileContent(this)">Copy</button>`;
+  pane.appendChild(header);
+  pane.appendChild(codeWrap);
 }
 
 function _copyFileContent(btn) {
-  const code = btn.closest('.fv-pane').querySelector('.fv-code');
+  const pane = document.getElementById('fv-pane');
+  if (!pane) return;
+  const code = pane.querySelector('code');
   if (!code) return;
   navigator.clipboard.writeText(code.textContent).then(() => {
     btn.textContent = 'Copied!';

@@ -29,6 +29,10 @@ _is_claude_available = lambda: False
 # Semaphore caps concurrent Ollama requests. Reconfigured by configure().
 _ollama_lock = asyncio.Semaphore(1)
 
+# T14.1 — single-model-at-a-time tracking
+SINGLE_MODEL_MODE: bool = True
+_loaded_model: str | None = None
+
 # Shared HTTP client — reuses connections across all LLM calls.
 # Call close_http_client() at server shutdown to drain the connection pool.
 _http_client = httpx.AsyncClient()
@@ -45,11 +49,12 @@ def configure(*, ollama_base: str, keep_alive: str,
               agent_label: dict, system_prompts: dict,
               claude_cost_input: float, claude_cost_output: float,
               get_master_model, is_claude_available,
-              ollama_concurrency: int = 1) -> None:
+              ollama_concurrency: int = 1,
+              single_model_mode: bool = True) -> None:
     """Called once from server.py to inject shared state references."""
     global OLLAMA_BASE, KEEP_ALIVE, OLLAMA_MODELS, MODEL_CTX, MODEL_PREDICT, AGENT_LABEL, SYSTEM_PROMPTS
     global CLAUDE_COST_INPUT_PER_M, CLAUDE_COST_OUTPUT_PER_M
-    global _get_master_model, _is_claude_available, _ollama_lock
+    global _get_master_model, _is_claude_available, _ollama_lock, SINGLE_MODEL_MODE
     OLLAMA_BASE = ollama_base
     KEEP_ALIVE = keep_alive
     OLLAMA_MODELS = ollama_models
@@ -62,6 +67,7 @@ def configure(*, ollama_base: str, keep_alive: str,
     _get_master_model = get_master_model
     _is_claude_available = is_claude_available
     _ollama_lock = asyncio.Semaphore(max(1, ollama_concurrency))
+    SINGLE_MODEL_MODE = single_model_mode
 
 
 # ── OrchStats — token & time tracking across one orchestration run ────────────
@@ -72,6 +78,7 @@ class OrchStats:
     def __init__(self):
         self.start_time: float = time.time()
         self.by_agent: dict[str, dict] = {}
+        self.model_switch_count: int = 0  # T14.4: count model switches during build
 
     def record(self, agent: str, input_tok: int, output_tok: int) -> None:
         if agent not in self.by_agent:
@@ -98,23 +105,80 @@ class OrchStats:
     def total_tasks(self) -> int:
         return sum(d["tasks"] for d in self.by_agent.values())
 
+    def record_model_switch(self) -> None:
+        """Increment model switch counter (called by T14.4 sequential execution)."""
+        self.model_switch_count += 1
+
     def to_summary(self) -> dict:
         inp, out = self.claude_tokens()
         local = self.local_tokens()
         cost_usd = (inp * CLAUDE_COST_INPUT_PER_M + out * CLAUDE_COST_OUTPUT_PER_M) / 1_000_000
         return {
-            "elapsed":        self.elapsed(),
-            "by_agent":       self.by_agent,
-            "claude_input":   inp,
-            "claude_output":  out,
-            "local_tokens":   local,
-            "cost_usd":       round(cost_usd, 4),
-            "total_tasks":    self.total_tasks(),
+            "elapsed":           self.elapsed(),
+            "by_agent":          self.by_agent,
+            "claude_input":      inp,
+            "claude_output":     out,
+            "local_tokens":      local,
+            "cost_usd":          round(cost_usd, 4),
+            "total_tasks":       self.total_tasks(),
+            "model_switch_count": self.model_switch_count,
         }
 
 
 # ── Ollama availability cache ─────────────────────────────────────────────────
 _ollama_status: dict = {"online": False, "checked_at": 0.0}
+
+
+# ── T14.1: Single-model-at-a-time scheduling ──────────────────────────────────
+
+async def _ensure_model_loaded(model_name: str) -> None:
+    """Unload the previously-loaded Ollama model before loading a different one.
+
+    Must be called *inside* _ollama_lock to avoid races.
+    No-op when SINGLE_MODEL_MODE is False or the requested model is already loaded.
+    """
+    global _loaded_model
+    if not SINGLE_MODEL_MODE:
+        _loaded_model = model_name
+        return
+    if _loaded_model and _loaded_model != model_name:
+        try:
+            await _http_client.post(
+                f"{OLLAMA_BASE}/api/generate",
+                json={"model": _loaded_model, "keep_alive": "0"},
+                timeout=10.0,
+            )
+            logging.info("ollama: unloaded %s before loading %s", _loaded_model, model_name)
+        except Exception as e:
+            logging.warning("ollama: failed to unload %s: %s", _loaded_model, e)
+    _loaded_model = model_name
+
+
+# ── T14.7: Model warm-up ──────────────────────────────────────────────────────
+
+async def warmup_model(model_name: str) -> bool:
+    """Send a minimal generation request to ensure the model is loaded and warm.
+
+    Returns True on success.  First load on 16 GB Mac Mini can take 30-60 s.
+    """
+    try:
+        async with _ollama_lock:
+            await _ensure_model_loaded(model_name)
+            r = await _http_client.post(
+                f"{OLLAMA_BASE}/api/generate",
+                json={
+                    "model": model_name,
+                    "prompt": "Hi",
+                    "stream": False,
+                    "keep_alive": KEEP_ALIVE,
+                    "options": {"num_predict": 1},
+                },
+                timeout=90.0,
+            )
+            return r.status_code == 200
+    except Exception as e:
+        logging.warning("warmup_model(%s) failed: %s", model_name, e)
+        return False
 
 # ── Ollama model-info cache ───────────────────────────────────────────────────
 _model_info_cache: dict[str, dict] = {}
@@ -468,6 +532,7 @@ async def stream_ollama(agent: str, history: list[dict], system_prompt: str | No
             yield f"\n\n*[Ollama error: {e}]*"
 
     async with _ollama_lock:
+        await _ensure_model_loaded(model)
         async for chunk in _do_stream():
             yield chunk
 
@@ -477,6 +542,7 @@ async def stream_ollama(agent: str, history: list[dict], system_prompt: str | No
 async def ollama_json_call(agent: str, system: str, prompt: str, max_tokens: int = 2048) -> str | None:
     model = OLLAMA_MODELS.get(agent, OLLAMA_MODELS.get("deepseek", "deepseek-coder-v2:16b-lite-instruct-q5_K_S"))
     async with _ollama_lock:
+        await _ensure_model_loaded(model)
         try:
             r = await _http_client.post(
                 f"{OLLAMA_BASE}/api/chat",
