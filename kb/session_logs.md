@@ -23,3 +23,15 @@
 - Windows = Claude Code UI only; C:\Dropboxinpath\ = MD files only
 - Every Dropbox MD must have a Mac kb/ mirror (this file is that mirror for logs.md)
 - Large code rewrites: draft on Windows → scp to Mac → delete Windows draft
+
+
+---
+
+## 2026-04-15 — AAB build versionCode 7
+
+**Build:** app-release-v7.aab (108MB, versionCode 7, release-signed)
+**Commit:** 9738c5c
+
+- app.json versionCode 4 → 7 (was stale); build.gradle 6 → 7
+- bundleRelease BUILD SUCCESSFUL in 40s
+- AAB scp to Windows: C:\dropbox\finpath\app-release-v7.aab
