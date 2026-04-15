@@ -71,14 +71,14 @@ export function CorpusPrimer({ profileId }: Props) {
               </View>
 
               <View style={styles.block}>
-                <Text style={styles.emoji}>📐</Text>
+                <Text style={styles.emoji}>🌡️</Text>
                 <View style={styles.blockText}>
-                  <Text variant="labelLarge" style={styles.blockTitle}>Safe Withdrawal Rate (SWR)</Text>
+                  <Text variant="labelLarge" style={styles.blockTitle}>How Inflation Shapes Your Target</Text>
                   <Text variant="bodySmall" style={styles.blockBody}>
-                    SWR is the % of your corpus you withdraw each year. At 5% SWR, a{' '}
-                    <Text style={{ fontWeight: '700' }}>₹2 Cr corpus</Text> gives you{' '}
-                    <Text style={{ fontWeight: '700' }}>₹10 L/yr</Text> (₹83K/mo).{'\n'}
-                    Lower SWR = larger corpus needed, but your money lasts longer.
+                    Today’s ₹1 L/month becomes far more expensive by the time you retire.
+                    At 6% inflation, ₹1 L today needs{" "}
+                    <Text style={{ fontWeight: "700" }}>₹3.2 L/month</Text> in 20 years.
+                    Your corpus must fund that real purchasing power — not today’s prices.
                   </Text>
                 </View>
               </View>

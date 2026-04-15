@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Platform, Keyboard, ActivityIndicator, RefreshControl } from 'react-native';
-import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, HelperText, RadioButton, TouchableRipple } from 'react-native-paper';
+import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, Icon, HelperText, RadioButton, TouchableRipple } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { Expense, Goals, getExpenses, getGoals, createExpense, updateExpense, deleteExpense } from '../../db/queries';
 import { EXPENSE_CATEGORIES, EXPENSE_TYPES, FREQUENCIES, DEFAULT_INFLATION_RATES } from '../../constants/categories';
@@ -267,7 +267,12 @@ export default function ExpensesScreen() {
                 {typeExpenses.map(exp => (
                   <Card key={exp.id} style={styles.expCard} onPress={() => openForm(exp.category, exp)}>
                     <Card.Content style={styles.expRow}>
-                      <View style={{ flex: 1 }}>
+                      <Icon
+                        source={EXPENSE_CATEGORIES.find(c => c.key === exp.category)?.icon ?? 'dots-horizontal-circle-outline'}
+                        size={20}
+                        color="#777"
+                      />
+                      <View style={{ flex: 1, marginLeft: 10 }}>
                         <Text variant="bodyLarge" style={{ fontWeight: '600' }}>
                           {exp.name}
                         </Text>
@@ -276,12 +281,9 @@ export default function ExpensesScreen() {
                           {exp.frequency ? ` • ${exp.frequency}` : ''}
                         </Text>
                       </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text variant="bodyLarge" style={{ fontWeight: '700', color: '#C62828' }}>
-                          -{formatCurrency(exp.amount, currentProfile.currency)}
-                        </Text>
-                        <IconButton icon="delete-outline" size={18} onPress={() => handleDelete(exp.id)} accessibilityLabel={`Delete ${exp.name}`} />
-                      </View>
+                      <Text variant="bodyLarge" style={{ fontWeight: '700', color: '#C62828' }}>
+                        -{formatCurrency(exp.amount, currentProfile.currency)}
+                      </Text>
                     </Card.Content>
                   </Card>
                 ))}
@@ -364,6 +366,12 @@ export default function ExpensesScreen() {
               />
 
               <View style={styles.formActions}>
+                {editingExpense && (
+                  <Button mode="outlined"
+                    onPress={() => { setShowForm(false); resetForm(); handleDelete(editingExpense.id); }}
+                    style={[styles.actionBtn, { borderColor: '#C62828' }]}
+                    textColor="#C62828">Delete</Button>
+                )}
                 <Button mode="outlined" onPress={() => { setShowForm(false); resetForm(); }}
                   style={styles.actionBtn}>Cancel</Button>
                 <Button mode="contained" onPress={handleSave} style={styles.actionBtn}>
