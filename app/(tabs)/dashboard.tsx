@@ -7,7 +7,8 @@ import { calculateProjections, CalculationOutput, formatCurrency, formatCurrency
 import { exportToCSV } from '../../utils/export';
 import { Slider } from '@miblanchard/react-native-slider';
 import { CartesianChart, Line } from 'victory-native';
-import { Path as SkiaPath, Circle as SkiaCircle, Text as SkiaText, DashPathEffect, Skia, vec, matchFont } from '@shopify/react-native-skia';
+import { Path as SkiaPath, Circle as SkiaCircle, Text as SkiaText, DashPathEffect, LinearGradient as SkiaLinearGradient, Skia, vec, matchFont } from '@shopify/react-native-skia';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRouter, useFocusEffect } from 'expo-router';
 import { usePro } from '../../hooks/usePro';
 import { ProPaywall } from '../../components/ProPaywall';
@@ -198,12 +199,21 @@ export default function DashboardScreen() {
     );
   }
 
+  const sipRatio = result.requiredMonthlySIP > 0 ? sipAmountDisplay / result.requiredMonthlySIP : 1;
+  const heroColors: [string, string] = sipRatio >= 1.15
+    ? ['#1B5E20', '#2E7D32']
+    : sipRatio >= 1.0
+    ? ['#2E7D32', '#388E3C']
+    : sipRatio >= 0.7
+    ? ['#E65100', '#BF360C']
+    : ['#B71C1C', '#7F0000'];
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
 
 
       {/* Section A — Hero Card */}
-      <View style={styles.heroCard}>
+      <LinearGradient colors={heroColors} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.heroCard}>
         <Text style={styles.heroLabel}>YOUR PLAN</Text>
         {result.requiredMonthlySIP > 0 ? (
           <Text style={styles.heroAmount}>{formatCurrencyFull(result.requiredMonthlySIP, currency)}</Text>
@@ -212,18 +222,20 @@ export default function DashboardScreen() {
         )}
         <Text style={styles.heroSubtitle}>Monthly SIP · To retire at age {retirementAge}</Text>
         <View style={styles.heroPillRow}>
-          <View style={styles.heroPill}>
-            <Text style={styles.heroPillText}>{result.isOnTrack ? '🟢 On Track' : '🔴 Off Track'}</Text>
+          <View style={[styles.heroPill, styles.heroPillStatus]}>
+            <Text style={[styles.heroPillText, { color: result.isOnTrack ? '#1B5E20' : '#C62828' }]}>
+              {result.isOnTrack ? '✓ On Track' : '✗ Off Track'}
+            </Text>
           </View>
           {result.fireAchievedAge > 0 && (
-            <View style={styles.heroPill}>
+            <View style={[styles.heroPill, result.failureAge > 0 ? { backgroundColor: 'rgba(255,167,38,0.9)' } : undefined]}>
               <Text style={styles.heroPillText}>
                 {result.failureAge > 0 ? `⚠ Runs out at ${result.failureAge}` : `✓ Lasts till ${goals.fire_target_age ?? 100}`}
               </Text>
             </View>
           )}
         </View>
-      </View>
+      </LinearGradient>
 
       {/* Inflation Insight Card */}
       {(() => {
@@ -412,8 +424,60 @@ export default function DashboardScreen() {
                 const failX = result.failureAge > 0 ? xScale(result.failureAge) : null;
                 const failY = result.failureAge > 0 ? yScale(0) : null;
 
+                // Net worth area fill (green gradient)
+                const nwPts = points.netWorth.filter((p: any) => p.y != null);
+                const nwAreaPath = Skia.Path.Make();
+                if (nwPts.length > 0) {
+                  nwAreaPath.moveTo(nwPts[0].x, chartBounds.bottom);
+                  nwPts.forEach((p: any) => nwAreaPath.lineTo(p.x, p.y));
+                  nwAreaPath.lineTo(nwPts[nwPts.length - 1].x, chartBounds.bottom);
+                  nwAreaPath.close();
+                }
+
+                // Post-retirement outflow paths (red dashed + red fill)
+                const postRetProj = projections.filter(p => p.age >= retirementAge && p.totalOutflow > 0);
+                const ofLinePath = Skia.Path.Make();
+                const ofAreaPath = Skia.Path.Make();
+                if (postRetProj.length > 0) {
+                  ofLinePath.moveTo(xScale(postRetProj[0].age), yScale(postRetProj[0].totalOutflow));
+                  postRetProj.forEach(p => ofLinePath.lineTo(xScale(p.age), yScale(p.totalOutflow)));
+                  ofAreaPath.moveTo(xScale(postRetProj[0].age), chartBounds.bottom);
+                  postRetProj.forEach(p => ofAreaPath.lineTo(xScale(p.age), yScale(p.totalOutflow)));
+                  ofAreaPath.lineTo(xScale(postRetProj[postRetProj.length - 1].age), chartBounds.bottom);
+                  ofAreaPath.close();
+                }
+
                 return <>
+                  {/* Green gradient fill under net worth */}
+                  {nwPts.length > 0 && (
+                    <SkiaPath path={nwAreaPath} style="fill" opacity={0.3}>
+                      <SkiaLinearGradient
+                        start={vec(0, chartBounds.top)}
+                        end={vec(0, chartBounds.bottom)}
+                        colors={['rgba(27,94,32,0.7)', 'rgba(27,94,32,0)']}
+                      />
+                    </SkiaPath>
+                  )}
+
+                  {/* Red gradient fill under post-retirement withdrawals */}
+                  {postRetProj.length > 0 && (
+                    <SkiaPath path={ofAreaPath} style="fill" opacity={0.25}>
+                      <SkiaLinearGradient
+                        start={vec(0, chartBounds.top)}
+                        end={vec(0, chartBounds.bottom)}
+                        colors={['rgba(198,40,40,0.5)', 'rgba(198,40,40,0)']}
+                      />
+                    </SkiaPath>
+                  )}
+
                   <Line points={points.netWorth} color="#1B5E20" strokeWidth={2.5} />
+
+                  {/* Red dashed outflow line (post-retirement withdrawals) */}
+                  {postRetProj.length > 0 && (
+                    <SkiaPath path={ofLinePath} color="#C62828" strokeWidth={2} style="stroke">
+                      <DashPathEffect intervals={[6, 4]} />
+                    </SkiaPath>
+                  )}
 
                   {/* Retirement age vertical dashed line */}
                   <SkiaPath path={retPath} color="#1B5E20" strokeWidth={1.5} style="stroke">
@@ -471,6 +535,12 @@ export default function DashboardScreen() {
               <View style={[styles.legendDot, { backgroundColor: '#1B5E20', borderRadius: 0, height: 3, width: 16 }]} />
               <Text variant="bodySmall">Retirement (Age {retirementAge})</Text>
             </View>
+            {projections.some(p => p.age >= retirementAge && p.totalOutflow > 0) && (
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#C62828', borderRadius: 0, height: 3, width: 16 }]} />
+                <Text variant="bodySmall" style={{ color: '#C62828' }}>Withdrawals</Text>
+              </View>
+            )}
             {result.failureAge > 0 && (
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: '#C62828' }]} />
@@ -588,12 +658,13 @@ const styles = StyleSheet.create({
   tableHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   colNarrow: { width: 60 },
   colWide: { width: 100 },
-  heroCard: { backgroundColor: '#1B5E20', borderRadius: 16, padding: 20, marginBottom: 12 },
+  heroCard: { borderRadius: 16, padding: 20, marginBottom: 12, overflow: 'hidden' },
   heroLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: 'rgba(255,255,255,0.7)', marginBottom: 4 },
   heroAmount: { fontSize: 36, fontWeight: '800', color: '#fff', marginBottom: 4 },
   heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 14 },
   heroPillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   heroPill: { backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  heroPillStatus: { backgroundColor: '#fff', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.5)' },
   heroPillText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   insightCard: { backgroundColor: '#FFFDE7', borderLeftWidth: 3, borderLeftColor: '#F9A825', borderRadius: 8, padding: 14, marginBottom: 12 },
   insightTitle: { fontSize: 13, fontWeight: '800', color: '#4E342E', marginBottom: 6 },
