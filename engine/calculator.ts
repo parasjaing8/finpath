@@ -273,7 +273,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
   const fireCorpus = calculateSimulationFireCorpus(
     expenses, currentAge, currentYear, currentMonth,
     retirementAge, postSipReturnRate, monthlyPensionPV,
-    fireTargetAge, goals.fire_type ?? 'moderate',
+    fireTargetAge, discountRate, goals.fire_type ?? 'moderate',
   );
 
   // Compute blended growth rate for initial (existing) assets
@@ -325,7 +325,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     // Post-retirement: pension drawn from corpus each year (inflation-adjusted)
     let pensionIncome = 0;
     if (age >= retirementAge && monthlyPensionPV > 0) {
-      pensionIncome = monthlyPensionPV * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsFromStart);
+      pensionIncome = monthlyPensionPV * 12 * Math.pow(1 + discountRate, yearsFromStart);
     }
 
     // Vesting income
@@ -382,7 +382,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     investableNetWorth, assets, expenses,
     currentAge, currentYear, currentMonth, retirementAge, sipStopAge,
     sipReturnRate, postSipReturnRate, stepUpRate,
-    monthlyPensionPV, fireTargetAge,
+    monthlyPensionPV, fireTargetAge, discountRate,
   );
 
   const timeToFire = fireAchievedAge >= 0 ? fireAchievedAge - currentAge : -1;
@@ -465,6 +465,7 @@ function simulatePostRetirementCorpus(
   currentYear: number,
   currentMonth: number,
   postSipReturnRate: number,
+  inflationRate: number,
   monthlyPension: number,
   expenses: Expense[],
 ): number {
@@ -475,7 +476,7 @@ function simulatePostRetirementCorpus(
     const yearsFromStart = age - currentAge;
     let withdrawal = 0;
     if (monthlyPension > 0)
-      withdrawal += monthlyPension * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsFromStart);
+      withdrawal += monthlyPension * 12 * Math.pow(1 + inflationRate, yearsFromStart);
     for (const exp of futureExpenses)
       withdrawal += calculateExpenseForYear(exp, year, currentYear, currentMonth);
     corpus = corpus * (1 + postSipReturnRate / 100) - withdrawal;
@@ -497,6 +498,7 @@ function calculateSimulationFireCorpus(
   postSipReturnRate: number,
   monthlyPension: number,
   fireTargetAge: number,
+  inflationRate: number,
   fireType: string,
 ): number {
   if (monthlyPension <= 0) return 0;
@@ -507,7 +509,7 @@ function calculateSimulationFireCorpus(
     const final = simulatePostRetirementCorpus(
       corpus, retirementAge, fireTargetAge,
       currentAge, currentYear, currentMonth,
-      postSipReturnRate, monthlyPension, expenses,
+      postSipReturnRate, inflationRate, monthlyPension, expenses,
     );
     return isRich ? final - corpus : final;
   }
@@ -541,13 +543,14 @@ function calculateRequiredSIP(
   stepUpRate: number,
   monthlyPension: number,
   fireTargetAge: number,
+  inflationRate: number,
 ): number {
   // If corpus already survives to target age with zero SIP, no SIP needed
   const blendedRate = computeBlendedGrowthRate(assets, sipReturnRate);
   const withNoSip = simulateCorpusAtAge(
     initialNetWorth, assets, expenses,
     currentAge, currentYear, currentMonth, retirementAge, sipStopAge,
-    sipReturnRate, postSipReturnRate, stepUpRate, 0, monthlyPension, fireTargetAge, blendedRate,
+    sipReturnRate, postSipReturnRate, stepUpRate, 0, monthlyPension, fireTargetAge, inflationRate, blendedRate,
   );
   if (withNoSip >= 0) return 0;
 
@@ -560,7 +563,7 @@ function calculateRequiredSIP(
     const corpus = simulateCorpusAtAge(
       initialNetWorth, assets, expenses,
       currentAge, currentYear, currentMonth, retirementAge, sipStopAge,
-      sipReturnRate, postSipReturnRate, stepUpRate, mid, monthlyPension, fireTargetAge, blendedRate,
+      sipReturnRate, postSipReturnRate, stepUpRate, mid, monthlyPension, fireTargetAge, inflationRate, blendedRate,
     );
 
     if (Math.abs(corpus) < tolerance) return Math.ceil(mid);
@@ -592,6 +595,7 @@ function simulateCorpusAtAge(
   monthlySIP: number,
   monthlyPension: number,
   targetAge: number,
+  inflationRate: number,
   blendedRate?: number,
 ): number {
   const futureExpenses = expenses.filter(e => e.expense_type !== 'CURRENT_RECURRING');
@@ -627,7 +631,7 @@ function simulateCorpusAtAge(
     let withdrawal = 0;
     if (age >= retirementAge) {
       if (monthlyPension > 0) {
-        withdrawal += monthlyPension * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsFromStart);
+        withdrawal += monthlyPension * 12 * Math.pow(1 + inflationRate, yearsFromStart);
       }
       for (const exp of futureExpenses) {
         withdrawal += calculateExpenseForYear(exp, year, currentYear, currentMonth);
