@@ -72,7 +72,7 @@ export default function ProfileScreen() {
             <Text variant="titleMedium" style={{ fontWeight: '700' }}>{currentProfile.name}</Text>
             {currentProfile.monthly_income != null && currentProfile.monthly_income > 0 && (
               <Text variant="bodySmall" style={{ color: '#666', marginTop: 2 }}>
-                Monthly income: {currentProfile.currency}{((currentProfile.monthly_income ?? 0) / 1000).toFixed(0)}K
+                Monthly income: {currentProfile.currency === 'INR' ? '₹' : '$'}{((currentProfile.monthly_income ?? 0) / 1000).toFixed(0)}K
               </Text>
             )}
           </View>
