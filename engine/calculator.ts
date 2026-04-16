@@ -247,12 +247,8 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     for (const exp of currentExpenses) {
       annualAmt += calculateExpenseForYear(exp, year, currentYear, currentMonth);
     }
-    // Include pre-retirement FUTURE_RECURRING in salary-funded PV.
-    // FUTURE_ONE_TIME are corpus-funded (lump-sum withdrawals) — excluded here.
-    for (const exp of futureExpenses) {
-      if (exp.expense_type === 'FUTURE_ONE_TIME') continue;
-      annualAmt += calculateExpenseForYear(exp, year, currentYear, currentMonth);
-    }
+    // All future expenses (FUTURE_ONE_TIME + FUTURE_RECURRING) are corpus-funded
+    // pre-retirement — neither appears in the salary-funded PV.
     const yearsFromNow = age - currentAge;
     presentValueOfExpenses += annualAmt / Math.pow(1 + discountRate, yearsFromNow);
   }
@@ -307,7 +303,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     }
 
     // Pre-retirement: current lifestyle expenses shown for planning (salary-funded)
-    // Future expenses (one-time/recurring) shown pre-retirement too — salary-funded
+    // Future expenses (one-time/recurring) shown pre-retirement — corpus-funded
     // Post-retirement: future expenses (house, college, etc.) drawn from corpus
     let plannedExpenses = 0;
     if (age < retirementAge) {
@@ -334,16 +330,15 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     const vestingIncome = calculateVestingForYear(assets, year);
 
     // Net worth calculation — two-bucket approach
-    // Pre-retirement: FUTURE_ONE_TIME lump sums (house, car) are corpus-funded withdrawals.
-    let preRetOneTimeCost = 0;
+    // Pre-retirement: ALL future expenses (one-time + recurring) are corpus-funded.
+    // CURRENT_RECURRING alone is salary-funded and not deducted from corpus.
+    let preRetFutureCost = 0;
     if (age < retirementAge) {
       for (const exp of futureExpenses) {
-        if (exp.expense_type === 'FUTURE_ONE_TIME') {
-          preRetOneTimeCost += calculateExpenseForYear(exp, year, currentYear, currentMonth);
-        }
+        preRetFutureCost += calculateExpenseForYear(exp, year, currentYear, currentMonth);
       }
     }
-    const totalNetExpenses = age >= retirementAge ? (pensionIncome + plannedExpenses) : preRetOneTimeCost;
+    const totalNetExpenses = age >= retirementAge ? (pensionIncome + plannedExpenses) : preRetFutureCost;
     if (age >= retirementAge && !retirementMerged) {
       // If sipStop coincides with retirement, preserve the last SIP contribution before merging
       if (age <= sipStopAge) existingBucket += annualSIP;
@@ -354,7 +349,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     if (!retirementMerged) {
       const er = age <= sipStopAge ? blendedExistingRate / 100 : postSipReturnRate / 100;
       const sr = age <= sipStopAge ? sipReturnRate / 100 : postSipReturnRate / 100;
-      existingBucket = Math.max(0, existingBucket) * (1 + er) + vestingIncome - preRetOneTimeCost;
+      existingBucket = Math.max(0, existingBucket) * (1 + er) + vestingIncome - preRetFutureCost;
       sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP;
     } else {
       const newCorpus = Math.max(0, existingBucket) * (1 + postSipReturnRate / 100) + vestingIncome - totalNetExpenses;
@@ -456,7 +451,7 @@ export function calculatePresentValueOfExpenses(
     const year = currentYear + (age - currentAge);
     let annualExpenses = 0;
     for (const exp of expenses) {
-      if (exp.expense_type === 'FUTURE_ONE_TIME') continue; // corpus-funded, not salary-funded
+      if (exp.expense_type !== 'CURRENT_RECURRING') continue; // only current recurring is salary-funded
       annualExpenses += calculateExpenseForYear(exp, year, currentYear, currentMonth);
     }
     pv += annualExpenses / Math.pow(1 + discountRate, age - currentAge);
@@ -653,14 +648,12 @@ function simulateCorpusAtAge(
     if (!merged) {
       const er = age <= sipStopAge ? existingRate / 100 : postSipReturnRate / 100;
       const sr = age <= sipStopAge ? sipReturnRate / 100 : postSipReturnRate / 100;
-      // Deduct FUTURE_ONE_TIME lump sums from corpus pre-retirement (house, car purchases)
-      let preRetOneTimeCost = 0;
+      // Deduct ALL future expenses (one-time + recurring) from corpus pre-retirement
+      let preRetFutureCost = 0;
       for (const exp of futureExpenses) {
-        if (exp.expense_type === 'FUTURE_ONE_TIME') {
-          preRetOneTimeCost += calculateExpenseForYear(exp, year, currentYear, currentMonth);
-        }
+        preRetFutureCost += calculateExpenseForYear(exp, year, currentYear, currentMonth);
       }
-      existingBucket = Math.max(0, existingBucket) * (1 + er) + vestingIncome - preRetOneTimeCost;
+      existingBucket = Math.max(0, existingBucket) * (1 + er) + vestingIncome - preRetFutureCost;
       sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP;
     } else {
       existingBucket = Math.max(0, existingBucket) * (1 + postSipReturnRate / 100) + vestingIncome - withdrawal;

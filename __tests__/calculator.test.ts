@@ -767,21 +767,22 @@ describe('FUTURE_ONE_TIME pre-retirement — corpus deduction behaviour', () => 
     expect(purchaseYear!.totalNetExpenses).toBeCloseTo(1_000_000, -2);
   });
 
-  test('totalNetExpenses = 0 in pre-retirement years with no one-time expense', () => {
+  test('totalNetExpenses = 0 in pre-retirement years with only CURRENT_RECURRING expenses', () => {
     const rent = makeCurrentExpense(30_000); // CURRENT_RECURRING only — salary-funded
     const out = calculateProjections(baseInput({ expenses: [rent] }));
     const preRetirement = out.projections.filter(p => p.age < 60);
     preRetirement.forEach(p => expect(p.totalNetExpenses).toBe(0));
   });
 
-  test('FUTURE_ONE_TIME NOT included in salary-funded presentValueOfExpenses', () => {
+  test('FUTURE expenses (one-time and recurring) NOT included in salary-funded presentValueOfExpenses', () => {
     // presentValueOfExpenses is the "what salary must cover" number on the expenses banner
-    // After fix: one-time lump sums are corpus-funded and must NOT appear here
-    const house = makeFutureOneTimeExpense(10_000_000, 10); // ₹1 Cr house, 10 yrs out
-    const withHouse    = calculateProjections(baseInput({ expenses: [house] }));
-    const withoutHouse = calculateProjections(baseInput({ expenses: [] }));
-    // presentValueOfExpenses should be the SAME — house doesn't inflate the salary PV
-    expect(withHouse.presentValueOfExpenses).toBeCloseTo(withoutHouse.presentValueOfExpenses, 0);
+    // FUTURE_ONE_TIME and FUTURE_RECURRING are both corpus-funded — must NOT appear here
+    const house   = makeFutureOneTimeExpense(10_000_000, 10);          // ₹1 Cr house
+    const college = makeFutureRecurringExpense(500_000, 5, 9);          // ₹5L/yr school fees
+    const withBoth    = calculateProjections(baseInput({ expenses: [house, college] }));
+    const withoutAny  = calculateProjections(baseInput({ expenses: [] }));
+    // Neither future expense should appear in the salary-funded PV
+    expect(withBoth.presentValueOfExpenses).toBeCloseTo(withoutAny.presentValueOfExpenses, 0);
   });
 
   test('pre-retirement FUTURE_ONE_TIME increases requiredMonthlySIP', () => {
@@ -792,14 +793,37 @@ describe('FUTURE_ONE_TIME pre-retirement — corpus deduction behaviour', () => 
     expect(with_.requiredMonthlySIP).toBeGreaterThan(without.requiredMonthlySIP);
   });
 
-  test('calculatePresentValueOfExpenses excludes FUTURE_ONE_TIME', () => {
-    // Standalone function used by the expenses screen banner
+  test('calculatePresentValueOfExpenses excludes FUTURE_ONE_TIME and FUTURE_RECURRING', () => {
+    // Standalone function used by the expenses screen banner — only CURRENT_RECURRING included
     const profile = makeProfile({ dob: makeDob(30) });
-    const rent  = makeCurrentExpense(30_000, 6, 30);
-    const house = makeFutureOneTimeExpense(5_000_000, 5);
-    const pvWithBoth = calculatePresentValueOfExpenses(profile, [rent, house], 60);
-    const pvRentOnly = calculatePresentValueOfExpenses(profile, [rent],        60);
-    // House must NOT inflate the "salary must cover" banner number
-    expect(pvWithBoth).toBeCloseTo(pvRentOnly, 0);
+    const rent    = makeCurrentExpense(30_000, 6, 30);
+    const house   = makeFutureOneTimeExpense(5_000_000, 5);
+    const college = makeFutureRecurringExpense(300_000, 3, 7);
+    const pvAll      = calculatePresentValueOfExpenses(profile, [rent, house, college], 60);
+    const pvRentOnly = calculatePresentValueOfExpenses(profile, [rent],                 60);
+    // Future expenses must NOT inflate the "salary must cover" banner number
+    expect(pvAll).toBeCloseTo(pvRentOnly, 0);
+  });
+
+  test('FUTURE_RECURRING pre-retirement causes corpus dip when it starts', () => {
+    // School fees ₹3L/year starting 5 years from now (age 35, pre-retirement at 60)
+    // Verify: totalNetExpenses > 0 in fee year AND net worth lower than without fees
+    const fees = makeFutureRecurringExpense(300_000, 5, 9); // ₹3L/yr, ages 35-39
+    const withFees    = calculateProjections(baseInput({ assets: [makeMFAsset(5_000_000)], expenses: [fees], sipAmount: 20_000 }));
+    const withoutFees = calculateProjections(baseInput({ assets: [makeMFAsset(5_000_000)], expenses: [],     sipAmount: 20_000 }));
+    const feeYear    = withFees.projections.find(p => p.age === 35)!;
+    const noFeeYear  = withoutFees.projections.find(p => p.age === 35)!;
+    // Corpus is deducted → totalNetExpenses reflects the fee
+    expect(feeYear.totalNetExpenses).toBeGreaterThan(0);
+    // Net worth with fees must be lower than without fees in the same year
+    expect(feeYear.netWorthEOY).toBeLessThan(noFeeYear.netWorthEOY);
+  });
+
+  test('FUTURE_RECURRING pre-retirement increases requiredMonthlySIP', () => {
+    // Annual school fees starting 8 years from now force a higher SIP to compensate
+    const fees = makeFutureRecurringExpense(500_000, 8, 12); // ₹5L/yr for 4 years
+    const without = calculateProjections(baseInput({ sipAmount: 0 }));
+    const with_   = calculateProjections(baseInput({ expenses: [fees], sipAmount: 0 }));
+    expect(with_.requiredMonthlySIP).toBeGreaterThan(without.requiredMonthlySIP);
   });
 });
