@@ -223,9 +223,16 @@ export default function DashboardScreen() {
           <Text style={styles.heroAmount}>No SIP needed</Text>
         )}
         <Text style={styles.heroSubtitle}>
-          {result.requiredMonthlySIP > 0
-            ? `Min. required: ${formatCurrency(result.requiredMonthlySIP, currency)} · Retire at ${retirementAge}`
-            : `Assets cover retirement · Retire at ${retirementAge}`}
+          {result.requiredMonthlySIP <= 0
+            ? `Assets cover retirement · Retire at ${retirementAge}`
+            : (() => {
+                const delta = sipAmount - result.requiredMonthlySIP;
+                if (delta > 500 && result.fireAchievedAge > 0 && result.fireAchievedAge < retirementAge) {
+                  const ageDelta = retirementAge - result.fireAchievedAge;
+                  return `🎯 Retire at ${result.fireAchievedAge} · ${ageDelta} yr${ageDelta !== 1 ? 's' : ''} earlier`;
+                }
+                return `Min. required: ${formatCurrency(result.requiredMonthlySIP, currency)} · Retire at ${retirementAge}`;
+              })()}
         </Text>
         <View style={styles.heroPillRow}>
           <View style={[styles.heroPill, styles.heroPillStatus]}>
@@ -312,30 +319,6 @@ export default function DashboardScreen() {
             minimumValue={1000} maximumValue={500000} step={1000}
             minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
           />
-          {(() => {
-            if (result.requiredMonthlySIP <= 0) {
-              return (
-                <Text variant="bodySmall" style={[styles.infoText, { color: '#2E7D32', fontWeight: '700', fontStyle: 'normal' }]}>
-                  ✓ Your existing assets cover retirement — no SIP needed
-                </Text>
-              );
-            }
-            const delta = sipAmount - result.requiredMonthlySIP;
-            if (delta > 500 && result.fireAchievedAge > 0 && result.fireAchievedAge < retirementAge) {
-              const ageDelta = retirementAge - result.fireAchievedAge;
-              return (
-                <Text variant="bodySmall" style={[styles.infoText, { color: '#2E7D32', fontWeight: '700', fontStyle: 'normal' }]}>
-                  📍 At {formatCurrencyFull(sipAmount, currency)} → retire at {result.fireAchievedAge}, {ageDelta} yr{ageDelta !== 1 ? 's' : ''} earlier
-                </Text>
-              );
-            }
-            return (
-              <Text variant="bodySmall" style={[styles.infoText, { color: '#616161', fontStyle: 'italic' }]}>
-                Minimum to retire at {retirementAge} · SIP stops at {goals.sip_stop_age} · Step-up {stepUpEnabled ? `${stepUpRate}%/yr` : 'off'}
-              </Text>
-            );
-          })()}
-
           {/* Advanced toggle */}
           <TouchableOpacity
             style={styles.advancedToggle}
@@ -343,9 +326,14 @@ export default function DashboardScreen() {
             accessibilityRole="button"
             accessibilityLabel={showAdvanced ? 'Hide advanced settings' : 'Show advanced settings'}
           >
-            <Text variant="labelMedium" style={styles.advancedToggleText}>
-              Advanced {showAdvanced ? '▲' : '▼'}
-            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text variant="labelMedium" style={styles.advancedToggleText}>
+                Advanced {showAdvanced ? '▲' : '▼'}
+              </Text>
+              <Text variant="bodySmall" style={{ color: '#999', fontStyle: 'italic', fontSize: 11 }}>
+                Stops {goals.sip_stop_age} · Step-up {stepUpEnabled ? `${stepUpRate}%` : 'off'}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           {showAdvanced && (
