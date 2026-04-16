@@ -276,7 +276,7 @@ export function ProjectionChart({
                         <SkiaText
                           x={Math.max(chartBounds.left + 2, retX - 20)}
                           y={chartBounds.top + 14}
-                          text={`Age ${retirementAge}`}
+                          text={`Retirement (${retirementAge})`}
                           font={font}
                           color="#1B5E20"
                         />
@@ -290,7 +290,7 @@ export function ProjectionChart({
                             <SkiaText
                               x={Math.max(chartBounds.left + 2, peakX - 30)}
                               y={peakY - 9}
-                              text={formatCurrency(peakNW, currency)}
+                              text={`Peak ${formatCurrency(peakNW, currency)}`}
                               font={font}
                               color="#1B5E20"
                             />
