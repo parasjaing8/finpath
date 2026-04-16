@@ -38,6 +38,7 @@ export default function DashboardScreen() {
   const [showPaywall, setShowPaywall] = useState(false);
   const { isPro } = usePro();
   const [showCorpusInfo, setShowCorpusInfo] = useState(false);
+  const [showDepletionInfo, setShowDepletionInfo] = useState(false);
 
   // Table pagination
   const [tablePage, setTablePage] = useState(0);
@@ -233,11 +234,20 @@ export default function DashboardScreen() {
             </Text>
           </View>
           {result.fireAchievedAge > 0 && (
-            <View style={[styles.heroPill, result.failureAge > 0 ? { backgroundColor: 'rgba(255,167,38,0.9)' } : undefined]}>
-              <Text style={styles.heroPillText}>
-                {result.failureAge > 0 ? `⚠ Runs out at ${result.failureAge}` : `✓ Lasts till ${goals.fire_target_age ?? 100}`}
-              </Text>
-            </View>
+            result.failureAge > 0 ? (
+              <TouchableOpacity
+                style={[styles.heroPill, { backgroundColor: 'rgba(255,167,38,0.9)' }]}
+                onPress={() => setShowDepletionInfo(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Corpus depletion detail"
+              >
+                <Text style={styles.heroPillText}>⚠ Runs out at {result.failureAge} ›</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.heroPill}>
+                <Text style={styles.heroPillText}>✓ Lasts till {goals.fire_target_age ?? 100}</Text>
+              </View>
+            )
           )}
         </View>
       </LinearGradient>
@@ -283,19 +293,7 @@ export default function DashboardScreen() {
           <Text style={styles.snapSub}>Projected Corpus</Text>
         </View>
       </View>
-      {/* Corpus depletion warning — shown when corpus depletes within projection window */}
-      {result.failureAge > 0 && (
-        <Card style={[styles.netWorthClarityCard, { backgroundColor: '#FFF3E0', borderLeftWidth: 3, borderLeftColor: '#E65100' }]}>
-          <Card.Content>
-            <Text variant="labelMedium" style={{ color: '#E65100', fontWeight: '700', marginBottom: 4 }}>
-              ⚠ Corpus depletes at age {result.failureAge}
-            </Text>
-            <Text variant="bodySmall" style={{ color: '#BF360C', lineHeight: 18 }}>
-              At this SIP, your corpus runs out at age {result.failureAge}. Increase your monthly SIP or consider a later retirement age.
-            </Text>
-          </Card.Content>
-        </Card>
-      )}
+
       {/* SIP burden warning — shown when required SIP exceeds or strains salary */}
       {sipWarningCard}
 
@@ -632,6 +630,32 @@ export default function DashboardScreen() {
         </Card.Content>
       </Card>
 
+
+      {/* Depletion info dialog — tapped from warning pill in hero card */}
+      <Portal>
+        <Dialog visible={showDepletionInfo} onDismiss={() => setShowDepletionInfo(false)} style={{ backgroundColor: '#FFF', borderRadius: 16 }}>
+          <Dialog.Title style={{ color: '#E65100', fontWeight: '700' }}>⚠ Corpus runs out at {result.failureAge}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ lineHeight: 22, color: '#333', marginBottom: 12 }}>
+              At your current SIP of{' '}
+              <Text style={{ fontWeight: '700' }}>{formatCurrencyFull(sipAmountDisplay, currency)}/month</Text>
+              {', your corpus is depleted at age '}{result.failureAge}
+              {' — '}{result.failureAge - retirementAge}{' year'}
+              {result.failureAge - retirementAge !== 1 ? 's' : ''}{' into retirement.'}
+            </Text>
+            {result.requiredMonthlySIP > sipAmountDisplay && (
+              <Text variant="bodyMedium" style={{ lineHeight: 22, color: '#555' }}>
+                Increase your SIP to{' '}
+                <Text style={{ fontWeight: '700', color: '#1B5E20' }}>{formatCurrencyFull(result.requiredMonthlySIP, currency)}/month</Text>
+                {' or set a later retirement age to sustain withdrawals through age '}{goals.fire_target_age ?? 100}.
+              </Text>
+            )}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowDepletionInfo(false)} textColor="#E65100">Got it</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
       {/* Corpus info dialog — explains why the projected corpus is large */}
       <Portal>
