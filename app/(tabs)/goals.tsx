@@ -244,11 +244,14 @@ export default function GoalsScreen() {
             </Text>
             <Text variant="bodyMedium" style={{ lineHeight: 22, marginBottom: 10 }}>
               In the Indian context, money managers typically recommend:{'\n'}
-              • <Text style={{ fontWeight: '700' }}>3% (Fat FIRE)</Text> — mostly FDs, debt funds, very conservative{'\n'}
-              • <Text style={{ fontWeight: '700' }}>5% (Moderate FIRE)</Text> — balanced equity-debt mix, recommended{'\n'}
-              • <Text style={{ fontWeight: '700' }}>7% (Slim FIRE)</Text> — equity-heavy SWP, aggressive
+              • <Text style={{ fontWeight: '700' }}>3% — Rich</Text> · Very conservative · FDs, debt funds · corpus horizon 120 yrs{'\n'}
+              • <Text style={{ fontWeight: '700' }}>5% — Comfortable</Text> · Balanced equity-debt mix · Recommended · 100 yrs{'\n'}
+              • <Text style={{ fontWeight: '700' }}>7% — Lean</Text> · Equity-heavy SWP · Aggressive · 85 yrs
             </Text>
-            <Text variant="bodySmall" style={{ color: '#B71C1C', lineHeight: 18, marginTop: 4 }}>
+            <Text variant="bodySmall" style={{ color: '#E65100', lineHeight: 18, marginBottom: 8 }}>
+              ⚠ Despite the name, Lean is the most aggressive option — a 7% withdrawal rate leaves the least margin for bad market years. Choose it only if you are comfortable with equity-heavy post-retirement investing.
+            </Text>
+            <Text variant="bodySmall" style={{ color: '#B71C1C', lineHeight: 18 }}>
               ⚠ Post-tax, in-hand passive returns from SWP / dividends / interest may be lower than the
               headline SWR due to capital gains tax, TDS, and exit loads. Plan conservatively.
             </Text>
