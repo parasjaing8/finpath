@@ -166,7 +166,7 @@ export default function ProfileScreen() {
         </Card.Content>
       </Card>
 
-      <Text style={styles.footerText}>Made with ♥ for India</Text>
+      <Text style={styles.footerText}>Made with ♥ in 🇮🇳 for the world</Text>
 
     </ScrollView>
   );
