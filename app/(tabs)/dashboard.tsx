@@ -88,6 +88,31 @@ export default function DashboardScreen() {
     }
   }, [currentProfile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpEnabled, stepUpRate, dataLoaded]);
 
+  // Insights: peak, depletion, affordability
+  const insights = useMemo(() => {
+    if (!result || !currentProfile) return null;
+    const projs = result.projections;
+    if (projs.length === 0) return null;
+    let peak = projs[0];
+    for (const p of projs) {
+      if (p.netWorthEOY > peak.netWorthEOY) peak = p;
+    }
+    const monthlyIncome = currentProfile.monthly_income ?? 0;
+    const freqDiv: Record<string, number> = { MONTHLY: 1, QUARTERLY: 3, ANNUALLY: 12, ANNUAL: 12, YEARLY: 12 };
+    const monthlyExp = expenses
+      .filter(e => e.expense_type === 'CURRENT_RECURRING')
+      .reduce((sum, e) => sum + e.amount / (freqDiv[e.frequency ?? 'MONTHLY'] ?? 1), 0);
+    const isAffordable = monthlyIncome <= 0 || (sipAmount + monthlyExp) <= monthlyIncome;
+    const sipGap = result.requiredMonthlySIP - sipAmount;
+    return {
+      peakAge: peak.age,
+      peakValue: peak.netWorthEOY,
+      depletionAge: result.failureAge > 0 ? result.failureAge : null,
+      isAffordable,
+      sipGap,
+    };
+  }, [result, sipAmount, expenses, currentProfile]);
+
   // Reset table to page 0 when projections change
   useEffect(() => {
     setTablePage(0);
@@ -151,6 +176,24 @@ export default function DashboardScreen() {
   const firstFireYear = projections.find(p => p.isFireAchieved)?.year ?? -1;
   const hasVesting = projections.some(p => p.vestingIncome > 0);
 
+  // Plan status: 5-state decision engine for hero card
+  const planStatus = (() => {
+    const targetAge = goals.fire_target_age ?? 100;
+    if (result.requiredMonthlySIP <= 0)
+      return { title: 'Assets cover retirement', subtitle: `No SIP needed · Retire at ${retirementAge}`, color: '#1B5E20' };
+    if (insights?.depletionAge)
+      return { title: 'Plan needs adjustment', subtitle: `Money runs out at ${insights.depletionAge}`, color: '#C62828' };
+    if (insights && !insights.isAffordable)
+      return { title: 'Cash flow is tight', subtitle: 'SIP + expenses exceed monthly income', color: '#F57C00' };
+    if (insights && insights.sipGap > 500)
+      return { title: `${formatCurrency(insights.sipGap, currency)}/mo short of target`, subtitle: 'Increase SIP to stay on track', color: '#F57C00' };
+    if (sipAmount - result.requiredMonthlySIP > 500 && result.fireAchievedAge > 0 && result.fireAchievedAge < retirementAge) {
+      const yrs = retirementAge - result.fireAchievedAge;
+      return { title: `🎯 Retire at ${result.fireAchievedAge}`, subtitle: `${yrs} yr${yrs !== 1 ? 's' : ''} ahead of plan`, color: '#1B5E20' };
+    }
+    return { title: "You're on track", subtitle: `Money lasts till ${targetAge}`, color: '#1B5E20' };
+  })();
+
   // SIP burden warning card — four severity levels based on how badly SIP strains income
   let sipWarningCard: React.ReactNode = null;
   if (result.sipBurdenWarning) {
@@ -210,18 +253,8 @@ export default function DashboardScreen() {
         ) : (
           <Text style={styles.heroAmount}>No SIP needed</Text>
         )}
-        <Text style={styles.heroSubtitle}>
-          {result.requiredMonthlySIP <= 0
-            ? `Assets cover retirement · Retire at ${retirementAge}`
-            : (() => {
-                const delta = sipAmount - result.requiredMonthlySIP;
-                if (delta > 500 && result.fireAchievedAge > 0 && result.fireAchievedAge < retirementAge) {
-                  const ageDelta = retirementAge - result.fireAchievedAge;
-                  return `🎯 Retire at ${result.fireAchievedAge} · ${ageDelta} yr${ageDelta !== 1 ? 's' : ''} earlier`;
-                }
-                return `Min. required: ${formatCurrency(result.requiredMonthlySIP, currency)} · Retire at ${retirementAge}`;
-              })()}
-        </Text>
+        <Text style={styles.heroStatusTitle}>{planStatus.title}</Text>
+        <Text style={styles.heroSubtitle}>{planStatus.subtitle}</Text>
         <View style={styles.heroPillRow}>
           <View style={[styles.heroPill, styles.heroPillStatus]}>
             <Text style={[styles.heroPillText, { color: result.isOnTrack ? '#1B5E20' : '#C62828' }]}>
@@ -548,6 +581,7 @@ const styles = StyleSheet.create({
   heroCard: { borderRadius: 16, padding: 20, marginBottom: 12, overflow: 'hidden' },
   heroLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: 'rgba(255,255,255,0.7)', marginBottom: 4 },
   heroAmount: { fontSize: 36, fontWeight: '800', color: '#fff', marginBottom: 4 },
+  heroStatusTitle: { fontSize: 15, fontWeight: '800', color: '#fff', marginBottom: 2 },
   heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 14 },
   heroPillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   heroPill: { backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
