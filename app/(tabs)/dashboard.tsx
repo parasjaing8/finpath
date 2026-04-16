@@ -299,12 +299,12 @@ export default function DashboardScreen() {
 
       <Card style={styles.strategyCard}>
         <Card.Content>
-          <Text variant="titleMedium" style={styles.strategyTitle}>Adjust Your Plan</Text>
+          <View style={styles.strategyHeader}>
+            <Text variant="titleMedium" style={styles.strategyTitle}>Adjust Your Plan</Text>
+            <Text style={styles.strategyLiveValue}>{formatCurrency(sipAmountDisplay, currency)}/mo</Text>
+          </View>
 
           {/* Primary control — always visible */}
-          <Text variant="labelMedium" style={styles.sliderLabel}>
-            Monthly SIP: {formatCurrencyFull(sipAmountDisplay, currency)}
-          </Text>
           <Slider
             value={sipAmountDisplay}
             onValueChange={(v: number[]) => setSipAmountDisplay(Math.round(v[0] / 1000) * 1000)}
@@ -722,7 +722,9 @@ const styles = StyleSheet.create({
   columnHeaderToday: { fontWeight: '700', color: '#1B5E20', marginBottom: 8, letterSpacing: 0.5 },
   columnHeaderProjections: { fontWeight: '700', color: '#5E35B1', marginBottom: 8, letterSpacing: 0.5 },
   strategyCard: { marginTop: 8, marginBottom: 16, borderRadius: 12 },
-  strategyTitle: { fontWeight: 'bold', color: '#1B5E20', marginBottom: 12 },
+  strategyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  strategyTitle: { fontWeight: 'bold', color: '#1B5E20' },
+  strategyLiveValue: { fontSize: 14, fontWeight: '700', color: '#1B5E20' },
   sliderLabel: { marginTop: 12, marginBottom: 4, fontWeight: '600' },
   infoText: { color: '#666', marginTop: 8, fontStyle: 'italic' },
   advancedToggle: { marginTop: 12, paddingVertical: 6, alignSelf: 'flex-start' },
