@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { Text, Card, Switch, Button, DataTable } from 'react-native-paper';
+import { Text, Card, Switch, Button, DataTable, Portal, Dialog, IconButton } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { getAssets, getExpenses, getGoals, Asset, Expense, Goals } from '../../db/queries';
 import { calculateProjections, CalculationOutput, formatCurrency, formatCurrencyFull } from '../../engine/calculator';
@@ -37,6 +37,7 @@ export default function DashboardScreen() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const { isPro } = usePro();
+  const [showCorpusInfo, setShowCorpusInfo] = useState(false);
 
   // Table pagination
   const [tablePage, setTablePage] = useState(0);
@@ -265,6 +266,14 @@ export default function DashboardScreen() {
           <Text style={styles.snapSub}>Investable Net Worth</Text>
         </View>
         <View style={[styles.snapTile, { backgroundColor: '#EDE7F6' }]}>
+          <IconButton
+            icon="information-outline"
+            size={16}
+            iconColor="#7E57C2"
+            style={{ position: 'absolute', top: 0, right: 0, margin: 0 }}
+            onPress={() => setShowCorpusInfo(true)}
+            accessibilityLabel="Why is the corpus this large?"
+          />
           <Text style={[styles.snapLabel, { color: '#5E35B1' }]}>AT AGE {retirementAge}</Text>
           <Text style={[styles.snapNumber, { color: '#5E35B1' }]}>{formatCurrency(result.netWorthAtRetirement, currency)}</Text>
           <Text style={styles.snapSub}>Projected Corpus</Text>
@@ -619,6 +628,48 @@ export default function DashboardScreen() {
         </Card.Content>
       </Card>
 
+
+      {/* Corpus info dialog — explains why the projected corpus is large */}
+      <Portal>
+        <Dialog visible={showCorpusInfo} onDismiss={() => setShowCorpusInfo(false)} style={{ backgroundColor: '#FFF', borderRadius: 16 }}>
+          <Dialog.Title style={{ color: '#5E35B1', fontWeight: '700' }}>Why is this corpus so large?</Dialog.Title>
+          <Dialog.Content>
+            {(() => {
+              const monthlyW = goals.pension_income ?? 0;
+              const inflRate = goals.inflation_rate ?? 6;
+              const yearsToRetire = retirementAge - currentAge;
+              if (monthlyW <= 0 || yearsToRetire <= 0) {
+                return (
+                  <Text variant="bodyMedium" style={{ lineHeight: 22, color: '#333' }}>
+                    Your projected corpus is what your SIP and existing investments are expected to grow to by retirement. The larger your inflation rate and the longer your retirement horizon, the bigger the corpus needs to be.
+                  </Text>
+                );
+              }
+              const inflatedMonthly = Math.round(monthlyW * Math.pow(1 + inflRate / 100, yearsToRetire));
+              return (
+                <>
+                  <Text variant="bodyMedium" style={{ lineHeight: 22, color: '#333', marginBottom: 12 }}>
+                    Your withdrawal target of{' '}
+                    <Text style={{ fontWeight: '700', color: '#5E35B1' }}>{formatCurrencyFull(monthlyW, currency)}/month</Text>
+                    {' '}is in today's money.
+                  </Text>
+                  <Text variant="bodyMedium" style={{ lineHeight: 22, color: '#333', marginBottom: 12 }}>
+                    At{' '}{inflRate}{'% annual inflation, by age '}{retirementAge}{' ('}
+                    {yearsToRetire}{' years from now), that same lifestyle will cost '}
+                    <Text style={{ fontWeight: '700', color: '#BF360C' }}>{formatCurrencyFull(inflatedMonthly, currency)}/month</Text>.
+                  </Text>
+                  <Text variant="bodyMedium" style={{ lineHeight: 22, color: '#555' }}>
+                    Your corpus at retirement must be large enough to fund these inflation-adjusted withdrawals for the rest of your retirement — which is why the number looks much larger than today's figures.
+                  </Text>
+                </>
+              );
+            })()}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowCorpusInfo(false)} textColor="#5E35B1">Got it</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
     </ScrollView>
   );
