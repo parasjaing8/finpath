@@ -12,6 +12,7 @@ export default function EditProfile() {
   const router = useRouter();
   const { currentProfile, refreshProfiles } = useProfile();
 
+  const [name, setName] = useState(currentProfile?.name ?? '');
   const [monthlyIncome, setMonthlyIncome] = useState(
     currentProfile?.monthly_income != null ? String(currentProfile.monthly_income) : ''
   );
@@ -28,6 +29,7 @@ export default function EditProfile() {
 
   function validate(): boolean {
     const e: Record<string, string> = {};
+    if (!name.trim()) e.name = 'Name cannot be empty';
     if (!monthlyIncome || parseFloat(monthlyIncome) < 0) e.income = 'Enter a valid income';
     if (!dob.match(/^\d{4}-\d{2}-\d{2}$/)) e.dob = 'Enter date as YYYY-MM-DD';
     else { const d = new Date(dob); if (isNaN(d.getTime()) || d > new Date()) e.dob = 'Enter a valid past date'; }
@@ -43,7 +45,7 @@ export default function EditProfile() {
     if (!currentProfile || !validate()) return;
     setLoading(true);
     try {
-      await updateProfile(currentProfile.id, parseFloat(monthlyIncome), currency, dob);
+      await updateProfile(currentProfile.id, parseFloat(monthlyIncome), currency, dob, name.trim());
       if (newPin.length === 6) {
         const saltBytes = Crypto.getRandomValues(new Uint8Array(16));
         const salt = Array.from(saltBytes).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -71,12 +73,18 @@ export default function EditProfile() {
           <Text variant="headlineSmall" style={styles.title}>Edit Profile</Text>
         </View>
 
-        {/* Name (read-only) */}
+        {/* Name (editable) */}
         <Text variant="labelSmall" style={styles.sectionLabel}>PROFILE</Text>
-        <View style={styles.readOnlyRow}>
-          <Text variant="labelMedium" style={styles.readOnlyLabel}>Name</Text>
-          <Text variant="bodyMedium" style={styles.readOnlyValue}>{currentProfile.name}</Text>
-        </View>
+        <TextInput
+          label="Name"
+          value={name}
+          onChangeText={setName}
+          mode="outlined"
+          style={styles.input}
+          autoCapitalize="words"
+          error={!!errors.name}
+        />
+        {errors.name && <HelperText type="error">{errors.name}</HelperText>}
         <DateInput
           label="Date of Birth (YYYY-MM-DD)"
           value={dob}
@@ -162,9 +170,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 },
   title: { fontWeight: 'bold', color: '#1B5E20' },
   sectionLabel: { color: '#999', letterSpacing: 1, marginBottom: 8, marginLeft: 2 },
-  readOnlyRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
-  readOnlyLabel: { color: '#666' },
-  readOnlyValue: { color: '#333', fontWeight: '500' },
   input: { marginBottom: 4, backgroundColor: '#FFFFFF' },
   label: { marginTop: 12, marginBottom: 8 },
   segment: { marginBottom: 16 },
