@@ -1,11 +1,14 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Linking } from 'react-native';
 import { Text, Card, Switch, Divider } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { deleteProfile, getBiometricEnabled, setBiometricEnabled } from '../../db/queries';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const APP_VERSION = '1.0.1';
+const WEBSITE_URL = 'https://aihomecloud.com/finpath/';
 
 export default function ProfileScreen() {
   const { currentProfile, logout } = useProfile();
@@ -134,6 +137,37 @@ export default function ProfileScreen() {
         </Card.Content>
       </Card>
 
+      {/* About */}
+      <Text variant="labelSmall" style={styles.sectionLabel}>ABOUT</Text>
+      <Card style={styles.card}>
+        <Card.Content>
+          <View style={styles.settingRow}>
+            <View style={styles.settingLeft}>
+              <MaterialCommunityIcons name="leaf" size={22} color="#1B5E20" />
+              <View>
+                <Text style={styles.settingText}>FinPath</Text>
+                <Text style={{ fontSize: 11, color: '#999', marginTop: 1 }}>v{APP_VERSION}</Text>
+              </View>
+            </View>
+          </View>
+          <Divider style={{ marginVertical: 4 }} />
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => Linking.openURL(WEBSITE_URL)}
+            accessibilityRole="link"
+            accessibilityLabel="Visit FinPath website"
+          >
+            <View style={styles.settingLeft}>
+              <MaterialCommunityIcons name="web" size={22} color="#555" />
+              <Text style={styles.settingText}>Visit Website</Text>
+            </View>
+            <MaterialCommunityIcons name="open-in-new" size={18} color="#999" />
+          </TouchableOpacity>
+        </Card.Content>
+      </Card>
+
+      <Text style={styles.footerText}>Made with ♥ for India</Text>
+
     </ScrollView>
   );
 }
@@ -156,4 +190,5 @@ const styles = StyleSheet.create({
   },
   settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settingText: { fontSize: 15, color: '#333' },
+  footerText: { textAlign: 'center', color: '#BBB', fontSize: 12, marginTop: 8, marginBottom: 8 },
 });
