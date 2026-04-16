@@ -363,7 +363,8 @@ describe('fireCorpus — FIRE target at retirement', () => {
     // Car purchase 5 years from now (age 35, well before retirement at 60)
     const carExpense = makeFutureOneTimeExpense(1_000_000, 5);
     const out = calculateProjections(baseInput({ expenses: [carExpense] }));
-    // The car expense falls at age 35 < retirementAge 60 → not a corpus draw
+    // Falls pre-retirement → corpus-funded withdrawal, but NOT added to postRetirementExpensesPV
+    // (postRetirementExpensesPV is only for expenses that fall AT or AFTER retirement)
     expect(out.postRetirementExpensesPV).toBe(0);
   });
 });
@@ -733,5 +734,72 @@ describe('SIP step-up rate', () => {
     const age30 = out.projections.find(p => p.age === 30)?.annualSIP ?? 0;
     const age50 = out.projections.find(p => p.age === 50)?.annualSIP ?? 0;
     expect(age50).toBeGreaterThan(age30);
+  });
+});
+
+// ── 15. FUTURE_ONE_TIME pre-retirement corpus deduction (fix for audit101 bug) ─
+
+describe('FUTURE_ONE_TIME pre-retirement — corpus deduction behaviour', () => {
+  test('net worth dips in the year of a large pre-retirement one-time purchase', () => {
+    // 30yo, large house purchase 5 years from now (age 35, pre-retirement at 60)
+    // With a ₹50L purchase corpus should fall relative to the prior year
+    const house = makeFutureOneTimeExpense(5_000_000, 5); // ₹50L house, 5 yrs out
+    const out = calculateProjections(baseInput({
+      assets: [makeMFAsset(10_000_000)], // ₹1 Cr — enough to absorb the dip
+      expenses: [house],
+      sipAmount: 30_000,
+    }));
+    const purchaseYear = out.projections.find(p => p.age === 35);
+    const priorYear    = out.projections.find(p => p.age === 34);
+    expect(purchaseYear).toBeDefined();
+    expect(priorYear).toBeDefined();
+    // Net worth in purchase year must be less than prior year (dip visible)
+    expect(purchaseYear!.netWorthEOY).toBeLessThan(priorYear!.netWorthEOY);
+  });
+
+  test('totalNetExpenses equals the one-time cost in the purchase year (pre-retirement)', () => {
+    // ₹10L car, 3 yrs out, 0% inflation so inflated amount == original amount
+    const car = makeFutureOneTimeExpense(1_000_000, 3, 0);
+    const out = calculateProjections(baseInput({ expenses: [car], sipAmount: 20_000 }));
+    const purchaseYear = out.projections.find(p => p.age === 33);
+    expect(purchaseYear).toBeDefined();
+    // totalNetExpenses should equal the one-time cost (not 0 as the old buggy code had)
+    expect(purchaseYear!.totalNetExpenses).toBeCloseTo(1_000_000, -2);
+  });
+
+  test('totalNetExpenses = 0 in pre-retirement years with no one-time expense', () => {
+    const rent = makeCurrentExpense(30_000); // CURRENT_RECURRING only — salary-funded
+    const out = calculateProjections(baseInput({ expenses: [rent] }));
+    const preRetirement = out.projections.filter(p => p.age < 60);
+    preRetirement.forEach(p => expect(p.totalNetExpenses).toBe(0));
+  });
+
+  test('FUTURE_ONE_TIME NOT included in salary-funded presentValueOfExpenses', () => {
+    // presentValueOfExpenses is the "what salary must cover" number on the expenses banner
+    // After fix: one-time lump sums are corpus-funded and must NOT appear here
+    const house = makeFutureOneTimeExpense(10_000_000, 10); // ₹1 Cr house, 10 yrs out
+    const withHouse    = calculateProjections(baseInput({ expenses: [house] }));
+    const withoutHouse = calculateProjections(baseInput({ expenses: [] }));
+    // presentValueOfExpenses should be the SAME — house doesn't inflate the salary PV
+    expect(withHouse.presentValueOfExpenses).toBeCloseTo(withoutHouse.presentValueOfExpenses, 0);
+  });
+
+  test('pre-retirement FUTURE_ONE_TIME increases requiredMonthlySIP', () => {
+    // A large corpus withdrawal mid-accumulation forces a higher SIP to compensate
+    const bigHouse = makeFutureOneTimeExpense(20_000_000, 15); // ₹2 Cr house, 15 yrs out
+    const without = calculateProjections(baseInput({ sipAmount: 0 }));
+    const with_   = calculateProjections(baseInput({ expenses: [bigHouse], sipAmount: 0 }));
+    expect(with_.requiredMonthlySIP).toBeGreaterThan(without.requiredMonthlySIP);
+  });
+
+  test('calculatePresentValueOfExpenses excludes FUTURE_ONE_TIME', () => {
+    // Standalone function used by the expenses screen banner
+    const profile = makeProfile({ dob: makeDob(30) });
+    const rent  = makeCurrentExpense(30_000, 6, 30);
+    const house = makeFutureOneTimeExpense(5_000_000, 5);
+    const pvWithBoth = calculatePresentValueOfExpenses(profile, [rent, house], 60);
+    const pvRentOnly = calculatePresentValueOfExpenses(profile, [rent],        60);
+    // House must NOT inflate the "salary must cover" banner number
+    expect(pvWithBoth).toBeCloseTo(pvRentOnly, 0);
   });
 });
