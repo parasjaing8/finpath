@@ -433,16 +433,22 @@ export default function DashboardScreen() {
                   nwAreaPath.close();
                 }
 
-                // Post-retirement outflow paths (red dashed + red fill)
+                // Unified outflow path: pre-retirement expenses + post-retirement withdrawals
+                const preRetProj = projections.filter(p => p.age < retirementAge && p.plannedExpenses > 0);
                 const postRetProj = projections.filter(p => p.age >= retirementAge && p.totalOutflow > 0);
+                // Build unified point list — pre uses plannedExpenses, post uses totalOutflow
+                const allOutflowPts: { age: number; value: number }[] = [
+                  ...preRetProj.map(p => ({ age: p.age, value: p.plannedExpenses })),
+                  ...postRetProj.map(p => ({ age: p.age, value: p.totalOutflow })),
+                ];
                 const ofLinePath = Skia.Path.Make();
                 const ofAreaPath = Skia.Path.Make();
-                if (postRetProj.length > 0) {
-                  ofLinePath.moveTo(xScale(postRetProj[0].age), yScale(postRetProj[0].totalOutflow));
-                  postRetProj.forEach(p => ofLinePath.lineTo(xScale(p.age), yScale(p.totalOutflow)));
-                  ofAreaPath.moveTo(xScale(postRetProj[0].age), chartBounds.bottom);
-                  postRetProj.forEach(p => ofAreaPath.lineTo(xScale(p.age), yScale(p.totalOutflow)));
-                  ofAreaPath.lineTo(xScale(postRetProj[postRetProj.length - 1].age), chartBounds.bottom);
+                if (allOutflowPts.length > 0) {
+                  ofLinePath.moveTo(xScale(allOutflowPts[0].age), yScale(allOutflowPts[0].value));
+                  allOutflowPts.forEach(p => ofLinePath.lineTo(xScale(p.age), yScale(p.value)));
+                  ofAreaPath.moveTo(xScale(allOutflowPts[0].age), chartBounds.bottom);
+                  allOutflowPts.forEach(p => ofAreaPath.lineTo(xScale(p.age), yScale(p.value)));
+                  ofAreaPath.lineTo(xScale(allOutflowPts[allOutflowPts.length - 1].age), chartBounds.bottom);
                   ofAreaPath.close();
                 }
 
@@ -458,8 +464,8 @@ export default function DashboardScreen() {
                     </SkiaPath>
                   )}
 
-                  {/* Red gradient fill under post-retirement withdrawals */}
-                  {postRetProj.length > 0 && (
+                  {/* Red gradient fill under full outflow line */}
+                  {allOutflowPts.length > 0 && (
                     <SkiaPath path={ofAreaPath} style="fill" opacity={0.25}>
                       <SkiaLinearGradient
                         start={vec(0, chartBounds.top)}
@@ -471,11 +477,9 @@ export default function DashboardScreen() {
 
                   <Line points={points.netWorth} color="#1B5E20" strokeWidth={2.5} />
 
-                  {/* Red dashed outflow line (post-retirement withdrawals) */}
-                  {postRetProj.length > 0 && (
-                    <SkiaPath path={ofLinePath} color="#C62828" strokeWidth={2} style="stroke">
-                      <DashPathEffect intervals={[6, 4]} />
-                    </SkiaPath>
+                  {/* Solid red outflow line (pre-retirement expenses + post-retirement withdrawals) */}
+                  {allOutflowPts.length > 0 && (
+                    <SkiaPath path={ofLinePath} color="#C62828" strokeWidth={2} style="stroke" />
                   )}
 
                   {/* Retirement age vertical dashed line */}
@@ -534,10 +538,10 @@ export default function DashboardScreen() {
               <View style={[styles.legendDot, { backgroundColor: '#1B5E20', borderRadius: 0, height: 3, width: 16 }]} />
               <Text variant="bodySmall">Retirement (Age {retirementAge})</Text>
             </View>
-            {projections.some(p => p.age >= retirementAge && p.totalOutflow > 0) && (
+            {(projections.some(p => p.age < retirementAge && p.plannedExpenses > 0) || projections.some(p => p.age >= retirementAge && p.totalOutflow > 0)) && (
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: '#C62828', borderRadius: 0, height: 3, width: 16 }]} />
-                <Text variant="bodySmall" style={{ color: '#C62828' }}>Withdrawals</Text>
+                <Text variant="bodySmall" style={{ color: '#C62828' }}>Expenses & Withdrawals</Text>
               </View>
             )}
             {result.failureAge > 0 && (
