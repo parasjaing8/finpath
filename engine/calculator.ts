@@ -349,8 +349,15 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     if (!retirementMerged) {
       const er = age <= sipStopAge ? blendedExistingRate / 100 : postSipReturnRate / 100;
       const sr = age <= sipStopAge ? sipReturnRate / 100 : postSipReturnRate / 100;
-      existingBucket = Math.max(0, existingBucket) * (1 + er) + vestingIncome - preRetFutureCost;
-      sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP;
+      const grownExisting = Math.max(0, existingBucket) * (1 + er) + vestingIncome - preRetFutureCost;
+      if (grownExisting < 0) {
+        // existingBucket exhausted — spill overflow into sipBucket (liquidate investments)
+        existingBucket = 0;
+        sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP + grownExisting;
+      } else {
+        existingBucket = grownExisting;
+        sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP;
+      }
     } else {
       const newCorpus = Math.max(0, existingBucket) * (1 + postSipReturnRate / 100) + vestingIncome - totalNetExpenses;
       if (newCorpus < 0 && failureAge === -1) failureAge = age;
@@ -653,8 +660,14 @@ function simulateCorpusAtAge(
       for (const exp of futureExpenses) {
         preRetFutureCost += calculateExpenseForYear(exp, year, currentYear, currentMonth);
       }
-      existingBucket = Math.max(0, existingBucket) * (1 + er) + vestingIncome - preRetFutureCost;
-      sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP;
+      const grownExisting = Math.max(0, existingBucket) * (1 + er) + vestingIncome - preRetFutureCost;
+      if (grownExisting < 0) {
+        existingBucket = 0;
+        sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP + grownExisting;
+      } else {
+        existingBucket = grownExisting;
+        sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP;
+      }
     } else {
       existingBucket = Math.max(0, existingBucket) * (1 + postSipReturnRate / 100) + vestingIncome - withdrawal;
     }

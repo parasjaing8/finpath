@@ -826,4 +826,33 @@ describe('FUTURE_ONE_TIME pre-retirement — corpus deduction behaviour', () => 
     const with_   = calculateProjections(baseInput({ expenses: [fees], sipAmount: 0 }));
     expect(with_.requiredMonthlySIP).toBeGreaterThan(without.requiredMonthlySIP);
   });
+
+  test('existingBucket overflow spills into sipBucket — no artificial jump next year', () => {
+    // Scenario: house costs more than existingBucket holds.
+    // Overflow must come from sipBucket so net worth is consistent year-over-year.
+    // 30yo, ₹40L existing assets (9% blended), ₹20K/month SIP, retire at 60.
+    // House ₹2 Cr at year+5 (age 35) — existingBucket only ~₹62L after 5 yrs growth → overflow.
+    const house = makeFutureOneTimeExpense(20_000_000, 5, 0); // ₹2 Cr, 0% inflation
+    const out = calculateProjections(baseInput({
+      assets:   [makeMFAsset(4_000_000)],
+      expenses: [house],
+      sipAmount: 20_000,
+    }));
+    const yr35 = out.projections.find(p => p.age === 35)!;
+    const yr36 = out.projections.find(p => p.age === 36)!;
+    const yr34 = out.projections.find(p => p.age === 34)!;
+
+    // 1. Net worth in purchase year must be less than prior year (dip confirmed)
+    expect(yr35.netWorthEOY).toBeLessThan(yr34.netWorthEOY);
+
+    // 2. Year after purchase: gap vs no-house scenario must be close to house cost
+    //    Before fix this gap was ~zero (debt forgiven). After fix the full cost is absorbed.
+    const withoutHouse = calculateProjections(baseInput({ assets: [makeMFAsset(4_000_000)], expenses: [], sipAmount: 20_000 }));
+    const yr36_without = withoutHouse.projections.find(p => p.age === 36)!;
+    const gap = yr36_without.netWorthEOY - yr36.netWorthEOY;
+    expect(gap).toBeGreaterThan(8_000_000); // ~₹80L — non-zero proves no debt forgiveness
+
+    // 3. totalNetExpenses reflects the full one-time cost in purchase year
+    expect(yr35.totalNetExpenses).toBeCloseTo(20_000_000, -4);
+  });
 });
