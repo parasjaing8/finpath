@@ -6,13 +6,12 @@ import { getAssets, getExpenses, getGoals, Asset, Expense, Goals } from '../../d
 import { calculateProjections, CalculationOutput, formatCurrency, formatCurrencyFull } from '../../engine/calculator';
 import { exportToCSV } from '../../utils/export';
 import { Slider } from '@miblanchard/react-native-slider';
-import { CartesianChart, Line } from 'victory-native';
-import { Path as SkiaPath, Circle as SkiaCircle, Text as SkiaText, DashPathEffect, LinearGradient as SkiaLinearGradient, Skia, vec, matchFont } from '@shopify/react-native-skia';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRouter, useFocusEffect } from 'expo-router';
 import { usePro } from '../../hooks/usePro';
 import { ProPaywall } from '../../components/ProPaywall';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ProjectionChart } from '../../components/ProjectionChart';
 
 export default function DashboardScreen() {
   const { currentProfile } = useProfile();
@@ -47,11 +46,6 @@ export default function DashboardScreen() {
   // Track the goals snapshot that was used for the last SIP auto-set.
   // Auto-set only fires again when goals actually change, not on every tab focus.
   const lastAutoSetGoalsKey = useRef<string | null>(null);
-
-  // Create Skia font for chart labels using system typeface (Skia.Font(undefined) crashes in release)
-  const fireAgeFont = useMemo(() => {
-    try { return matchFont({ fontSize: 11 }); } catch { return null; }
-  }, []);
 
 
   useEffect(() => {
@@ -154,12 +148,6 @@ export default function DashboardScreen() {
     if (n.getMonth() - b.getMonth() < 0 || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--;
     return a;
   })();
-  // Only show withdrawal line post-retirement — pre-retirement expenses are salary-funded
-  // and don't reduce corpus, so showing them alongside net worth growth is misleading.
-  const chartData = projections.map(p => ({
-    age: p.age,
-    netWorth: p.netWorthEOY,
-  }));
   const firstFireYear = projections.find(p => p.isFireAchieved)?.year ?? -1;
   const hasVesting = projections.some(p => p.vestingIncome > 0);
 
@@ -365,173 +353,19 @@ export default function DashboardScreen() {
         </Card.Content>
       </Card>
 
-      {/* Section C — Net Worth Projection Graph */}
+      {/* Section C — Net Worth Projection Graph 2.0 */}
       <Card style={styles.chartCard}>
         <Card.Content>
           <Text variant="titleMedium" style={styles.chartTitle}>Net Worth Projection</Text>
-          <View style={{ height: 300 }}>
-            {chartData.length === 0 ? (
-              <View style={styles.center}>
-                <Text style={{ color: '#999' }}>No projection data available</Text>
-              </View>
-            ) : (
-            <CartesianChart
-              data={chartData}
-              xKey="age"
-              yKeys={["netWorth"]}
-              domainPadding={{ top: 20, bottom: 20 }}
-              axisOptions={{
-                formatXLabel: (v) => `${Math.round(v)}`,
-                formatYLabel: (v) => {
-                  const abs = Math.abs(v);
-                  if (abs >= 1e7) return `${(v / 1e7).toFixed(1)}Cr`;
-                  if (abs >= 1e5) return `${(v / 1e5).toFixed(0)}L`;
-                  return `${(v / 1e3).toFixed(0)}K`;
-                },
-                tickCount: { x: 8, y: 5 },
-                labelColor: '#555',
-                lineColor: { grid: 'rgba(0,0,0,0.07)', frame: 'transparent' },
-              }}
-            >
-              {({ points, yScale, xScale, canvasSize, chartBounds }) => {
-                const retX = xScale(retirementAge);
-                const retY = yScale(result.netWorthAtRetirement);
-                const retPath = Skia.Path.Make();
-                retPath.moveTo(retX, chartBounds.top);
-                retPath.lineTo(retX, chartBounds.bottom);
-
-                const failX = result.failureAge > 0 ? xScale(result.failureAge) : null;
-                const failY = result.failureAge > 0 ? yScale(0) : null;
-
-                // Net worth area fill (green gradient)
-                const nwPts = points.netWorth.filter((p: any) => p.y != null);
-                const nwAreaPath = Skia.Path.Make();
-                if (nwPts.length > 0) {
-                  nwAreaPath.moveTo(nwPts[0].x, chartBounds.bottom);
-                  nwPts.forEach((p: any) => nwAreaPath.lineTo(p.x, p.y));
-                  nwAreaPath.lineTo(nwPts[nwPts.length - 1].x, chartBounds.bottom);
-                  nwAreaPath.close();
-                }
-
-                // Unified outflow path: pre-retirement expenses + post-retirement withdrawals
-                const preRetProj = projections.filter(p => p.age < retirementAge && p.plannedExpenses > 0);
-                const postRetProj = projections.filter(p => p.age >= retirementAge && p.totalOutflow > 0);
-                // Build unified point list — pre uses plannedExpenses, post uses totalOutflow
-                const allOutflowPts: { age: number; value: number }[] = [
-                  ...preRetProj.map(p => ({ age: p.age, value: p.plannedExpenses })),
-                  ...postRetProj.map(p => ({ age: p.age, value: p.totalOutflow })),
-                ];
-                const ofLinePath = Skia.Path.Make();
-                const ofAreaPath = Skia.Path.Make();
-                if (allOutflowPts.length > 0) {
-                  ofLinePath.moveTo(xScale(allOutflowPts[0].age), yScale(allOutflowPts[0].value));
-                  allOutflowPts.forEach(p => ofLinePath.lineTo(xScale(p.age), yScale(p.value)));
-                  ofAreaPath.moveTo(xScale(allOutflowPts[0].age), chartBounds.bottom);
-                  allOutflowPts.forEach(p => ofAreaPath.lineTo(xScale(p.age), yScale(p.value)));
-                  ofAreaPath.lineTo(xScale(allOutflowPts[allOutflowPts.length - 1].age), chartBounds.bottom);
-                  ofAreaPath.close();
-                }
-
-                return <>
-                  {/* Green gradient fill under net worth */}
-                  {nwPts.length > 0 && (
-                    <SkiaPath path={nwAreaPath} style="fill" opacity={0.3}>
-                      <SkiaLinearGradient
-                        start={vec(0, chartBounds.top)}
-                        end={vec(0, chartBounds.bottom)}
-                        colors={['rgba(27,94,32,0.7)', 'rgba(27,94,32,0)']}
-                      />
-                    </SkiaPath>
-                  )}
-
-                  {/* Red gradient fill under full outflow line */}
-                  {allOutflowPts.length > 0 && (
-                    <SkiaPath path={ofAreaPath} style="fill" opacity={0.25}>
-                      <SkiaLinearGradient
-                        start={vec(0, chartBounds.top)}
-                        end={vec(0, chartBounds.bottom)}
-                        colors={['rgba(198,40,40,0.5)', 'rgba(198,40,40,0)']}
-                      />
-                    </SkiaPath>
-                  )}
-
-                  <Line points={points.netWorth} color="#1B5E20" strokeWidth={2.5} />
-
-                  {/* Solid red outflow line (pre-retirement expenses + post-retirement withdrawals) */}
-                  {allOutflowPts.length > 0 && (
-                    <SkiaPath path={ofLinePath} color="#C62828" strokeWidth={2} style="stroke" />
-                  )}
-
-                  {/* Retirement age vertical dashed line */}
-                  <SkiaPath path={retPath} color="#1B5E20" strokeWidth={1.5} style="stroke">
-                    <DashPathEffect intervals={[8, 5]} />
-                  </SkiaPath>
-
-                  {/* Age label at top of retirement line */}
-                  {fireAgeFont && (
-                    <SkiaText
-                      x={Math.max(chartBounds.left + 2, retX - 20)}
-                      y={chartBounds.top + 14}
-                      text={`Age ${retirementAge}`}
-                      font={fireAgeFont}
-                      color="#1B5E20"
-                    />
-                  )}
-
-                  {/* Peak corpus dot + value label at retirement age */}
-                  <SkiaCircle cx={retX} cy={retY} r={5} color="#1B5E20" />
-                  {fireAgeFont && (
-                    <SkiaText
-                      x={Math.max(chartBounds.left + 2, retX - 30)}
-                      y={retY - 9}
-                      text={formatCurrency(result.netWorthAtRetirement, currency)}
-                      font={fireAgeFont}
-                      color="#1B5E20"
-                    />
-                  )}
-
-                  {/* Failure age red dot + label — only when corpus depletes */}
-                  {failX != null && failY != null && <>
-                    <SkiaCircle cx={failX} cy={failY} r={6} color="#C62828" />
-                    {fireAgeFont && (
-                      <SkiaText
-                        x={Math.max(chartBounds.left + 2, failX - 35)}
-                        y={failY - 9}
-                        text={`Runs out at ${result.failureAge}`}
-                        font={fireAgeFont}
-                        color="#C62828"
-                      />
-                    )}
-                  </>}
-
-                </>;
-              }}
-            </CartesianChart>
-            )}
-          </View>
-          <View style={styles.legendRow}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#1B5E20' }]} />
-              <Text variant="bodySmall">Net Worth</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#1B5E20', borderRadius: 0, height: 3, width: 16 }]} />
-              <Text variant="bodySmall">Retirement (Age {retirementAge})</Text>
-            </View>
-            {(projections.some(p => p.age < retirementAge && p.plannedExpenses > 0) || projections.some(p => p.age >= retirementAge && p.totalOutflow > 0)) && (
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#C62828', borderRadius: 0, height: 3, width: 16 }]} />
-                <Text variant="bodySmall" style={{ color: '#C62828' }}>Expenses & Withdrawals</Text>
-              </View>
-            )}
-            {result.failureAge > 0 && (
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#C62828' }]} />
-                <Text variant="bodySmall" style={{ color: '#C62828' }}>Depletes at {result.failureAge}</Text>
-              </View>
-            )}
-          </View>
-
+          <ProjectionChart
+            projections={projections}
+            retirementAge={retirementAge}
+            failureAge={result.failureAge}
+            fireTargetAge={goals.fire_target_age ?? 100}
+            expenses={expenses}
+            currency={currency}
+            result={result}
+          />
         </Card.Content>
       </Card>
 
