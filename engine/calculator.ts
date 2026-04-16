@@ -108,9 +108,14 @@ function calculateExpenseForYear(
 
   if (expense.expense_type === 'FUTURE_ONE_TIME') {
     if (!expense.start_date) return 0;
-    const startYear = new Date(expense.start_date).getFullYear();
+    const startDate = new Date(expense.start_date);
+    const startYear = startDate.getFullYear();
     if (targetYear === startYear) {
-      return expense.amount * Math.pow(1 + inflationRate, yearsFromNow);
+      // Month-accurate inflation: from current month to purchase month
+      // e.g. Jan purchase from April = 8.75 yrs; Dec purchase from April = 9.67 yrs
+      const startMonth = startDate.getMonth();
+      const fractionalYears = yearsFromNow + (startMonth - currentMonth) / 12;
+      return expense.amount * Math.pow(1 + inflationRate, Math.max(0, fractionalYears));
     }
     return 0;
   }
@@ -349,7 +354,10 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     if (!retirementMerged) {
       const er = age <= sipStopAge ? blendedExistingRate / 100 : postSipReturnRate / 100;
       const sr = age <= sipStopAge ? sipReturnRate / 100 : postSipReturnRate / 100;
-      const grownExisting = Math.max(0, existingBucket) * (1 + er) + vestingIncome - preRetFutureCost;
+      // Year 0: existing assets grow only for remaining calendar months, not the full year
+      const yearFraction = yearsFromStart === 0 ? monthsThisYear / 12 : 1;
+      const erAdj = Math.pow(1 + er, yearFraction) - 1;
+      const grownExisting = Math.max(0, existingBucket) * (1 + erAdj) + vestingIncome - preRetFutureCost;
       if (grownExisting < 0) {
         // existingBucket exhausted — spill overflow into sipBucket (liquidate investments)
         existingBucket = 0;
@@ -660,7 +668,10 @@ function simulateCorpusAtAge(
       for (const exp of futureExpenses) {
         preRetFutureCost += calculateExpenseForYear(exp, year, currentYear, currentMonth);
       }
-      const grownExisting = Math.max(0, existingBucket) * (1 + er) + vestingIncome - preRetFutureCost;
+      // Year 0: existing assets grow only for remaining calendar months, not the full year
+      const yearFraction = yearsFromStart === 0 ? monthsThisYear / 12 : 1;
+      const erAdj = Math.pow(1 + er, yearFraction) - 1;
+      const grownExisting = Math.max(0, existingBucket) * (1 + erAdj) + vestingIncome - preRetFutureCost;
       if (grownExisting < 0) {
         existingBucket = 0;
         sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP + grownExisting;
