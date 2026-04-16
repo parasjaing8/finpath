@@ -10,6 +10,11 @@ import { DateInput } from '../../components/DateInput';
 
 export default function ExpensesScreen() {
   const { currentProfile } = useProfile();
+  // Max date for expense pickers: user's 101st birthday (DOB year + 101, Dec 31)
+  const maxExpenseDate = currentProfile?.dob
+    ? new Date(new Date(currentProfile.dob).getFullYear() + 101, 11, 31)
+    : new Date(new Date().getFullYear() + 80, 11, 31);
+  const minExpenseDate = new Date();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [goals, setGoals] = useState<Goals | null>(null);
   const [presentValue, setPresentValue] = useState(0);
@@ -344,6 +349,8 @@ export default function ExpensesScreen() {
                 <>
                   <DateInput label="Start Date" value={startDate} onChangeText={setStartDate}
                     style={styles.input} error={!!errors.startDate}
+                    minimumDate={minExpenseDate}
+                    maximumDate={maxExpenseDate}
                     onFocus={() => formScrollRef.current?.scrollToEnd({ animated: true })} />
                   {errors.startDate && <HelperText type="error">{errors.startDate}</HelperText>}
                 </>
@@ -352,6 +359,8 @@ export default function ExpensesScreen() {
               {expenseType !== 'FUTURE_ONE_TIME' && (
                 <DateInput label="End Date (optional)" value={endDate} onChangeText={setEndDate}
                   style={styles.input}
+                  minimumDate={minExpenseDate}
+                  maximumDate={maxExpenseDate}
                   onFocus={() => formScrollRef.current?.scrollToEnd({ animated: true })} />
               )}
 
