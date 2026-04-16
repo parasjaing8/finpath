@@ -215,13 +215,17 @@ export default function DashboardScreen() {
 
       {/* Section A — Hero Card */}
       <LinearGradient colors={heroColors} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.heroCard}>
-        <Text style={styles.heroLabel}>YOUR PLAN</Text>
+        <Text style={styles.heroLabel}>YOUR MONTHLY SIP</Text>
         {result.requiredMonthlySIP > 0 ? (
-          <Text style={styles.heroAmount}>{formatCurrencyFull(result.requiredMonthlySIP, currency)}</Text>
+          <Text style={styles.heroAmount}>{formatCurrencyFull(sipAmountDisplay, currency)}</Text>
         ) : (
           <Text style={styles.heroAmount}>No SIP needed</Text>
         )}
-        <Text style={styles.heroSubtitle}>Monthly SIP · To retire at age {retirementAge}</Text>
+        <Text style={styles.heroSubtitle}>
+          {result.requiredMonthlySIP > 0
+            ? `Min. required: ${formatCurrency(result.requiredMonthlySIP, currency)} · Retire at ${retirementAge}`
+            : `Assets cover retirement · Retire at ${retirementAge}`}
+        </Text>
         <View style={styles.heroPillRow}>
           <View style={[styles.heroPill, styles.heroPillStatus]}>
             <Text style={[styles.heroPillText, { color: result.isOnTrack ? '#1B5E20' : '#C62828' }]}>
