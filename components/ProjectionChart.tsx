@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
-import { Text, Portal, Dialog, Button } from 'react-native-paper';
+import React, { useMemo } from 'react';
+import { View, StyleSheet, Dimensions } from 'react-native';
+import { Text } from 'react-native-paper';
 import { CartesianChart, Line } from 'victory-native';
 import {
   Path as SkiaPath,
@@ -20,7 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { Expense } from '../db/queries';
 import type { CalculationOutput } from '../engine/calculator';
-import { formatCurrency, formatCurrencyFull } from '../engine/calculator';
+import { formatCurrency } from '../engine/calculator';
 
 const CHART_HEIGHT = 300;
 
@@ -63,6 +63,10 @@ export function ProjectionChart({
 }: Props) {
   const font = useMemo(() => {
     try { return matchFont({ fontSize: 11 }); } catch { return null; }
+  }, []);
+
+  const fontMd = useMemo(() => {
+    try { return matchFont({ fontSize: 13 }); } catch { return null; }
   }, []);
 
   // ── Gesture: pinch to zoom + pan ──────────────────────────────────────────
@@ -115,9 +119,6 @@ export function ProjectionChart({
     ],
   }));
 
-  // ── Tooltip state for event chips ─────────────────────────────────────────
-  const [tooltip, setTooltip] = useState<EventMarker | null>(null);
-
   // ── Derived: FUTURE_ONE_TIME event markers ────────────────────────────────
   const eventMarkers = useMemo<EventMarker[]>(() => {
     return expenses
@@ -138,8 +139,12 @@ export function ProjectionChart({
   }, [expenses, projections]);
 
   const chartData = projections.map(p => ({ age: p.age, netWorth: p.netWorthEOY }));
-  const postRetProj = projections.filter(p => p.age >= retirementAge && p.totalOutflow > 0);
-  const currentAge = projections[0]?.age ?? 25;
+  // Orange: post-retirement pension/withdrawal drawn from corpus
+  const postRetPensionProj = projections.filter(p => p.age >= retirementAge && p.pensionIncome > 0);
+  // Red: planned expenses across ALL years (pre + post retirement)
+  const expLineProj = projections.filter(p => p.plannedExpenses > 0);
+
+  const currSymbol = currency === 'INR' ? '₹' : currency === 'USD' ? '$' : '';
 
   return (
     <View>
@@ -161,11 +166,11 @@ export function ProjectionChart({
                   formatXLabel: (v) => `${Math.round(v)}`,
                   formatYLabel: (v) => {
                     const abs = Math.abs(v);
-                    if (abs >= 1e7) return `${(v / 1e7).toFixed(1)}Cr`;
-                    if (abs >= 1e5) return `${(v / 1e5).toFixed(0)}L`;
-                    return `${(v / 1e3).toFixed(0)}K`;
+                    if (abs >= 1e7) return `${currSymbol}${(v / 1e7).toFixed(0)} Cr`;
+                    if (abs >= 1e5) return `${currSymbol}${(v / 1e5).toFixed(0)} L`;
+                    return `${currSymbol}${(v / 1e3).toFixed(0)}K`;
                   },
-                  tickCount: { x: 8, y: 5 },
+                  tickCount: { x: 8, y: 6 },
                   labelColor: '#555',
                   lineColor: { grid: 'rgba(0,0,0,0.07)', frame: 'transparent' },
                 }}
@@ -173,6 +178,7 @@ export function ProjectionChart({
                 {({ points, yScale, xScale, chartBounds }) => {
                   const retX = xScale(retirementAge);
                   const retY = yScale(result.netWorthAtRetirement);
+                  // Danger zone starts where net worth hits 0 (failureAge)
                   const failX = failureAge > 0 ? xScale(failureAge) : null;
                   const failY = failureAge > 0 ? yScale(0) : null;
 
@@ -190,6 +196,7 @@ export function ProjectionChart({
                   const preRetW = Math.max(0, retX - chartBounds.left);
                   const postRetEnd = failX ?? chartBounds.right;
                   const postRetW = Math.max(0, postRetEnd - retX);
+                  // Danger zone: from where net worth = 0 to right edge
                   const dangerW = failX != null ? Math.max(0, chartBounds.right - failX) : 0;
 
                   // Net worth area fill path
@@ -202,16 +209,23 @@ export function ProjectionChart({
                     nwAreaPath.close();
                   }
 
-                  // Outflow area + line (post-retirement only)
-                  const ofLinePath = Skia.Path.Make();
-                  const ofAreaPath = Skia.Path.Make();
-                  if (postRetProj.length > 0) {
-                    ofLinePath.moveTo(xScale(postRetProj[0].age), yScale(postRetProj[0].totalOutflow));
-                    for (const p of postRetProj) ofLinePath.lineTo(xScale(p.age), yScale(p.totalOutflow));
-                    ofAreaPath.moveTo(xScale(postRetProj[0].age), chartBounds.bottom);
-                    for (const p of postRetProj) ofAreaPath.lineTo(xScale(p.age), yScale(p.totalOutflow));
-                    ofAreaPath.lineTo(xScale(postRetProj[postRetProj.length - 1].age), chartBounds.bottom);
-                    ofAreaPath.close();
+                  // Orange: pension/withdrawal line (post-retirement)
+                  const pensionLinePath = Skia.Path.Make();
+                  const pensionAreaPath = Skia.Path.Make();
+                  if (postRetPensionProj.length > 0) {
+                    pensionLinePath.moveTo(xScale(postRetPensionProj[0].age), yScale(postRetPensionProj[0].pensionIncome));
+                    for (const p of postRetPensionProj) pensionLinePath.lineTo(xScale(p.age), yScale(p.pensionIncome));
+                    pensionAreaPath.moveTo(xScale(postRetPensionProj[0].age), chartBounds.bottom);
+                    for (const p of postRetPensionProj) pensionAreaPath.lineTo(xScale(p.age), yScale(p.pensionIncome));
+                    pensionAreaPath.lineTo(xScale(postRetPensionProj[postRetPensionProj.length - 1].age), chartBounds.bottom);
+                    pensionAreaPath.close();
+                  }
+
+                  // Red: planned expenses across all years
+                  const expLinePath = Skia.Path.Make();
+                  if (expLineProj.length > 0) {
+                    expLinePath.moveTo(xScale(expLineProj[0].age), yScale(expLineProj[0].plannedExpenses));
+                    for (const p of expLineProj) expLinePath.lineTo(xScale(p.age), yScale(p.plannedExpenses));
                   }
 
                   // Retirement dashed vertical
@@ -225,9 +239,10 @@ export function ProjectionChart({
                     cy: yScale(m.netWorth),
                   }));
 
-                  // Micro-insight X positions
-                  const growthLabelX = xScale(currentAge + (retirementAge - currentAge) * 0.38);
-                  const wdLabelX = xScale(retirementAge + (failureAge > 0 ? (failureAge - retirementAge) * 0.28 : 4));
+                  // "Danger zone" label: inside the red zone, top-right aligned
+                  const dangerLabelX = failX != null
+                    ? Math.min(failX + 4, chartBounds.right - 70)
+                    : chartBounds.right - 70;
 
                   return (
                     <>
@@ -235,7 +250,7 @@ export function ProjectionChart({
                       <SkiaRect x={chartBounds.left} y={chartBounds.top} width={preRetW} height={zoneH} color="rgba(200,230,201,0.28)" />
                       <SkiaRect x={retX} y={chartBounds.top} width={postRetW} height={zoneH} color="rgba(179,229,252,0.25)" />
                       {dangerW > 0 && (
-                        <SkiaRect x={failX!} y={chartBounds.top} width={dangerW} height={zoneH} color="rgba(239,154,154,0.32)" />
+                        <SkiaRect x={failX!} y={chartBounds.top} width={dangerW} height={zoneH} color="rgba(239,154,154,0.38)" />
                       )}
 
                       {/* ── Net worth gradient fill ── */}
@@ -249,21 +264,24 @@ export function ProjectionChart({
                         </SkiaPath>
                       )}
 
-                      {/* ── Outflow red gradient fill ── */}
-                      {postRetProj.length > 0 && (
-                        <SkiaPath path={ofAreaPath} style="fill" opacity={0.25}>
+                      {/* ── Orange pension area fill (post-retirement) ── */}
+                      {postRetPensionProj.length > 0 && (
+                        <SkiaPath path={pensionAreaPath} style="fill" opacity={0.20}>
                           <SkiaLinearGradient
                             start={vec(0, chartBounds.top)}
                             end={vec(0, chartBounds.bottom)}
-                            colors={['rgba(198,40,40,0.5)', 'rgba(198,40,40,0)']}
+                            colors={['rgba(230,145,0,0.55)', 'rgba(230,145,0,0)']}
                           />
                         </SkiaPath>
                       )}
 
-                      {/* ── Lines ── */}
+                      {/* ── Lines: net worth (green), expenses (red), pension (orange) ── */}
                       <Line points={points.netWorth} color="#1B5E20" strokeWidth={2.5} />
-                      {postRetProj.length > 0 && (
-                        <SkiaPath path={ofLinePath} color="#C62828" strokeWidth={2} style="stroke" />
+                      {expLineProj.length > 0 && (
+                        <SkiaPath path={expLinePath} color="#C62828" strokeWidth={1.8} style="stroke" />
+                      )}
+                      {postRetPensionProj.length > 0 && (
+                        <SkiaPath path={pensionLinePath} color="#E65100" strokeWidth={2} style="stroke" />
                       )}
 
                       {/* ── Retirement dashed vertical ── */}
@@ -271,36 +289,75 @@ export function ProjectionChart({
                         <DashPathEffect intervals={[8, 5]} />
                       </SkiaPath>
 
-                      {/* ── Retirement age label ── */}
+                      {/* ── "Retirement (X)" label at top of dashed line ── */}
                       {font && (
                         <SkiaText
-                          x={Math.max(chartBounds.left + 2, retX - 20)}
+                          x={Math.max(chartBounds.left + 2, retX - 26)}
                           y={chartBounds.top + 14}
                           text={`Retirement (${retirementAge})`}
                           font={font}
-                          color="#1B5E20"
+                          color="#555"
                         />
                       )}
 
-                      {/* ── Peak net worth dot + label (only if differs from retirement) ── */}
+                      {/* ── "Danger zone" label at top of red zone ── */}
+                      {dangerW > 0 && font && (
+                        <SkiaText
+                          x={dangerLabelX}
+                          y={chartBounds.top + 14}
+                          text="Danger zone"
+                          font={font}
+                          color="#C62828"
+                        />
+                      )}
+
+                      {/* ── Peak net worth dot + two-line label (only if differs from retirement) ── */}
                       {!peakIsSameAsRet && (
                         <>
                           <SkiaCircle cx={peakX} cy={peakY} r={5} color="#1B5E20" />
-                          {font && (
-                            <SkiaText
-                              x={Math.max(chartBounds.left + 2, peakX - 30)}
-                              y={peakY - 9}
-                              text={`Peak ${formatCurrency(peakNW, currency)}`}
-                              font={font}
-                              color="#1B5E20"
-                            />
+                          {fontMd && (
+                            <>
+                              <SkiaText
+                                x={Math.max(chartBounds.left + 2, peakX - 14)}
+                                y={peakY - 20}
+                                text="Peak"
+                                font={fontMd}
+                                color="#1B5E20"
+                              />
+                              <SkiaText
+                                x={Math.max(chartBounds.left + 2, peakX - 24)}
+                                y={peakY - 5}
+                                text={formatCurrency(peakNW, currency)}
+                                font={fontMd}
+                                color="#1B5E20"
+                              />
+                            </>
                           )}
                         </>
                       )}
 
                       {/* ── Retirement corpus dot + label ── */}
                       <SkiaCircle cx={retX} cy={retY} r={5} color="#1B5E20" />
-                      {font && (
+                      {/* When peak == retirement: show two-line "Peak / value" label */}
+                      {peakIsSameAsRet && fontMd && (
+                        <>
+                          <SkiaText
+                            x={Math.max(chartBounds.left + 2, retX + 8)}
+                            y={retY - 16}
+                            text="Peak"
+                            font={fontMd}
+                            color="#1B5E20"
+                          />
+                          <SkiaText
+                            x={Math.max(chartBounds.left + 2, retX + 8)}
+                            y={retY - 2}
+                            text={formatCurrency(result.netWorthAtRetirement, currency)}
+                            font={fontMd}
+                            color="#1B5E20"
+                          />
+                        </>
+                      )}
+                      {!peakIsSameAsRet && font && (
                         <SkiaText
                           x={Math.max(chartBounds.left + 2, retX - 30)}
                           y={retY - 9}
@@ -310,16 +367,16 @@ export function ProjectionChart({
                         />
                       )}
 
-                      {/* ── Depletion dot + label ── */}
+                      {/* ── Depletion dot + prominent label ── */}
                       {failX != null && failY != null && (
                         <>
-                          <SkiaCircle cx={failX} cy={failY} r={6} color="#C62828" />
-                          {font && (
+                          <SkiaCircle cx={failX} cy={failY} r={7} color="#C62828" />
+                          {fontMd && (
                             <SkiaText
-                              x={Math.max(chartBounds.left + 2, failX - 35)}
-                              y={failY - 9}
+                              x={Math.max(chartBounds.left + 2, failX - 56)}
+                              y={failY - 20}
                               text={`Runs out at ${failureAge}`}
-                              font={font}
+                              font={fontMd}
                               color="#C62828"
                             />
                           )}
@@ -345,36 +402,6 @@ export function ProjectionChart({
                         </React.Fragment>
                       ))}
 
-                      {/* ── Micro-insight labels ── */}
-                      {font && (
-                        <>
-                          <SkiaText
-                            x={Math.max(chartBounds.left + 2, growthLabelX - 32)}
-                            y={chartBounds.top + 30}
-                            text="Wealth growth"
-                            font={font}
-                            color="rgba(27,94,32,0.55)"
-                          />
-                          {postRetProj.length > 0 && (
-                            <SkiaText
-                              x={Math.min(chartBounds.right - 65, Math.max(retX + 4, wdLabelX - 32))}
-                              y={chartBounds.top + 30}
-                              text="Withdrawals"
-                              font={font}
-                              color="rgba(21,101,192,0.55)"
-                            />
-                          )}
-                          {failX != null && (
-                            <SkiaText
-                              x={Math.max(chartBounds.left + 2, failX - 22)}
-                              y={chartBounds.top + 48}
-                              text="Depleted"
-                              font={font}
-                              color="rgba(183,28,28,0.7)"
-                            />
-                          )}
-                        </>
-                      )}
                     </>
                   );
                 }}
@@ -383,31 +410,6 @@ export function ProjectionChart({
           </Animated.View>
         </GestureDetector>
       </View>
-
-      {/* ── Event chips — tappable, show tooltip ── */}
-      {eventMarkers.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.chipsScroll}
-          contentContainerStyle={styles.chipsContent}
-        >
-          {eventMarkers.map((m, i) => (
-            <TouchableOpacity
-              key={i}
-              style={styles.chip}
-              onPress={() => setTooltip(m)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.chipEmoji}>{m.emoji}</Text>
-              <View>
-                <Text style={styles.chipName}>{m.name}</Text>
-                <Text style={styles.chipAge}>Age {m.age}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      )}
 
       {/* ── Legend ── */}
       <View style={styles.legendRow}>
@@ -419,10 +421,16 @@ export function ProjectionChart({
           <View style={[styles.legendDot, { backgroundColor: '#1B5E20', borderRadius: 0, height: 3, width: 16 }]} />
           <Text variant="bodySmall">Retirement ({retirementAge})</Text>
         </View>
-        {postRetProj.length > 0 && (
+        {expLineProj.length > 0 && (
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#C62828', borderRadius: 0, height: 3, width: 16 }]} />
-            <Text variant="bodySmall" style={{ color: '#C62828' }}>Withdrawals</Text>
+            <Text variant="bodySmall" style={{ color: '#C62828' }}>Expenses</Text>
+          </View>
+        )}
+        {postRetPensionProj.length > 0 && (
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#E65100', borderRadius: 0, height: 3, width: 16 }]} />
+            <Text variant="bodySmall" style={{ color: '#E65100' }}>Withdrawals</Text>
           </View>
         )}
         {failureAge > 0 && (
@@ -434,54 +442,12 @@ export function ProjectionChart({
         <Text variant="bodySmall" style={styles.zoomHint}>Pinch to zoom</Text>
       </View>
 
-      {/* ── Event tooltip dialog ── */}
-      {tooltip && (
-        <Portal>
-          <Dialog
-            visible
-            onDismiss={() => setTooltip(null)}
-            style={{ backgroundColor: '#FFF', borderRadius: 16 }}
-          >
-            <Dialog.Title style={{ color: '#E65100' }}>
-              {tooltip.emoji} {tooltip.name}
-            </Dialog.Title>
-            <Dialog.Content>
-              <Text variant="bodyMedium" style={{ marginBottom: 6 }}>
-                Age: <Text style={{ fontWeight: '700' }}>{tooltip.age}</Text>
-              </Text>
-              <Text variant="bodyMedium" style={{ marginBottom: 6 }}>
-                Amount:{' '}
-                <Text style={{ fontWeight: '700', color: '#C62828' }}>
-                  {formatCurrencyFull(tooltip.amount, currency)}
-                </Text>
-              </Text>
-              <Text variant="bodySmall" style={{ color: '#666', fontStyle: 'italic' }}>
-                Net worth at age {tooltip.age}: {formatCurrency(tooltip.netWorth, currency)}
-              </Text>
-            </Dialog.Content>
-            <Dialog.Actions>
-              <Button onPress={() => setTooltip(null)} textColor="#E65100">Close</Button>
-            </Dialog.Actions>
-          </Dialog>
-        </Portal>
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  chipsScroll: { marginTop: 10 },
-  chipsContent: { paddingHorizontal: 4, gap: 8 },
-  chip: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#FFF3E0', borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 6,
-    borderWidth: 1, borderColor: '#FFB74D',
-  },
-  chipEmoji: { fontSize: 18 },
-  chipName: { fontSize: 12, fontWeight: '700', color: '#E65100' },
-  chipAge: { fontSize: 10, color: '#BF360C' },
   legendRow: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 12, marginTop: 8 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
