@@ -259,26 +259,6 @@ export default function DashboardScreen() {
         </View>
       </LinearGradient>
 
-      {/* Inflation Insight Card */}
-      {(() => {
-        const yearsToRetire = retirementAge - currentAge;
-        const inflRate = (goals.inflation_rate ?? 6);
-        const monthlyW = (goals.pension_income ?? 0);
-        if (monthlyW <= 0 || yearsToRetire <= 0) return null;
-        const inflatedMonthly = Math.round(monthlyW * Math.pow(1 + inflRate / 100, yearsToRetire));
-        const annualNeed = Math.round(inflatedMonthly * 12);
-        return (
-          <View style={styles.insightCard}>
-            <Text style={styles.insightTitle}>💡 Why {formatCurrency(result.fireCorpus, currency)}?</Text>
-            <Text style={styles.insightBody}>
-              {formatCurrencyFull(monthlyW, currency)}/month today{' = '}
-              <Text style={styles.insightHighlight}>{formatCurrencyFull(inflatedMonthly, currency)}/month</Text>
-              {' at age '}{retirementAge}{' ('}{inflRate}{'% inflation, '}{yearsToRetire}{' yrs). Corpus must cover '}{formatCurrency(annualNeed, currency)}{'/year.'}
-            </Text>
-          </View>
-        );
-      })()}
-
       {/* Snapshot Row */}
       <View style={styles.tilesRow}>
         <View style={[styles.snapTile, { backgroundColor: '#E8F5E9' }]}>
