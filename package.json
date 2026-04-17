@@ -33,6 +33,7 @@
     "@sentry/react-native": "~7.2.0",
     "@shopify/react-native-skia": "2.2.12",
     "expo": "~54.0.33",
+    "expo-blur": "~15.0.8",
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.8",
     "expo-file-system": "~19.0.21",

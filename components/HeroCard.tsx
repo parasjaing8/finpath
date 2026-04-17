@@ -37,7 +37,7 @@ export function HeroCard({
     : ['#B71C1C', '#7F0000'];
 
   return (
-    <LinearGradient colors={heroColors} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.heroCard}>
+    <LinearGradient colors={heroColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroCard}>
       <Text style={styles.heroLabel}>YOUR MONTHLY SIP</Text>
       {requiredMonthlySIP > 0 ? (
         <Text style={styles.heroAmount}>{formatCurrencyFull(sipAmountDisplay, currency)}</Text>
