@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Text, Card, TextInput, Button, HelperText, Dialog, Portal, IconButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useProfile } from '../../hooks/useProfile';
@@ -9,6 +10,13 @@ import { Slider } from '@miblanchard/react-native-slider';
 import { formatCurrency, PENSION_INFLATION_RATE, FIRE_TARGET_AGES } from '../../engine/calculator';
 import { FREQUENCIES } from '../../constants/categories';
 import { CorpusPrimer } from '../../components/CorpusPrimer';
+
+const FIRE_TYPES: { key: FireType; label: string; desc: string; color: string }[] = [
+  { key: 'slim',     label: 'Lean FIRE', desc: 'Survive to 85 — minimal corpus',    color: '#E65100' },
+  { key: 'moderate', label: 'FIRE',      desc: 'Sustain to 100 — comfortable',      color: '#1B5E20' },
+  { key: 'fat',      label: 'Fat FIRE',  desc: 'Preserve wealth to 120',            color: '#5E35B1' },
+  { key: 'custom',   label: 'Custom',    desc: 'Set your own target age',           color: '#757575' },
+];
 
 export default function GoalsScreen() {
   const { currentProfile } = useProfile();
@@ -132,31 +140,25 @@ export default function GoalsScreen() {
             </Text>
             <IconButton icon="information-outline" size={20} onPress={() => setShowSWRDialog(true)} accessibilityLabel="Learn about retirement safety levels" />
           </View>
-          <Text variant="bodySmall" style={styles.sectionHint}>
-            How safely do you want your corpus to last? Lean = 85 yrs, Comfortable = 100 yrs, Rich = 120 yrs.
-          </Text>
-          <View style={styles.fireTypeRow}>
-            {([
-              { type: 'slim' as FireType, label: 'Lean' },
-              { type: 'moderate' as FireType, label: 'Comfortable' },
-              { type: 'fat' as FireType, label: 'Rich' },
-              { type: 'custom' as FireType, label: 'Custom' },
-            ]).map(({ type, label }) => {
-              const selected = fireType === type;
+          <View style={styles.fireTypeCardList}>
+            {FIRE_TYPES.map(({ key, label, desc, color }) => {
+              const selected = fireType === key;
               return (
                 <TouchableOpacity
-                  key={type}
-                  style={[styles.fireTypeChip, selected && styles.fireTypeChipSelected]}
+                  key={key}
+                  style={[styles.fireTypeCard, { borderLeftColor: color }, selected && { backgroundColor: color + '18' }]}
                   onPress={() => {
-                    setFireType(type);
-                    if (type !== 'custom') setFireTargetAge(FIRE_TARGET_AGES[type]);
+                    setFireType(key);
+                    if (key !== 'custom') setFireTargetAge(FIRE_TARGET_AGES[key]);
                   }}
                   accessibilityLabel={`FIRE type: ${label}`}
                   accessibilityState={{ selected }}
                 >
-                  <Text style={[styles.fireTypeChipText, selected && styles.fireTypeChipTextSelected]}>
-                    {label}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={[styles.fireTypeCardLabel, { color }]}>{label}</Text>
+                    {selected && <MaterialCommunityIcons name="check-circle" size={16} color={color} />}
+                  </View>
+                  <Text style={styles.fireTypeCardDesc}>{desc}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -209,6 +211,13 @@ export default function GoalsScreen() {
             keyboardType="numeric"
             style={styles.input}
             left={<TextInput.Affix text={currentProfile.currency === 'INR' ? '₹' : '$'} />}
+          />
+          <Slider
+            value={Math.min(Math.max(parseFloat(pensionIncome) || 10000, 10000), 500000)}
+            onValueChange={(v: number[]) => setPensionIncome(String(Math.round(v[0] / 5000) * 5000))}
+            minimumValue={10000} maximumValue={500000} step={5000}
+            minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
+            accessibilityLabel="Monthly withdrawal target slider"
           />
           {parseFloat(pensionIncome) > 0 && yearsToRetirement > 0 && (() => {
             const monthly = parseFloat(pensionIncome);
@@ -280,14 +289,14 @@ const styles = StyleSheet.create({
   input: { marginBottom: 4, backgroundColor: '#FFFFFF' },
   button: { marginTop: 32, borderRadius: 8 },
   buttonContent: { paddingVertical: 8 },
-  fireTypeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  fireTypeChip: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
-    borderWidth: 1.5, borderColor: '#1B5E20', backgroundColor: '#FFF',
+  fireTypeCardList: { gap: 8, marginBottom: 8 },
+  fireTypeCard: {
+    borderLeftWidth: 4, borderRadius: 10, padding: 12,
+    backgroundColor: '#FFF',
+    borderWidth: 1, borderColor: '#E0E0E0',
   },
-  fireTypeChipSelected: { backgroundColor: '#1B5E20' },
-  fireTypeChipText: { fontSize: 13, fontWeight: '600', color: '#1B5E20' },
-  fireTypeChipTextSelected: { color: '#FFF' },
+  fireTypeCardLabel: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
+  fireTypeCardDesc: { fontSize: 12, color: '#666', lineHeight: 16 },
   fvCard: { backgroundColor: '#FFFDE7', borderLeftWidth: 2, borderLeftColor: '#F9A825', borderRadius: 6, padding: 10, marginTop: 8, marginBottom: 4 },
   fvText: { fontSize: 12, color: '#4E342E', lineHeight: 18 },
   fvHighlight: { fontWeight: '800', color: '#BF360C' },

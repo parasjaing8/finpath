@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Platform, Keyboard, ActivityIndicator, RefreshControl } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, Icon, HelperText, RadioButton, TouchableRipple } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { Expense, Goals, getExpenses, getGoals, createExpense, updateExpense, deleteExpense } from '../../db/queries';
@@ -8,6 +9,12 @@ import { EXPENSE_CATEGORIES, EXPENSE_TYPES, FREQUENCIES, DEFAULT_INFLATION_RATES
 import { formatCurrency, calculatePresentValueOfExpenses } from '../../engine/calculator';
 import { Slider } from '@miblanchard/react-native-slider';
 import { DateInput } from '../../components/DateInput';
+
+const TYPE_ICONS: Record<string, string> = {
+  CURRENT_RECURRING: 'repeat',
+  FUTURE_ONE_TIME: 'calendar-outline',
+  FUTURE_RECURRING: 'refresh',
+};
 
 export default function ExpensesScreen() {
   const { currentProfile } = useProfile();
@@ -270,7 +277,15 @@ export default function ExpensesScreen() {
             const typeInfo = EXPENSE_TYPES.find(t => t.key === type);
             return (
               <View key={type}>
-                <Text variant="titleSmall" style={styles.groupTitle}>{typeInfo?.label ?? type}</Text>
+                <View style={styles.groupTitleRow}>
+                  <MaterialCommunityIcons
+                    name={(TYPE_ICONS[type] ?? 'circle-outline') as any}
+                    size={16}
+                    color="#555"
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text variant="titleSmall" style={styles.groupTitle}>{typeInfo?.label ?? type}</Text>
+                </View>
                 {typeExpenses.map(exp => (
                   <Card key={exp.id} style={styles.expCard} onPress={() => openForm(exp.category, exp)}>
                     <Card.Content style={styles.expRow}>
@@ -410,7 +425,8 @@ const styles = StyleSheet.create({
   chip: { marginRight: 8, backgroundColor: '#ECEFF1' },
   chipText: { fontSize: 12 },
   emptyCard: { padding: 24, borderRadius: 12 },
-  groupTitle: { marginTop: 16, marginBottom: 8, fontWeight: '700', color: '#37474F' },
+  groupTitleRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 8 },
+  groupTitle: { fontWeight: '700', color: '#37474F' },
   expCard: { marginBottom: 8, borderRadius: 8, backgroundColor: '#FFFFFF' },
   expRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12 },
   modal: { backgroundColor: '#FFFFFF', margin: 16, padding: 20, borderRadius: 16, maxHeight: '85%' },
