@@ -14,14 +14,62 @@ import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Crypto from 'expo-crypto';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { getAllProfiles, Profile, recordFailedAttempt, resetFailedAttempts, getProfilePin, getBiometricEnabled } from '../db/queries';
+import { getAllProfiles, getAssets, getExpenses, getGoals, Profile, recordFailedAttempt, resetFailedAttempts, getProfilePin, getBiometricEnabled } from '../db/queries';
 import { useProfile } from '../hooks/useProfile';
+import { useApp } from '../context/AppContext';
+import type { Profile as EngineProfile, Asset as EngineAsset, Expense as EngineExpense, Goals as EngineGoals } from '../engine/types';
 
 const MAX_FREE_ATTEMPTS = 5; // lockout kicks in after this many failures
 
 export default function LoginScreen() {
   const router = useRouter();
   const { setCurrentProfileId, refreshProfiles } = useProfile();
+  const { setProfile, setAssets, setExpenses, setGoals } = useApp();
+
+  /** Hydrate AppContext from SQLite so V2 screens have live data after login. */
+  async function syncToAppContext(p: Profile) {
+    const [sqlAssets, sqlExpenses, sqlGoals] = await Promise.all([
+      getAssets(p.id),
+      getExpenses(p.id),
+      getGoals(p.id),
+    ]);
+    const engineProfile: EngineProfile = {
+      id: String(p.id), name: p.name, dob: p.dob,
+      currency: p.currency, monthly_income: p.monthly_income,
+    };
+    const engineAssets: EngineAsset[] = sqlAssets.map(a => ({
+      id: String(a.id), name: a.name, category: a.category,
+      current_value: a.current_value, expected_roi: a.expected_roi,
+      is_self_use: !!a.is_self_use, is_recurring: !!a.is_recurring,
+      recurring_amount: a.recurring_amount ?? undefined,
+      recurring_frequency: a.recurring_frequency ?? undefined,
+      next_vesting_date: a.next_vesting_date ?? undefined,
+      vesting_end_date: a.vesting_end_date ?? undefined,
+    }));
+    const engineExpenses: EngineExpense[] = sqlExpenses.map(e => ({
+      id: String(e.id), name: e.name, category: e.category,
+      expense_type: e.expense_type as EngineExpense['expense_type'],
+      amount: e.amount, frequency: e.frequency ?? undefined,
+      inflation_rate: e.inflation_rate,
+      start_date: e.start_date ?? undefined,
+      end_date: e.end_date ?? undefined,
+    }));
+    await setProfile(engineProfile);
+    await setAssets(engineAssets);
+    await setExpenses(engineExpenses);
+    if (sqlGoals) {
+      const engineGoals: EngineGoals = {
+        retirement_age: sqlGoals.retirement_age,
+        sip_stop_age: sqlGoals.sip_stop_age,
+        pension_income: sqlGoals.pension_income ?? undefined,
+        fire_type: sqlGoals.fire_type,
+        fire_target_age: sqlGoals.fire_target_age,
+        withdrawal_rate: sqlGoals.withdrawal_rate,
+        inflation_rate: sqlGoals.inflation_rate,
+      };
+      await setGoals(engineGoals);
+    }
+  }
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
@@ -72,6 +120,7 @@ export default function LoginScreen() {
       await resetFailedAttempts(profile.id);
       await setCurrentProfileId(profile.id);
       await refreshProfiles();
+      await syncToAppContext(profile);
       router.replace('/(tabs)/assets');
     }
   }
@@ -117,6 +166,7 @@ export default function LoginScreen() {
         await resetFailedAttempts(selectedProfile.id);
         await setCurrentProfileId(selectedProfile.id);
         await refreshProfiles();
+        await syncToAppContext(selectedProfile);
         router.replace('/(tabs)/assets');
       } else {
         const { lockoutUntil } = await recordFailedAttempt(selectedProfile.id);

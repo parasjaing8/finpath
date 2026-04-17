@@ -4,6 +4,8 @@ import { TextInput, Button, Text, SegmentedButtons, HelperText } from 'react-nat
 import { useRouter } from 'expo-router';
 import { createProfile, setBiometricEnabled } from '../../db/queries';
 import { useProfile } from '../../hooks/useProfile';
+import { useApp } from '../../context/AppContext';
+import type { Profile as EngineProfile } from '../../engine/types';
 import * as Crypto from 'expo-crypto';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,6 +14,7 @@ import { DateInput } from '../../components/DateInput';
 export default function CreateProfile() {
   const router = useRouter();
   const { setCurrentProfileId, refreshProfiles } = useProfile();
+  const { setProfile: setAppProfile } = useApp();
 
   const [name, setName] = useState('');
   const [dob, setDob] = useState('2000-01-01');
@@ -70,6 +73,7 @@ export default function CreateProfile() {
       if (enableBiometric) await setBiometricEnabled(profileId, true);
       await setCurrentProfileId(profileId);
       await refreshProfiles();
+      await setAppProfile({ id: String(profileId), name: name.trim(), dob, currency, monthly_income: parseFloat(monthlyIncome) || 0 });
       router.replace('/(tabs)/assets');
     } catch (e) {
       if (__DEV__) console.error('Failed to create profile:', e);

@@ -4,6 +4,8 @@ import { TextInput, Button, Text, SegmentedButtons, HelperText } from 'react-nat
 import { useRouter } from 'expo-router';
 import { updateProfile, saveProfilePin } from '../../db/queries';
 import { useProfile } from '../../hooks/useProfile';
+import { useApp } from '../../context/AppContext';
+import type { Profile as EngineProfile } from '../../engine/types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { DateInput } from '../../components/DateInput';
 import * as Crypto from 'expo-crypto';
@@ -11,6 +13,7 @@ import * as Crypto from 'expo-crypto';
 export default function EditProfile() {
   const router = useRouter();
   const { currentProfile, refreshProfiles } = useProfile();
+  const { setProfile: setAppProfile } = useApp();
 
   const [name, setName] = useState(currentProfile?.name ?? '');
   const [monthlyIncome, setMonthlyIncome] = useState(
@@ -53,6 +56,7 @@ export default function EditProfile() {
         await saveProfilePin(currentProfile.id, `${salt}$${hash}`);
       }
       await refreshProfiles();
+      await setAppProfile({ id: String(currentProfile.id), name: name.trim(), dob, currency, monthly_income: parseFloat(monthlyIncome) || 0 });
       router.back();
     } catch {
       Alert.alert('Error', 'Could not save changes. Please try again.');
