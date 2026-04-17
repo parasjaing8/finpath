@@ -6,6 +6,8 @@ import { deleteProfile, getBiometricEnabled, setBiometricEnabled } from '../../d
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { usePro } from '../../hooks/usePro';
+import { ProPaywall } from '../../components/ProPaywall';
 
 const APP_VERSION = '1.0.1';
 const WEBSITE_URL = 'https://aihomecloud.com/finpath/';
@@ -13,6 +15,8 @@ const WEBSITE_URL = 'https://aihomecloud.com/finpath/';
 export default function ProfileScreen() {
   const { currentProfile, logout } = useProfile();
   const router = useRouter();
+  const { isPro } = usePro();
+  const [showPaywall, setShowPaywall] = useState(false);
   const [biometricOn, setBiometricOn] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
 
@@ -137,6 +141,27 @@ export default function ProfileScreen() {
         </Card.Content>
       </Card>
 
+      {/* Pro Upgrade */}
+      {!isPro && (
+        <>
+          <Text variant="labelSmall" style={styles.sectionLabel}>UPGRADE</Text>
+          <Card style={styles.card}>
+            <Card.Content>
+              <TouchableOpacity
+                style={styles.upgradeBtn}
+                onPress={() => setShowPaywall(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Upgrade to Pro"
+              >
+                <MaterialCommunityIcons name="crown" size={20} color="#fff" />
+                <Text style={styles.upgradeBtnText}>Upgrade to Pro — CSV Export</Text>
+              </TouchableOpacity>
+            </Card.Content>
+          </Card>
+        </>
+      )}
+      <ProPaywall visible={showPaywall} onDismiss={() => setShowPaywall(false)} />
+
       {/* About */}
       <Text variant="labelSmall" style={styles.sectionLabel}>ABOUT</Text>
       <Card style={styles.card}>
@@ -191,4 +216,9 @@ const styles = StyleSheet.create({
   settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settingText: { fontSize: 15, color: '#333' },
   footerText: { textAlign: 'center', color: '#BBB', fontSize: 12, marginTop: 8, marginBottom: 8 },
+  upgradeBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: '#1B5E20', borderRadius: 10, paddingVertical: 14, paddingHorizontal: 20,
+  },
+  upgradeBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

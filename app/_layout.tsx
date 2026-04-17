@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Slot } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { ProfileProvider } from '../hooks/useProfile';
 import { ProProvider } from '../hooks/usePro';
@@ -29,16 +31,28 @@ const theme = {
 };
 
 function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
+
+  // Render nothing until fonts are ready (avoids FOUT on first paint)
+  if (!fontsLoaded && !fontError) return null;
+
   return (
-    <ErrorBoundary>
-      <PaperProvider theme={theme}>
-        <ProProvider>
-          <ProfileProvider>
-            <Slot />
-          </ProfileProvider>
-        </ProProvider>
-      </PaperProvider>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <PaperProvider theme={theme}>
+          <ProProvider>
+            <ProfileProvider>
+              <Slot />
+            </ProfileProvider>
+          </ProProvider>
+        </PaperProvider>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }
 
