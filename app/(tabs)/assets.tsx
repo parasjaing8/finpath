@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Alert, ActivityIndicator, RefreshControl } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, HelperText, Icon } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { Asset, getAssets, createAsset, updateAsset, deleteAsset, getTotalNetWorth } from '../../db/queries';
@@ -176,6 +177,7 @@ export default function AssetsScreen() {
       setShowForm(false);
       resetForm();
       loadData();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
       Alert.alert('Error', 'Could not save asset. Please try again.');
     }
@@ -184,7 +186,7 @@ export default function AssetsScreen() {
   async function handleDelete(id: number) {
     Alert.alert('Delete Asset', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => { await deleteAsset(id); loadData(); } },
+      { text: 'Delete', style: 'destructive', onPress: async () => { await deleteAsset(id); loadData(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } },
     ]);
   }
 

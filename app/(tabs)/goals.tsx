@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Text, Card, TextInput, Button, HelperText, Dialog, Portal, IconButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useProfile } from '../../hooks/useProfile';
@@ -66,6 +67,7 @@ export default function GoalsScreen() {
         inflationRate,
       );
       setSaved(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => { router.push('/(tabs)/dashboard'); }, 500);
     } catch (e) {
       Alert.alert('Error', 'Could not save goals. Please try again.');

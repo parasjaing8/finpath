@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Platform, Keyboard, ActivityIndicator, RefreshControl } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Text, Card, Chip, Portal, Modal, TextInput, Button, SegmentedButtons, IconButton, Icon, HelperText, RadioButton, TouchableRipple } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { Expense, Goals, getExpenses, getGoals, createExpense, updateExpense, deleteExpense } from '../../db/queries';
@@ -160,6 +161,7 @@ export default function ExpensesScreen() {
       setShowForm(false);
       resetForm();
       loadData();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       if (__DEV__) console.error('Failed to save expense:', err);
       Alert.alert('Error', 'Could not save expense. Please try again.');
@@ -169,7 +171,7 @@ export default function ExpensesScreen() {
   async function handleDelete(id: number) {
     Alert.alert('Delete Expense', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => { await deleteExpense(id); loadData(); } },
+      { text: 'Delete', style: 'destructive', onPress: async () => { await deleteExpense(id); loadData(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } },
     ]);
   }
 
