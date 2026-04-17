@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { Text, Card, Switch, Button, DataTable, Portal, Dialog, IconButton } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Text, Card, Button, DataTable, Portal, Dialog } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { getAssets, getExpenses, getGoals, Asset, Expense, Goals } from '../../db/queries';
 import { calculateProjections, CalculationOutput, formatCurrency, formatCurrencyFull } from '../../engine/calculator';
 import { exportToCSV } from '../../utils/export';
-import { Slider } from '@miblanchard/react-native-slider';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRouter, useFocusEffect } from 'expo-router';
 import { usePro } from '../../hooks/usePro';
 import { ProPaywall } from '../../components/ProPaywall';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ProjectionChart } from '../../components/ProjectionChart';
+import { HeroCard } from '../../components/HeroCard';
+import { SnapshotTiles } from '../../components/SnapshotTiles';
+import { InsightCard } from '../../components/InsightCard';
+import { SIPControls } from '../../components/SIPControls';
 
 export default function DashboardScreen() {
   const { currentProfile } = useProfile();
@@ -33,7 +35,6 @@ export default function DashboardScreen() {
   const [sipReturnRateDisplay, setSipReturnRateDisplay] = useState(12);
   const [postSipReturnRateDisplay, setPostSipReturnRateDisplay] = useState(7);
   const [stepUpRateDisplay, setStepUpRateDisplay] = useState(10);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const { isPro } = usePro();
   const [showCorpusInfo, setShowCorpusInfo] = useState(false);
@@ -194,197 +195,79 @@ export default function DashboardScreen() {
     return { title: "You're on track", subtitle: `Money lasts till ${targetAge}`, color: '#1B5E20' };
   })();
 
-  // SIP burden warning card — four severity levels based on how badly SIP strains income
-  let sipWarningCard: React.ReactNode = null;
-  if (result.sipBurdenWarning) {
+  const sipBurdenInsight: { type: 'critical' | 'warning' | 'info'; title: string } | null = (() => {
+    if (!result.sipBurdenWarning) return null;
     const income = currentProfile.monthly_income ?? 0;
-    const sipRatio = income > 0 ? result.requiredMonthlySIP / income : 0;
-    // Detect combined-expense conditions from message (calculator encodes these)
-    const isCombinedExceed = result.sipBurdenWarning.startsWith('Required SIP') && result.sipBurdenWarning.includes('expenses');
-    const isBufferLow = result.sipBurdenWarning.startsWith('SIP + expenses leave');
-
-    let severity: 'CRITICAL' | 'HIGH' | 'MODERATE' | 'INFO';
-    if (sipRatio > 1) severity = 'CRITICAL';
-    else if (sipRatio > 0.6) severity = 'HIGH';
-    else if (isCombinedExceed) severity = 'MODERATE';
-    else if (isBufferLow) severity = 'INFO';
-    else severity = 'INFO';
-
-    const warningStyles: Record<typeof severity, { bg: string; titleColor: string; bodyColor: string; icon: string; title: string }> = {
-      CRITICAL: { bg: '#FFEBEE', titleColor: '#B71C1C', bodyColor: '#C62828', icon: '⛔', title: 'Required SIP Exceeds Your Salary' },
-      HIGH:     { bg: '#FFF3E0', titleColor: '#BF360C', bodyColor: '#E64A19', icon: '🔴', title: 'Very High SIP Burden (>60% of Income)' },
-      MODERATE: { bg: '#FFFDE7', titleColor: '#F57F17', bodyColor: '#795548', icon: '⚠️', title: 'SIP + Expenses Exceed Monthly Income' },
-      INFO:     { bg: '#F5F5F5', titleColor: '#616161', bodyColor: '#757575', icon: 'ℹ️', title: 'Low Income Buffer After SIP' },
+    const ratio = income > 0 ? result.requiredMonthlySIP / income : 0;
+    return {
+      type: ratio > 1 ? 'critical' : ratio > 0.6 ? 'warning' : 'info',
+      title: ratio > 1 ? 'SIP Exceeds Salary' : ratio > 0.6 ? 'High SIP Burden' : 'Low Income Buffer',
     };
-    const ws = warningStyles[severity];
-
-    sipWarningCard = (
-      <Card style={[styles.netWorthClarityCard, { backgroundColor: ws.bg, borderLeftWidth: severity === 'CRITICAL' ? 4 : severity === 'HIGH' ? 3 : 0, borderLeftColor: ws.titleColor }]}>
-        <Card.Content>
-          <Text variant="labelSmall" style={{ color: ws.titleColor, fontWeight: severity === 'CRITICAL' ? '900' : 'bold', marginBottom: 4, fontSize: severity === 'CRITICAL' ? 13 : 11 }}>
-            {ws.icon} {ws.title}
-          </Text>
-          <Text variant="bodySmall" style={{ color: ws.bodyColor, fontStyle: severity === 'INFO' ? 'italic' : 'normal' }}>
-            {result.sipBurdenWarning}
-          </Text>
-        </Card.Content>
-      </Card>
-    );
-  }
-
-  const sipRatio = result.requiredMonthlySIP > 0 ? sipAmountDisplay / result.requiredMonthlySIP : 1;
-  const heroColors: [string, string] = sipRatio >= 1.15
-    ? ['#1B5E20', '#2E7D32']
-    : sipRatio >= 1.0
-    ? ['#2E7D32', '#388E3C']
-    : sipRatio >= 0.7
-    ? ['#E65100', '#BF360C']
-    : ['#B71C1C', '#7F0000'];
+  })();
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
 
 
       {/* Section A — Hero Card */}
-      <LinearGradient colors={heroColors} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.heroCard}>
-        <Text style={styles.heroLabel}>YOUR MONTHLY SIP</Text>
-        {result.requiredMonthlySIP > 0 ? (
-          <Text style={styles.heroAmount}>{formatCurrencyFull(sipAmountDisplay, currency)}</Text>
-        ) : (
-          <Text style={styles.heroAmount}>No SIP needed</Text>
-        )}
-        <Text style={styles.heroStatusTitle}>{planStatus.title}</Text>
-        <Text style={styles.heroSubtitle}>{planStatus.subtitle}</Text>
-        <View style={styles.heroPillRow}>
-          <View style={[styles.heroPill, styles.heroPillStatus]}>
-            <Text style={[styles.heroPillText, { color: result.isOnTrack ? '#1B5E20' : '#C62828' }]}>
-              {result.isOnTrack ? '✓ On Track' : '✗ Off Track'}
-            </Text>
-          </View>
-          {result.fireAchievedAge > 0 && (
-            result.failureAge > 0 ? (
-              <TouchableOpacity
-                style={[styles.heroPill, { backgroundColor: 'rgba(255,167,38,0.9)' }]}
-                onPress={() => setShowDepletionInfo(true)}
-                accessibilityRole="button"
-                accessibilityLabel="Corpus depletion detail"
-              >
-                <Text style={styles.heroPillText}>⚠ Runs out at {result.failureAge} ›</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.heroPill}>
-                <Text style={styles.heroPillText}>✓ Lasts till {goals.fire_target_age ?? 100}</Text>
-              </View>
-            )
-          )}
-        </View>
-      </LinearGradient>
+      <HeroCard
+        sipAmountDisplay={sipAmountDisplay}
+        requiredMonthlySIP={result.requiredMonthlySIP}
+        currency={currency}
+        fireTargetAge={goals.fire_target_age ?? 100}
+        failureAge={result.failureAge}
+        fireAchievedAge={result.fireAchievedAge}
+        isOnTrack={result.isOnTrack}
+        planStatus={planStatus}
+        onDepletionPress={() => setShowDepletionInfo(true)}
+      />
 
       {/* Snapshot Row */}
-      <View style={styles.tilesRow}>
-        <View style={[styles.snapTile, { backgroundColor: '#E8F5E9' }]}>
-          <Text style={[styles.snapLabel, { color: '#1B5E20' }]}>TODAY</Text>
-          <Text style={[styles.snapNumber, { color: '#1B5E20' }]}>{formatCurrency(result.investableNetWorth, currency)}</Text>
-          <Text style={styles.snapSub}>Investable Net Worth</Text>
-        </View>
-        <View style={[styles.snapTile, { backgroundColor: '#EDE7F6' }]}>
-          <IconButton
-            icon="information-outline"
-            size={16}
-            iconColor="#7E57C2"
-            style={{ position: 'absolute', top: 0, right: 0, margin: 0 }}
-            onPress={() => setShowCorpusInfo(true)}
-            accessibilityLabel="Why is the corpus this large?"
-          />
-          <Text style={[styles.snapLabel, { color: '#5E35B1' }]}>AT AGE {retirementAge}</Text>
-          <Text style={[styles.snapNumber, { color: '#5E35B1' }]}>{formatCurrency(result.netWorthAtRetirement, currency)}</Text>
-          <Text style={styles.snapSub}>Projected Corpus</Text>
-        </View>
-      </View>
+      <SnapshotTiles
+        investableNetWorth={result.investableNetWorth}
+        netWorthAtRetirement={result.netWorthAtRetirement}
+        retirementAge={retirementAge}
+        currency={currency}
+        onCorpusInfoPress={() => setShowCorpusInfo(true)}
+      />
 
       {/* SIP burden warning — shown when required SIP exceeds or strains salary */}
-      {sipWarningCard}
+      {sipBurdenInsight && result.sipBurdenWarning && (
+        <InsightCard type={sipBurdenInsight.type} title={sipBurdenInsight.title} message={result.sipBurdenWarning} />
+      )}
+      {result.isOnTrack && !result.failureAge && insights && (
+        <InsightCard
+          type="success"
+          title={`Peak wealth at age ${insights.peakAge}`}
+          message={`Your portfolio peaks at ${formatCurrency(insights.peakValue, currency)}.`}
+        />
+      )}
+      {insights && !insights.isAffordable && !result.sipBurdenWarning && (
+        <InsightCard
+          type="warning"
+          title="Cash Flow Tight"
+          message="SIP + expenses exceed your monthly income. Consider reducing expenses."
+        />
+      )}
 
-      <Card style={styles.strategyCard}>
-        <Card.Content>
-          <View style={styles.strategyHeader}>
-            <Text variant="titleMedium" style={styles.strategyTitle}>Adjust Your Plan</Text>
-            <Text style={styles.strategyLiveValue}>{formatCurrency(sipAmountDisplay, currency)}/mo</Text>
-          </View>
-
-          {/* Primary control — always visible */}
-          <Slider
-            value={sipAmountDisplay}
-            onValueChange={(v: number[]) => setSipAmountDisplay(Math.round(v[0] / 1000) * 1000)}
-            onSlidingComplete={(v: number[]) => setSipAmount(Math.round(v[0] / 1000) * 1000)}
-            minimumValue={1000} maximumValue={500000} step={1000}
-            minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
-          />
-          {/* Advanced toggle */}
-          <TouchableOpacity
-            style={styles.advancedToggle}
-            onPress={() => setShowAdvanced(v => !v)}
-            accessibilityRole="button"
-            accessibilityLabel={showAdvanced ? 'Hide advanced settings' : 'Show advanced settings'}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text variant="labelMedium" style={styles.advancedToggleText}>
-                Advanced {showAdvanced ? '▲' : '▼'}
-              </Text>
-              <Text variant="bodySmall" style={{ color: '#999', fontStyle: 'italic', fontSize: 11 }}>
-                Stops {goals.sip_stop_age} · Step-up {stepUpEnabled ? `${stepUpRate}%` : 'off'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {showAdvanced && (
-            <>
-              <Text variant="labelMedium" style={styles.sliderLabel}>
-                Return While Investing (until age {goals.sip_stop_age}): {sipReturnRateDisplay}%
-              </Text>
-              <Slider
-                value={sipReturnRateDisplay}
-                onValueChange={(v: number[]) => setSipReturnRateDisplay(Math.round(v[0]))}
-                onSlidingComplete={(v: number[]) => setSipReturnRate(Math.round(v[0]))}
-                minimumValue={5} maximumValue={20} step={1}
-                minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
-              />
-              <Text variant="labelMedium" style={styles.sliderLabel}>
-                Return After SIP Stops (from age {goals.sip_stop_age}): {postSipReturnRateDisplay}%
-              </Text>
-              <Slider
-                value={postSipReturnRateDisplay}
-                onValueChange={(v: number[]) => setPostSipReturnRateDisplay(Math.round(v[0]))}
-                onSlidingComplete={(v: number[]) => setPostSipReturnRate(Math.round(v[0]))}
-                minimumValue={3} maximumValue={15} step={1}
-                minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
-              />
-              <Text variant="bodySmall" style={styles.infoText}>
-                Only withdrawn amounts are taxed. Remaining corpus compounds at gross return rate.
-              </Text>
-
-              <View style={styles.switchRow}>
-                <Text variant="bodyMedium">Step-Up SIP</Text>
-                <Switch value={stepUpEnabled} onValueChange={setStepUpEnabled} color="#1B5E20" />
-              </View>
-              {stepUpEnabled && (
-                <>
-                  <Text variant="labelMedium" style={styles.sliderLabel}>
-                    Step-Up Rate: {stepUpRateDisplay}%/year
-                  </Text>
-                  <Slider
-                    value={stepUpRateDisplay}
-                    onValueChange={(v: number[]) => setStepUpRateDisplay(Math.round(v[0]))}
-                    onSlidingComplete={(v: number[]) => setStepUpRate(Math.round(v[0]))}
-                    minimumValue={5} maximumValue={20} step={1}
-                    minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
-                  />
-                </>
-              )}
-            </>
-          )}
-        </Card.Content>
-      </Card>
+      <SIPControls
+        sipAmountDisplay={sipAmountDisplay}
+        sipReturnRateDisplay={sipReturnRateDisplay}
+        postSipReturnRateDisplay={postSipReturnRateDisplay}
+        stepUpEnabled={stepUpEnabled}
+        stepUpRateDisplay={stepUpRateDisplay}
+        sipStopAge={goals.sip_stop_age}
+        currency={currency}
+        onSipChange={setSipAmountDisplay}
+        onSipCommit={setSipAmount}
+        onReturnChange={setSipReturnRateDisplay}
+        onReturnCommit={setSipReturnRate}
+        onPostReturnChange={setPostSipReturnRateDisplay}
+        onPostReturnCommit={setPostSipReturnRate}
+        onStepUpToggle={setStepUpEnabled}
+        onStepUpChange={setStepUpRateDisplay}
+        onStepUpCommit={setStepUpRate}
+      />
 
       {/* Section C — Net Worth Projection Graph 2.0 */}
       <Card style={styles.chartCard}>
@@ -546,54 +429,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F5F5' },
   scroll: { padding: 16, paddingBottom: 40 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
-  pageTitle: { fontWeight: 'bold', color: '#1B5E20', marginBottom: 16 },
-  tilesRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-  tile: { flex: 1, borderRadius: 12 },
-  tileFullWidth: { borderRadius: 12, marginBottom: 12 },
-  tileLabel: { color: '#666', marginBottom: 4 },
-  tileValue: { fontWeight: 'bold' },
-  netWorthNote: { color: '#888', marginTop: 2 },
-  projectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
-  projectionRowLabel: { color: '#666', flex: 1 },
-  gapChip: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, marginTop: 6, alignSelf: 'stretch', alignItems: 'center' },
-  netWorthClarityCard: { borderRadius: 12, marginBottom: 12 },
-  horizontalDivider: { height: 1, backgroundColor: '#DDD', marginVertical: 10 },
-  columnHeaderToday: { fontWeight: '700', color: '#1B5E20', marginBottom: 8, letterSpacing: 0.5 },
-  columnHeaderProjections: { fontWeight: '700', color: '#5E35B1', marginBottom: 8, letterSpacing: 0.5 },
-  strategyCard: { marginTop: 8, marginBottom: 16, borderRadius: 12 },
-  strategyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  strategyTitle: { fontWeight: 'bold', color: '#1B5E20' },
-  strategyLiveValue: { fontSize: 14, fontWeight: '700', color: '#1B5E20' },
-  sliderLabel: { marginTop: 12, marginBottom: 4, fontWeight: '600' },
-  infoText: { color: '#666', marginTop: 8, fontStyle: 'italic' },
-  advancedToggle: { marginTop: 12, paddingVertical: 6, alignSelf: 'flex-start' },
-  advancedToggleText: { color: '#1B5E20', fontWeight: '700' },
-  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 },
   chartCard: { marginBottom: 16, borderRadius: 12 },
   chartTitle: { fontWeight: 'bold', marginBottom: 12 },
-  legendRow: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 12, marginTop: 8 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 10, height: 10, borderRadius: 5 },
   tableCard: { marginBottom: 16, borderRadius: 12 },
   tableHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   colNarrow: { width: 60 },
   colWide: { width: 100 },
-  heroCard: { borderRadius: 16, padding: 20, marginBottom: 12, overflow: 'hidden' },
-  heroLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: 'rgba(255,255,255,0.7)', marginBottom: 4 },
-  heroAmount: { fontSize: 36, fontWeight: '800', color: '#fff', marginBottom: 4 },
-  heroStatusTitle: { fontSize: 15, fontWeight: '800', color: '#fff', marginBottom: 2 },
-  heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 14 },
-  heroPillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  heroPill: { backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  heroPillStatus: { backgroundColor: '#fff', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.5)' },
-  heroPillText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  insightCard: { backgroundColor: '#FFFDE7', borderLeftWidth: 3, borderLeftColor: '#F9A825', borderRadius: 8, padding: 14, marginBottom: 12 },
-  insightTitle: { fontSize: 13, fontWeight: '800', color: '#4E342E', marginBottom: 6 },
-  insightBody: { fontSize: 12, color: '#4E342E', lineHeight: 18 },
-  insightHighlight: { fontWeight: '800', color: '#BF360C' },
-  snapTile: { flex: 1, borderRadius: 12, padding: 14 },
-  snapLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginBottom: 4 },
-  snapNumber: { fontSize: 20, fontWeight: '800', marginBottom: 2 },
-  snapSub: { fontSize: 11, color: '#666' },
   fireRow: { backgroundColor: '#C8E6C9' },
 });
