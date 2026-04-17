@@ -1,221 +1,166 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Modal, Alert, ActivityIndicator, RefreshControl,
-} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useColors } from '../../hooks/useColors';
-import { useProfile } from '../../hooks/useProfile';
-import { Expense, Goals, getExpenses, getGoals, createExpense, updateExpense, deleteExpense } from '../../db/queries';
-import { EXPENSE_CATEGORIES, EXPENSE_TYPES, FREQUENCIES, DEFAULT_INFLATION_RATES } from '../../constants/categories';
-import { formatCurrency, calculatePresentValueOfExpenses } from '../../engine/calculator';
-import { Slider } from '@miblanchard/react-native-slider';
-import { DateInput } from '../../components/DateInput';
+import * as Haptics from 'expo-haptics';
+import { useColors } from '@/hooks/useColors';
+import { useApp } from '@/context/AppContext';
+import { Expense, Frequency, FrequencyInput, FREQUENCY_TO_MONTHS_PER_PAYMENT } from '@/engine/types';
+import { formatCurrency, getCurrencySymbol } from '@/engine/calculator';
+import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
+import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow, FAB_SIZE, FAB_RIGHT, FAB_BOTTOM_NATIVE, FAB_BOTTOM_WEB } from '@/constants/theme';
 
-const TYPE_ICONS: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
+const EXPENSE_TYPES = [
+  { key: 'CURRENT_RECURRING', label: 'Current Recurring', desc: 'Ongoing lifestyle costs (salary-funded)' },
+  { key: 'FUTURE_ONE_TIME', label: 'Future One-time', desc: 'A big purchase on a specific date' },
+  { key: 'FUTURE_RECURRING', label: 'Future Recurring', desc: 'Future recurring cost (corpus-funded)' },
+];
+
+const FREQUENCY_OPTIONS: { key: Frequency; label: string }[] = [
+  { key: 'MONTHLY', label: 'Monthly' },
+  { key: 'QUARTERLY', label: 'Quarterly' },
+  { key: 'ANNUALLY', label: 'Annually' },
+];
+
+const TYPE_ICONS: Record<string, string> = {
   CURRENT_RECURRING: 'repeat',
-  FUTURE_ONE_TIME: 'calendar-outline',
-  FUTURE_RECURRING: 'refresh',
+  FUTURE_ONE_TIME: 'calendar',
+  FUTURE_RECURRING: 'refresh-cw',
+};
+
+function genId() {
+  return Date.now().toString() + Math.random().toString(36).substr(2, 6);
+}
+
+interface ExpenseForm {
+  name: string;
+  category: string;
+  expense_type: string;
+  amount: string;
+  frequency: Frequency;
+  inflation_rate: string;
+  start_date: string;
+  end_date: string;
+}
+
+const EMPTY_FORM: ExpenseForm = {
+  name: '',
+  category: 'OTHERS',
+  expense_type: 'CURRENT_RECURRING',
+  amount: '',
+  frequency: 'MONTHLY',
+  inflation_rate: '6',
+  start_date: '',
+  end_date: '',
 };
 
 export default function ExpensesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { currentProfile } = useProfile();
-
-  const maxExpenseDate = currentProfile?.dob
-    ? new Date(new Date(currentProfile.dob).getFullYear() + 101, 11, 31)
-    : new Date(new Date().getFullYear() + 80, 11, 31);
-  const minExpenseDate = new Date();
-
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [goals, setGoals] = useState<Goals | null>(null);
-  const [postRetirementPV, setPostRetirementPV] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const { expenses, addExpense, deleteExpense, updateExpense, profile } = useApp();
   const [showModal, setShowModal] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('OTHERS');
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState<ExpenseForm>(EMPTY_FORM);
 
-  const [expName, setExpName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [expenseType, setExpenseType] = useState('CURRENT_RECURRING');
-  const [frequency, setFrequency] = useState('MONTHLY');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [inflationRate, setInflationRate] = useState(6);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const currency = profile?.currency ?? 'INR';
 
-  const formScrollRef = React.useRef<ScrollView>(null);
-
-  const loadData = useCallback(async () => {
-    if (!currentProfile) return;
-    const [expList, goalsData] = await Promise.all([
-      getExpenses(currentProfile.id),
-      getGoals(currentProfile.id),
-    ]);
-    setExpenses(expList);
-    setGoals(goalsData);
-    const retirementAge = goalsData?.retirement_age ?? 60;
-    const discountRate = (goalsData?.inflation_rate ?? 6) / 100;
-    const futureExps = expList.filter(e => e.expense_type !== 'CURRENT_RECURRING');
-    const postPV = calculatePresentValueOfExpenses(currentProfile, futureExps, 999, discountRate);
-    const prePV = calculatePresentValueOfExpenses(currentProfile, futureExps, retirementAge, discountRate);
-    setPostRetirementPV(Math.max(0, postPV - prePV));
-    setLoading(false);
-  }, [currentProfile]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  }, [loadData]);
-
-  useEffect(() => { loadData(); }, [loadData]);
-
-  function resetForm() {
-    setExpName('');
-    setAmount('');
-    setExpenseType('CURRENT_RECURRING');
-    setFrequency('MONTHLY');
-    setStartDate('');
-    setEndDate('');
-    setInflationRate(6);
-    setErrors({});
-    setEditingExpense(null);
-  }
-
-  function openAdd() {
-    resetForm();
-    setSelectedCategory('OTHERS');
-    setInflationRate(DEFAULT_INFLATION_RATES['OTHERS'] ?? 6);
-    if (currentProfile) {
-      const retirementAge = goals?.retirement_age ?? 60;
-      const retirementYear = new Date(currentProfile.dob).getFullYear() + retirementAge;
-      setEndDate(`${retirementYear}-12-31`);
-    }
-    setShowModal(true);
-  }
-
-  function openEdit(exp: Expense) {
-    resetForm();
-    setSelectedCategory(exp.category);
-    setEditingExpense(exp);
-    setExpName(exp.name);
-    setAmount(exp.amount.toString());
-    setExpenseType(exp.expense_type);
-    setFrequency(exp.frequency ?? 'MONTHLY');
-    setStartDate(exp.start_date ?? '');
-    setEndDate(exp.end_date ?? '');
-    setInflationRate(exp.inflation_rate);
-    setShowModal(true);
-  }
-
-  function handleCategoryChange(key: string) {
-    setSelectedCategory(key);
-    if (!editingExpense) setInflationRate(DEFAULT_INFLATION_RATES[key] ?? 6);
-  }
-
-  function validate(): boolean {
-    const e: Record<string, string> = {};
-    if (!expName.trim()) e.name = 'Name is required';
-    if (!amount || parseFloat(amount) <= 0) e.amount = 'Enter a valid amount';
-    if (expenseType !== 'CURRENT_RECURRING') {
-      if (!startDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        e.startDate = 'Enter start date as YYYY-MM-DD';
-      } else if (isNaN(new Date(startDate).getTime())) {
-        e.startDate = 'Invalid date';
-      }
-    }
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  }
-
-  async function handleSave() {
-    if (!currentProfile || !validate()) return;
-    const data: Omit<Expense, 'id'> = {
-      profile_id: currentProfile.id,
-      name: expName.trim(),
-      category: selectedCategory,
-      amount: parseFloat(amount),
-      currency: currentProfile.currency,
-      expense_type: expenseType,
-      frequency: expenseType !== 'FUTURE_ONE_TIME' ? frequency : null,
-      start_date: expenseType !== 'CURRENT_RECURRING' ? startDate || null : null,
-      end_date: endDate || null,
-      inflation_rate: inflationRate,
-    };
-    try {
-      if (editingExpense) {
-        await updateExpense({ ...data, id: editingExpense.id });
-      } else {
-        await createExpense(data);
-      }
-      setShowModal(false);
-      resetForm();
-      loadData();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {
-      Alert.alert('Error', 'Could not save expense. Please try again.');
-    }
-  }
-
-  async function handleDelete(id: number) {
-    Alert.alert('Delete Expense', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        await deleteExpense(id);
-        loadData();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }},
-    ]);
-  }
+  const webTop = Platform.OS === 'web' ? WEB_HEADER_OFFSET : 0;
+  const webBottom = Platform.OS === 'web' ? WEB_BOTTOM_OFFSET : 0;
 
   const currentRecurring = expenses.filter(e => e.expense_type === 'CURRENT_RECURRING');
   const futureExpenses = expenses.filter(e => e.expense_type !== 'CURRENT_RECURRING');
 
   const monthlyTotal = currentRecurring.reduce((s, e) => {
-    const divMap: Record<string, number> = { MONTHLY: 1, QUARTERLY: 3, HALF_YEARLY: 6, ANNUALLY: 12, YEARLY: 12 };
-    return s + e.amount / (divMap[e.frequency ?? 'MONTHLY'] ?? 1);
+    const months = FREQUENCY_TO_MONTHS_PER_PAYMENT[(e.frequency ?? 'MONTHLY') as FrequencyInput] ?? 1;
+    return s + e.amount / months;
   }, 0);
 
-  const currency = currentProfile?.currency ?? 'INR';
-
-  if (!currentProfile) {
-    return <View style={styles.center}><Text style={{ color: '#666' }}>No profile selected</Text></View>;
+  function openAdd() {
+    setEditId(null);
+    setForm(EMPTY_FORM);
+    setShowModal(true);
   }
 
-  if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color="#1B5E20" /></View>;
+  function openEdit(e: Expense) {
+    setEditId(e.id);
+    setForm({
+      name: e.name,
+      category: e.category,
+      expense_type: e.expense_type,
+      amount: String(e.amount),
+      frequency: ((e.frequency as Frequency) ?? 'MONTHLY'),
+      inflation_rate: String(e.inflation_rate),
+      start_date: e.start_date ?? '',
+      end_date: e.end_date ?? '',
+    });
+    setShowModal(true);
   }
 
-  function renderExpense(exp: Expense) {
-    const catInfo = EXPENSE_CATEGORIES.find(c => c.key === exp.category);
-    const icon = TYPE_ICONS[exp.expense_type] ?? 'currency-usd';
+  function handleSave() {
+    const amount = parseFloat(form.amount);
+    const inflation = parseFloat(form.inflation_rate);
+    if (!form.name.trim() || isNaN(amount) || amount <= 0) {
+      Alert.alert('Validation', 'Please enter a valid name and amount.');
+      return;
+    }
+    const exp: Expense = {
+      id: editId ?? genId(),
+      name: form.name.trim(),
+      category: form.category as any,
+      expense_type: form.expense_type as any,
+      amount,
+      frequency: form.frequency,
+      inflation_rate: isNaN(inflation) ? 6 : inflation,
+      start_date: form.start_date || undefined,
+      end_date: form.end_date || undefined,
+    };
+    if (editId) updateExpense(exp);
+    else addExpense(exp);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setShowModal(false);
+  }
+
+  function handleDelete(id: string) {
+    Alert.alert('Delete Expense', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => { deleteExpense(id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } },
+    ]);
+  }
+
+  function renderExpense(e: Expense) {
+    const icon = TYPE_ICONS[e.expense_type] ?? 'dollar-sign';
     return (
-      <View key={exp.id} style={[styles.expCard, { backgroundColor: colors.card }]}>
+      <View key={e.id} style={[styles.expCard, { backgroundColor: colors.card }]}>
         <View style={[styles.iconBox, { backgroundColor: colors.secondary }]}>
-          <MaterialCommunityIcons name={icon} size={18} color={colors.primary} />
+          <Feather name={icon as any} size={18} color={colors.primary} />
         </View>
         <View style={styles.expInfo}>
-          <Text style={[styles.expName, { color: colors.foreground }]}>{exp.name}</Text>
+          <Text style={[styles.expName, { color: colors.foreground }]}>{e.name}</Text>
           <Text style={[styles.expMeta, { color: colors.mutedForeground }]}>
-            {catInfo?.label ?? exp.category}
-            {exp.frequency ? ` \u00b7 ${exp.frequency.charAt(0) + exp.frequency.slice(1).toLowerCase()}` : ''}
-            {` \u00b7 ${exp.inflation_rate}% infl.`}
-            {exp.start_date ? ` \u00b7 from ${exp.start_date.slice(0, 7)}` : ''}
+            {e.frequency ? `${e.frequency.charAt(0) + e.frequency.slice(1).toLowerCase()} · ` : ''}
+            {e.inflation_rate}% inflation
+            {e.start_date ? ` · from ${e.start_date.slice(0, 7)}` : ''}
           </Text>
         </View>
         <Text style={[styles.expAmount, { color: colors.foreground }]}>
-          {formatCurrency(exp.amount, currency)}
+          {formatCurrency(e.amount, currency)}
         </Text>
-        <TouchableOpacity onPress={() => openEdit(exp)} style={styles.actionBtn}>
+        <TouchableOpacity
+          onPress={() => openEdit(e)}
+          style={styles.actionBtn}
+          accessibilityRole="button"
+          accessibilityLabel={`Edit ${e.name}`}
+          hitSlop={8}
+        >
           <Feather name="edit-2" size={15} color={colors.mutedForeground} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => handleDelete(exp.id)} style={styles.actionBtn}>
+        <TouchableOpacity
+          onPress={() => handleDelete(e.id)}
+          style={styles.actionBtn}
+          accessibilityRole="button"
+          accessibilityLabel={`Delete ${e.name}`}
+          hitSlop={8}
+        >
           <Feather name="trash-2" size={15} color={colors.destructive} />
         </TouchableOpacity>
       </View>
@@ -224,28 +169,28 @@ export default function ExpensesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: 100 + insets.bottom }]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
-      >
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 + webTop, paddingBottom: 40 + webBottom + insets.bottom }]}>
+        {/* Summary */}
         <View style={[styles.summaryCard, { backgroundColor: colors.warningLight }]}>
           <Text style={[styles.summaryLabel, { color: colors.warning }]}>MONTHLY EXPENSES</Text>
           <Text style={[styles.summaryValue, { color: colors.warning }]}>{formatCurrency(monthlyTotal, currency)}</Text>
           <Text style={[styles.summarySub, { color: colors.warning }]}>Current recurring lifestyle costs</Text>
         </View>
-        {postRetirementPV > 0 && (
-          <View style={[styles.summaryCard, { backgroundColor: colors.secondary, marginTop: -4 }]}>
-            <Text style={[styles.summaryLabel, { color: colors.primary }]}>POST-RETIREMENT SPENDS</Text>
-            <Text style={[styles.summaryValue, { color: colors.primary }]}>{formatCurrency(postRetirementPV, currency)}</Text>
-            <Text style={[styles.summarySub, { color: colors.primary }]}>Corpus-funded future expenses</Text>
-          </View>
-        )}
 
         {expenses.length === 0 && (
           <View style={styles.emptyState}>
             <Feather name="credit-card" size={40} color={colors.mutedForeground} />
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No expenses yet</Text>
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>Tap + to track your spending</Text>
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>Track your spending to plan your FIRE journey</Text>
+            <TouchableOpacity
+              style={[styles.emptyCta, { backgroundColor: colors.warning }]}
+              onPress={openAdd}
+              accessibilityRole="button"
+              accessibilityLabel="Add your first expense"
+            >
+              <Feather name="plus" size={16} color="#fff" />
+              <Text style={styles.emptyCtaText}>Add your first expense</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -265,168 +210,148 @@ export default function ExpensesScreen() {
       </ScrollView>
 
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.warning, bottom: 80 + insets.bottom }]}
+        style={[styles.fab, { backgroundColor: colors.warning, bottom: (Platform.OS === 'web' ? FAB_BOTTOM_WEB + webBottom : FAB_BOTTOM_NATIVE) + insets.bottom }]}
         onPress={openAdd}
+        accessibilityRole="button"
+        accessibilityLabel="Add new expense"
       >
         <Feather name="plus" size={24} color="#fff" />
       </TouchableOpacity>
 
-      <Modal
-        visible={showModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => { setShowModal(false); resetForm(); }}
-      >
+      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
         <View style={styles.overlay}>
-          <ScrollView ref={formScrollRef} keyboardShouldPersistTaps="handled">
+          <KeyboardAwareScrollViewCompat
+            showsVerticalScrollIndicator={false}
+            bottomOffset={20}
+          >
             <View style={[styles.sheet, { backgroundColor: colors.card }]}>
               <View style={styles.sheetHeader}>
-                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
-                  {editingExpense ? 'Edit Expense' : 'Add Expense'}
-                </Text>
-                <TouchableOpacity onPress={() => { setShowModal(false); resetForm(); }}>
+                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{editId ? 'Edit Expense' : 'Add Expense'}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowModal(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close expense form"
+                  hitSlop={10}
+                >
                   <Feather name="x" size={22} color={colors.mutedForeground} />
                 </TouchableOpacity>
               </View>
 
-              <Text style={[styles.fieldLabel, { color: '#666' }]}>Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
-                {EXPENSE_CATEGORIES.map(c => (
-                  <TouchableOpacity
-                    key={c.key}
-                    style={[styles.catChip, {
-                      backgroundColor: selectedCategory === c.key ? colors.warning : colors.secondary,
-                      borderColor: colors.border,
-                    }]}
-                    onPress={() => handleCategoryChange(c.key)}
-                  >
-                    <Text style={[styles.catChipText, { color: selectedCategory === c.key ? '#fff' : colors.foreground }]}>
-                      {c.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              <Text style={[styles.fieldLabel, { color: '#666' }]}>Type</Text>
+              <Text style={styles.fieldLabel}>Type</Text>
               {EXPENSE_TYPES.map(t => (
                 <TouchableOpacity
                   key={t.key}
-                  style={[styles.typeRow, {
-                    borderColor: expenseType === t.key ? colors.warning : colors.border,
-                    backgroundColor: expenseType === t.key ? colors.secondary : colors.background,
-                  }]}
-                  onPress={() => setExpenseType(t.key)}
+                  style={[styles.typeRow, { borderColor: form.expense_type === t.key ? colors.primary : colors.border, backgroundColor: form.expense_type === t.key ? colors.secondary : colors.background }]}
+                  onPress={() => setForm(f => ({ ...f, expense_type: t.key }))}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: form.expense_type === t.key }}
+                  accessibilityLabel={`${t.label}: ${t.desc}`}
                 >
-                  <Text style={[styles.typeLabel, { color: expenseType === t.key ? colors.warning : colors.foreground }]}>{t.label}</Text>
-                  <Text style={[styles.typeDesc, { color: colors.mutedForeground }]}>{t.hint}</Text>
+                  <Text style={[styles.typeLabel, { color: form.expense_type === t.key ? colors.primary : colors.foreground }]}>{t.label}</Text>
+                  <Text style={[styles.typeDesc, { color: colors.mutedForeground }]}>{t.desc}</Text>
                 </TouchableOpacity>
               ))}
 
-              <Text style={[styles.fieldLabel, { color: '#666' }]}>Name</Text>
+              <Text style={styles.fieldLabel}>Name</Text>
               <TextInput
-                style={[styles.input, {
-                  borderColor: errors.name ? colors.destructive : colors.border,
-                  color: colors.foreground,
-                  backgroundColor: colors.background,
-                }]}
-                value={expName}
-                onChangeText={setExpName}
+                style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+                value={form.name}
+                onChangeText={t => setForm(f => ({ ...f, name: t }))}
                 placeholder="e.g., Rent"
                 placeholderTextColor={colors.mutedForeground}
+                accessibilityLabel="Expense name"
               />
-              {errors.name ? <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.name}</Text> : null}
 
-              <Text style={[styles.fieldLabel, { color: '#666' }]}>
-                Amount ({currency === 'INR' ? '\u20b9' : '$'})
-              </Text>
+              <Text style={styles.fieldLabel}>Amount ({getCurrencySymbol(currency)})</Text>
               <TextInput
-                style={[styles.input, {
-                  borderColor: errors.amount ? colors.destructive : colors.border,
-                  color: colors.foreground,
-                  backgroundColor: colors.background,
-                }]}
-                value={amount}
-                onChangeText={setAmount}
+                style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+                value={form.amount}
+                onChangeText={t => setForm(f => ({ ...f, amount: t }))}
                 keyboardType="numeric"
                 placeholder="e.g., 30000"
                 placeholderTextColor={colors.mutedForeground}
+                accessibilityLabel="Expense amount"
               />
-              {errors.amount ? <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.amount}</Text> : null}
 
-              {expenseType !== 'FUTURE_ONE_TIME' && (
+              {form.expense_type !== 'FUTURE_ONE_TIME' && (
                 <>
-                  <Text style={[styles.fieldLabel, { color: '#666' }]}>Frequency</Text>
+                  <Text style={styles.fieldLabel}>Frequency</Text>
                   <View style={styles.freqRow}>
-                    {FREQUENCIES.map(f => (
+                    {FREQUENCY_OPTIONS.map(freq => (
                       <TouchableOpacity
-                        key={f.key}
-                        style={[styles.freqChip, { backgroundColor: frequency === f.key ? colors.warning : colors.secondary }]}
-                        onPress={() => setFrequency(f.key)}
+                        key={freq.key}
+                        style={[styles.freqChip, { backgroundColor: form.frequency === freq.key ? colors.primary : colors.secondary }]}
+                        onPress={() => setForm(f => ({ ...f, frequency: freq.key }))}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: form.frequency === freq.key }}
+                        accessibilityLabel={`Frequency: ${freq.label}`}
                       >
-                        <Text style={[styles.freqText, { color: frequency === f.key ? '#fff' : colors.foreground }]}>{f.label}</Text>
+                        <Text style={[styles.freqText, { color: form.frequency === freq.key ? '#fff' : colors.foreground }]}>{freq.label}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
                 </>
               )}
 
-              {expenseType !== 'CURRENT_RECURRING' && (
+              <Text style={styles.fieldLabel}>Inflation Rate (%)</Text>
+              <TextInput
+                style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+                value={form.inflation_rate}
+                onChangeText={t => setForm(f => ({ ...f, inflation_rate: t }))}
+                keyboardType="numeric"
+                placeholder="e.g., 6"
+                placeholderTextColor={colors.mutedForeground}
+                accessibilityLabel="Annual inflation rate in percent"
+              />
+
+              {form.expense_type !== 'CURRENT_RECURRING' && (
                 <>
-                  <DateInput
-                    label="Start Date"
-                    value={startDate}
-                    onChangeText={setStartDate}
-                    style={styles.dateInput}
-                    error={!!errors.startDate}
-                    minimumDate={minExpenseDate}
-                    maximumDate={maxExpenseDate}
-                    onFocus={() => formScrollRef.current?.scrollToEnd({ animated: true })}
+                  <Text style={styles.fieldLabel}>Start Date (YYYY-MM-DD)</Text>
+                  <TextInput
+                    style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+                    value={form.start_date}
+                    onChangeText={t => setForm(f => ({ ...f, start_date: t }))}
+                    placeholder="e.g., 2030-06-01"
+                    placeholderTextColor={colors.mutedForeground}
+                    accessibilityLabel="Start date in year month day format"
                   />
-                  {errors.startDate ? <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.startDate}</Text> : null}
                 </>
               )}
 
-              {expenseType !== 'FUTURE_ONE_TIME' && (
-                <DateInput
-                  label="End Date (optional)"
-                  value={endDate}
-                  onChangeText={setEndDate}
-                  style={styles.dateInput}
-                  minimumDate={minExpenseDate}
-                  maximumDate={maxExpenseDate}
-                  onFocus={() => formScrollRef.current?.scrollToEnd({ animated: true })}
-                />
+              {form.expense_type === 'FUTURE_RECURRING' && (
+                <>
+                  <Text style={styles.fieldLabel}>End Date (YYYY-MM-DD)</Text>
+                  <TextInput
+                    style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+                    value={form.end_date}
+                    onChangeText={t => setForm(f => ({ ...f, end_date: t }))}
+                    placeholder="e.g., 2035-12-31"
+                    placeholderTextColor={colors.mutedForeground}
+                    accessibilityLabel="End date in year month day format"
+                  />
+                </>
               )}
-
-              <Text style={[styles.fieldLabel, { color: '#666', marginTop: 16 }]}>
-                Inflation Rate: {inflationRate}%
-              </Text>
-              <Slider
-                value={inflationRate}
-                onValueChange={(v: number[]) => setInflationRate(Math.round(v[0]))}
-                minimumValue={0}
-                maximumValue={15}
-                step={1}
-                minimumTrackTintColor={colors.warning}
-                thumbTintColor={colors.warning}
-              />
 
               <View style={styles.modalBtns}>
                 <TouchableOpacity
                   style={[styles.cancelBtn, { borderColor: colors.border }]}
-                  onPress={() => { setShowModal(false); resetForm(); }}
+                  onPress={() => setShowModal(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel"
                 >
-                  <Text style={{ color: colors.mutedForeground, fontWeight: '600' }}>Cancel</Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.saveBtn, { backgroundColor: colors.warning }]}
                   onPress={handleSave}
+                  accessibilityRole="button"
+                  accessibilityLabel={editId ? 'Save changes to expense' : 'Save new expense'}
                 >
-                  <Text style={{ color: '#fff', fontWeight: '600' }}>{editingExpense ? 'Update' : 'Save'}</Text>
+                  <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Save</Text>
                 </TouchableOpacity>
               </View>
             </View>
-          </ScrollView>
+          </KeyboardAwareScrollViewCompat>
         </View>
       </Modal>
     </View>
@@ -435,49 +360,48 @@ export default function ExpensesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingTop: 16 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
-  summaryCard: { borderRadius: 16, padding: 20, marginBottom: 12 },
-  summaryLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginBottom: 4 },
-  summaryValue: { fontSize: 28, fontWeight: '800', marginBottom: 2 },
-  summarySub: { fontSize: 12 },
+  content: { paddingHorizontal: 16 },
+  summaryCard: { borderRadius: 16, padding: 20, marginBottom: 16 },
+  summaryLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginBottom: 4, fontFamily: 'Inter_700Bold' },
+  summaryValue: { fontSize: 28, fontWeight: '800', fontFamily: 'Inter_700Bold', marginBottom: 2 },
+  summarySub: { fontSize: 12, fontFamily: 'Inter_400Regular' },
   emptyState: { alignItems: 'center', padding: 40, gap: 10 },
-  emptyTitle: { fontSize: 17, fontWeight: '700' },
-  emptyText: { textAlign: 'center', lineHeight: 22, fontSize: 14 },
-  sectionTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 8, marginTop: 4 },
+  emptyTitle: { fontSize: 17, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  emptyText: { textAlign: 'center', lineHeight: 22, fontFamily: 'Inter_400Regular', fontSize: 14 },
+  emptyCta: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 18, paddingVertical: 12, borderRadius: 22, marginTop: 8,
+  },
+  emptyCtaText: { color: '#fff', fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  sectionTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 8, marginTop: 4, fontFamily: 'Inter_700Bold' },
   expCard: {
     flexDirection: 'row', alignItems: 'center', borderRadius: 14,
     padding: 14, marginBottom: 8, gap: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
+    ...shadow(1),
   },
   iconBox: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   expInfo: { flex: 1 },
-  expName: { fontSize: 14, fontWeight: '600' },
-  expMeta: { fontSize: 11, marginTop: 2 },
-  expAmount: { fontSize: 13, fontWeight: '700' },
+  expName: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  expMeta: { fontSize: 11, marginTop: 2, fontFamily: 'Inter_400Regular' },
+  expAmount: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   actionBtn: { padding: 6 },
   fab: {
-    position: 'absolute', right: 20, width: 56, height: 56,
-    borderRadius: 28, justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
+    position: 'absolute', right: FAB_RIGHT, width: FAB_SIZE, height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2, justifyContent: 'center', alignItems: 'center',
+    ...shadow(4),
   },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: { marginTop: 80, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, minHeight: '100%' },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  sheetTitle: { fontSize: 18, fontWeight: '700' },
-  fieldLabel: { fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 12 },
-  input: { borderWidth: 1.5, borderRadius: 10, padding: 12, fontSize: 15 },
-  errorText: { fontSize: 11, marginTop: 4 },
-  dateInput: { marginTop: 0 },
+  sheetTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  fieldLabel: { fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 6, marginTop: 12, fontFamily: 'Inter_600SemiBold' },
+  input: { borderWidth: 1.5, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: 'Inter_400Regular' },
   typeRow: { borderWidth: 1.5, borderRadius: 10, padding: 12, marginBottom: 8 },
-  typeLabel: { fontSize: 14, fontWeight: '600' },
-  typeDesc: { fontSize: 12, marginTop: 2 },
-  catScroll: { marginBottom: 4 },
-  catChip: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 1 },
-  catChipText: { fontSize: 13, fontWeight: '500' },
-  freqRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4 },
+  typeLabel: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  typeDesc: { fontSize: 12, marginTop: 2, fontFamily: 'Inter_400Regular' },
+  freqRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   freqChip: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
-  freqText: { fontSize: 13, fontWeight: '500' },
+  freqText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24, marginBottom: 32 },
   cancelBtn: { flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: 'center' },
   saveBtn: { flex: 1, borderRadius: 12, padding: 14, alignItems: 'center' },

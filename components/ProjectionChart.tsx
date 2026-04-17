@@ -8,7 +8,7 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 import { CustomSlider } from './CustomSlider';
-import type { Expense } from '../db/queries';
+import type { Expense } from '../engine/types';
 import type { CalculationOutput } from '../engine/calculator';
 import { formatCurrency } from '../engine/calculator';
 

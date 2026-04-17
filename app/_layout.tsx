@@ -5,6 +5,7 @@ import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_7
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { ProfileProvider } from '../hooks/useProfile';
 import { ProProvider } from '../hooks/usePro';
+import { AppProvider } from '../context/AppContext';
 import * as Sentry from '@sentry/react-native';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 
@@ -45,11 +46,13 @@ function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>
         <PaperProvider theme={theme}>
-          <ProProvider>
-            <ProfileProvider>
-              <Slot />
-            </ProfileProvider>
-          </ProProvider>
+          <AppProvider>
+            <ProProvider>
+              <ProfileProvider>
+                <Slot />
+              </ProfileProvider>
+            </ProProvider>
+          </AppProvider>
         </PaperProvider>
       </ErrorBoundary>
     </GestureHandlerRootView>

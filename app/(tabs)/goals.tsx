@@ -1,303 +1,232 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform } from 'react-native';
+import { CustomSlider as Slider } from '@/components/CustomSlider';
+import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Text, Card, TextInput, Button, HelperText, Dialog, Portal, IconButton } from 'react-native-paper';
-import { useRouter } from 'expo-router';
-import { useProfile } from '../../hooks/useProfile';
-import { getGoals, saveGoals, FireType } from '../../db/queries';
-import { Slider } from '@miblanchard/react-native-slider';
-import { formatCurrency, PENSION_INFLATION_RATE, FIRE_TARGET_AGES } from '../../engine/calculator';
-import { FREQUENCIES } from '../../constants/categories';
-import { CorpusPrimer } from '../../components/CorpusPrimer';
+import { useColors } from '@/hooks/useColors';
+import { useApp } from '@/context/AppContext';
+import { Goals } from '@/engine/types';
+import { formatCurrency, getCurrencySymbol, getAge } from '@/engine/calculator';
+import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow } from '@/constants/theme';
 
-const FIRE_TYPES: { key: FireType; label: string; desc: string; color: string }[] = [
-  { key: 'slim',     label: 'Lean FIRE', desc: 'Survive to 85 — minimal corpus',    color: '#E65100' },
-  { key: 'moderate', label: 'FIRE',      desc: 'Sustain to 100 — comfortable',      color: '#1B5E20' },
-  { key: 'fat',      label: 'Fat FIRE',  desc: 'Preserve wealth to 120',            color: '#5E35B1' },
-  { key: 'custom',   label: 'Custom',    desc: 'Set your own target age',           color: '#757575' },
+const FIRE_TYPES = [
+  { key: 'slim', label: 'Lean FIRE', desc: 'Survive to 85 — minimal corpus', color: '#E65100' },
+  { key: 'moderate', label: 'FIRE', desc: 'Sustain to 100 — comfortable', color: '#1B5E20' },
+  { key: 'fat', label: 'Fat FIRE', desc: 'Preserve wealth to 120', color: '#5E35B1' },
 ];
 
 export default function GoalsScreen() {
-  const { currentProfile } = useProfile();
-  const router = useRouter();
-  const [retirementAge, setRetirementAge] = useState(60);
-  const [sipStopAge, setSipStopAge] = useState(55);
-  const [pensionIncome, setPensionIncome] = useState('');
-  const [fireType, setFireType] = useState<FireType>('moderate');
-  const [fireTargetAge, setFireTargetAge] = useState(100);
-  const [inflationRate, setInflationRate] = useState(6);
-  const [showSWRDialog, setShowSWRDialog] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const { goals, setGoals, profile } = useApp();
+
+  const currency = profile?.currency ?? 'INR';
+
+  const webTop = Platform.OS === 'web' ? WEB_HEADER_OFFSET : 0;
+  const webBottom = Platform.OS === 'web' ? WEB_BOTTOM_OFFSET : 0;
+
+  const [form, setForm] = useState<Goals>({
+    retirement_age: 50,
+    sip_stop_age: 50,
+    pension_income: 100000,
+    inflation_rate: 6,
+    fire_type: 'moderate',
+    fire_target_age: 100,
+  });
+
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    async function load() {
-      if (!currentProfile) return;
-      const goals = await getGoals(currentProfile.id);
-      if (goals) {
-        setRetirementAge(goals.retirement_age);
-        setSipStopAge(goals.sip_stop_age);
-        if (goals.pension_income) setPensionIncome(String(goals.pension_income));
-        // Map legacy fire_type values to new naming
-        const typeMap: Record<string, FireType> = {
-          conservative: 'fat', comfortable: 'moderate', aggressive: 'slim',
-          slim: 'slim', moderate: 'moderate', fat: 'fat', custom: 'custom',
-        };
-        const mappedType = typeMap[goals.fire_type] ?? 'moderate';
-        setFireType(mappedType);
-        if (mappedType === 'custom') {
-          setFireTargetAge(goals.fire_target_age ?? 100);
-        } else {
-          setFireTargetAge(FIRE_TARGET_AGES[mappedType] ?? 100);
-        }
-        setInflationRate(goals.inflation_rate ?? 6);
-      }
-    }
-    load();
-  }, [currentProfile]);
+    if (goals) setForm(goals);
+  }, [goals]);
 
-  async function handleSave() {
-    if (!currentProfile) return;
-    const correctedSipStopAge = Math.min(sipStopAge, retirementAge);
-    if (correctedSipStopAge !== sipStopAge) setSipStopAge(correctedSipStopAge);
-
-    setLoading(true);
-    try {
-      await saveGoals(
-        currentProfile.id,
-        retirementAge,
-        correctedSipStopAge,
-        parseFloat(pensionIncome) > 0 ? parseFloat(pensionIncome) : 0,
-        fireType,
-        fireTargetAge,
-        0,
-        inflationRate,
-      );
-      setSaved(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(() => { router.push('/(tabs)/dashboard'); }, 500);
-    } catch (e) {
-      Alert.alert('Error', 'Could not save goals. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  function handleSave() {
+    setGoals(form);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   }
 
-  if (!currentProfile) {
-    return <View style={styles.center}><Text>No profile selected</Text></View>;
+  function InfoRow({ label, value, suffix = '' }: { label: string; value: string | number; suffix?: string }) {
+    return (
+      <View style={styles.infoRow}>
+        <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>{label}</Text>
+        <Text style={[styles.infoValue, { color: colors.foreground }]}>{value}{suffix}</Text>
+      </View>
+    );
   }
-
-  const yearsToRetirement = Math.max(0, retirementAge - (() => {
-    const b = new Date(currentProfile.dob), n = new Date();
-    let a = n.getFullYear() - b.getFullYear();
-    if (n.getMonth() - b.getMonth() < 0 || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--;
-    return a;
-  })());
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll}>
-      <CorpusPrimer profileId={currentProfile.id} />
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="headlineSmall" style={styles.title}>Set Your Goals</Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>
-            Define when you want to retire and stop SIP contributions.
-          </Text>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={[styles.content, { paddingTop: 16 + webTop, paddingBottom: 40 + webBottom + insets.bottom }]}
+    >
+      {/* FIRE Type */}
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>FIRE Strategy</Text>
+        {FIRE_TYPES.map(t => (
+          <TouchableOpacity
+            key={t.key}
+            style={[
+              styles.fireTypeRow,
+              { borderColor: form.fire_type === t.key ? t.color : colors.border, backgroundColor: form.fire_type === t.key ? `${t.color}15` : colors.background },
+            ]}
+            onPress={() => setForm(f => ({ ...f, fire_type: t.key }))}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: form.fire_type === t.key }}
+            accessibilityLabel={`${t.label}: ${t.desc}`}
+          >
+            <View style={[styles.radioOuter, { borderColor: t.color }]}>
+              {form.fire_type === t.key && <View style={[styles.radioInner, { backgroundColor: t.color }]} />}
+            </View>
+            <View style={styles.fireTypeContent}>
+              <Text style={[styles.fireTypeLabel, { color: form.fire_type === t.key ? t.color : colors.foreground }]}>{t.label}</Text>
+              <Text style={[styles.fireTypeDesc, { color: colors.mutedForeground }]}>{t.desc}</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-          <Text variant="labelLarge" style={styles.sliderLabel}>
-            Retirement Age: {retirementAge}
-          </Text>
-          <Slider
-            value={retirementAge}
-            onValueChange={(v: number[]) => {
-              const val = Math.round(v[0]);
-              setRetirementAge(val);
-              if (sipStopAge > val) setSipStopAge(val);
-            }}
-            minimumValue={35} maximumValue={80} step={1}
-            minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
-            accessibilityLabel={`Retirement age: ${retirementAge} years`}
-          />
+      {/* Retirement Age */}
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Retirement Age</Text>
 
-          <Text variant="labelLarge" style={styles.sliderLabel}>
-            SIP Stop Age: {sipStopAge}
-          </Text>
-          <Slider
-            value={sipStopAge}
-            onValueChange={(v: number[]) => setSipStopAge(Math.round(v[0]))}
-            minimumValue={30} maximumValue={retirementAge} step={1}
-            minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
-            accessibilityLabel={`SIP stop age: ${sipStopAge} years`}
-          />
-          <HelperText type="info">
-            Age at which you stop making SIP contributions. Can be before retirement.
-          </HelperText>
+        <View style={styles.sliderRow}>
+          <Text style={[styles.sliderLabel, { color: colors.mutedForeground }]}>Retire at</Text>
+          <Text style={[styles.sliderValue, { color: colors.primary }]}>{form.retirement_age}</Text>
+        </View>
+        <Slider
+          value={form.retirement_age}
+          onValueChange={v => setForm(f => ({ ...f, retirement_age: Math.round(v), sip_stop_age: Math.min(f.sip_stop_age, Math.round(v)) }))}
+          minimumValue={35}
+          maximumValue={70}
+          step={1}
+          minimumTrackTintColor={colors.primary}
+          thumbTintColor={colors.primary}
+          maximumTrackTintColor={colors.border}
+        />
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 24 }}>
-            <Text variant="labelLarge" style={[styles.sectionLabel, { marginTop: 0, flex: 1 }]}>
-              Retirement Safety Level
-            </Text>
-            <IconButton icon="information-outline" size={20} onPress={() => setShowSWRDialog(true)} accessibilityLabel="Learn about retirement safety levels" />
-          </View>
-          <View style={styles.fireTypeCardList}>
-            {FIRE_TYPES.map(({ key, label, desc, color }) => {
-              const selected = fireType === key;
-              return (
-                <TouchableOpacity
-                  key={key}
-                  style={[styles.fireTypeCard, { borderLeftColor: color }, selected && { backgroundColor: color + '18' }]}
-                  onPress={() => {
-                    setFireType(key);
-                    if (key !== 'custom') setFireTargetAge(FIRE_TARGET_AGES[key]);
-                  }}
-                  accessibilityLabel={`FIRE type: ${label}`}
-                  accessibilityState={{ selected }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Text style={[styles.fireTypeCardLabel, { color }]}>{label}</Text>
-                    {selected && <MaterialCommunityIcons name="check-circle" size={16} color={color} />}
-                  </View>
-                  <Text style={styles.fireTypeCardDesc}>{desc}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          {fireType === 'custom' && (
-            <>
-              <Text variant="labelLarge" style={styles.sliderLabel}>
-                Corpus Survival Target: Age {fireTargetAge}
-              </Text>
-              <Slider
-                value={fireTargetAge}
-                onValueChange={(v: number[]) => setFireTargetAge(Math.round(v[0]))}
-                minimumValue={75}
-                maximumValue={120}
-                step={1}
-                minimumTrackTintColor="#1B5E20"
-                thumbTintColor="#1B5E20"
-                accessibilityLabel={`Corpus survival target age: ${fireTargetAge}`}
-              />
-              <HelperText type="info">
-                How long should your corpus last? Earlier = smaller corpus needed. Later = larger, safer.
-              </HelperText>
-            </>
-          )}
+        <View style={[styles.sliderRow, { marginTop: 12 }]}>
+          <Text style={[styles.sliderLabel, { color: colors.mutedForeground }]}>Stop SIP at</Text>
+          <Text style={[styles.sliderValue, { color: colors.primary }]}>{form.sip_stop_age}</Text>
+        </View>
+        <Slider
+          value={form.sip_stop_age}
+          onValueChange={v => setForm(f => ({ ...f, sip_stop_age: Math.min(Math.round(v), f.retirement_age) }))}
+          minimumValue={35}
+          maximumValue={form.retirement_age}
+          step={1}
+          minimumTrackTintColor={colors.primary}
+          thumbTintColor={colors.primary}
+          maximumTrackTintColor={colors.border}
+        />
 
-          <Text variant="labelLarge" style={styles.sliderLabel}>
-            Inflation Rate: {inflationRate}%/year
-          </Text>
-          <Slider
-            value={inflationRate}
-            onValueChange={(v: number[]) => setInflationRate(Math.round(v[0]))}
-            minimumValue={3} maximumValue={12} step={1}
-            minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
-            accessibilityLabel={`Inflation rate: ${inflationRate} percent`}
-          />
-          <HelperText type="info">
-            Rate at which prices rise each year. Affects how much your monthly withdrawal must grow by retirement.
-          </HelperText>
+        <InfoRow label="Years to retirement" value={Math.max(0, form.retirement_age - (profile ? getAge(profile.dob) : 30))} suffix=" yrs" />
+      </View>
 
-          <Text variant="labelLarge" style={styles.sectionLabel}>Monthly Retirement Withdrawal</Text>
-          <Text variant="bodySmall" style={styles.sectionHint}>
-            How much you want to withdraw from your corpus each month after retiring (in today's value).
-            This sizes your corpus target via the withdrawal rate above.
-          </Text>
-          <TextInput
-            label={`Monthly withdrawal target (${currentProfile.currency === 'INR' ? '₹' : '$'} today's value)`}
-            value={pensionIncome}
-            onChangeText={text => setPensionIncome(text.replace(/[^0-9.]/g, ''))}
-            mode="outlined"
-            keyboardType="numeric"
-            style={styles.input}
-            left={<TextInput.Affix text={currentProfile.currency === 'INR' ? '₹' : '$'} />}
-          />
-          <Slider
-            value={Math.min(Math.max(parseFloat(pensionIncome) || 10000, 10000), 500000)}
-            onValueChange={(v: number[]) => setPensionIncome(String(Math.round(v[0] / 5000) * 5000))}
-            minimumValue={10000} maximumValue={500000} step={5000}
-            minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
-            accessibilityLabel="Monthly withdrawal target slider"
-          />
-          {parseFloat(pensionIncome) > 0 && yearsToRetirement > 0 && (() => {
-            const monthly = parseFloat(pensionIncome);
-            const inflatedMonthly = Math.round(monthly * Math.pow(1 + inflationRate / 100, yearsToRetirement));
-            return (
-              <View style={styles.fvCard}>
-                <Text style={styles.fvText}>
-                  {formatCurrency(monthly, currentProfile.currency)}/month today
-                  {' = '}
-                  <Text style={styles.fvHighlight}>{formatCurrency(inflatedMonthly, currentProfile.currency)}/month</Text>
-                  {' at age '}{retirementAge}{' ('}{inflationRate}{'% inflation, '}{yearsToRetirement}{' yrs)'}
-                </Text>
-              </View>
-            );
-          })()}
+      {/* Income & Withdrawal */}
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Withdrawal Target</Text>
 
+        <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+          Monthly withdrawal in today's money ({getCurrencySymbol(currency)})
+        </Text>
+        <TextInput
+          style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+          value={String(form.pension_income ?? '')}
+          onChangeText={t => setForm(f => ({ ...f, pension_income: parseFloat(t) || 0 }))}
+          keyboardType="numeric"
+          placeholder="e.g., 100000"
+          placeholderTextColor={colors.mutedForeground}
+          accessibilityLabel="Desired monthly withdrawal in today's money"
+        />
 
-          <Button mode="contained" onPress={handleSave} loading={loading} disabled={loading}
-            style={styles.button} contentStyle={styles.buttonContent}>
-            {saved ? '✓ Saved!' : 'Save Plan'}
-          </Button>
-        </Card.Content>
-      </Card>
+        <View style={[styles.sliderRow, { marginTop: 16 }]}>
+          <Text style={[styles.sliderLabel, { color: colors.mutedForeground }]}>Inflation Rate</Text>
+          <Text style={[styles.sliderValue, { color: colors.warning }]}>{form.inflation_rate ?? 6}%</Text>
+        </View>
+        <Slider
+          value={form.inflation_rate ?? 6}
+          onValueChange={v => setForm(f => ({ ...f, inflation_rate: parseFloat(v.toFixed(1)) }))}
+          minimumValue={3}
+          maximumValue={10}
+          step={0.5}
+          minimumTrackTintColor={colors.warning}
+          thumbTintColor={colors.warning}
+          maximumTrackTintColor={colors.border}
+        />
 
+        <View style={[styles.sliderRow, { marginTop: 12 }]}>
+          <Text style={[styles.sliderLabel, { color: colors.mutedForeground }]}>Survive to age</Text>
+          <Text style={[styles.sliderValue, { color: colors.purple }]}>{form.fire_target_age ?? 100}</Text>
+        </View>
+        <Slider
+          value={form.fire_target_age ?? 100}
+          onValueChange={v => setForm(f => ({ ...f, fire_target_age: Math.round(v) }))}
+          minimumValue={80}
+          maximumValue={120}
+          step={1}
+          minimumTrackTintColor={colors.purple}
+          thumbTintColor={colors.purple}
+          maximumTrackTintColor={colors.border}
+        />
+      </View>
 
-      {/* SWR Info Dialog */}
-      <Portal>
-        <Dialog visible={showSWRDialog} onDismiss={() => setShowSWRDialog(false)} style={{ backgroundColor: '#FFF' }}>
-          <Dialog.Title>Retirement Safety Level</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium" style={{ lineHeight: 22, marginBottom: 10 }}>
-              SWR is the percentage of your corpus you withdraw each year in retirement. It originated from the
-              Trinity Study (the "4% rule") which found that a 4% annual withdrawal from a diversified
-              portfolio historically lasted 30+ years.
-            </Text>
-            <Text variant="bodyMedium" style={{ lineHeight: 22, marginBottom: 10 }}>
-              In the Indian context, money managers typically recommend:{'\n'}
-              • <Text style={{ fontWeight: '700' }}>3% — Rich</Text> · Very conservative · FDs, debt funds · corpus horizon 120 yrs{'\n'}
-              • <Text style={{ fontWeight: '700' }}>5% — Comfortable</Text> · Balanced equity-debt mix · Recommended · 100 yrs{'\n'}
-              • <Text style={{ fontWeight: '700' }}>7% — Lean</Text> · Equity-heavy SWP · Aggressive · 85 yrs
-            </Text>
-            <Text variant="bodySmall" style={{ color: '#E65100', lineHeight: 18, marginBottom: 8 }}>
-              ⚠ Despite the name, Lean is the most aggressive option — a 7% withdrawal rate leaves the least margin for bad market years. Choose it only if you are comfortable with equity-heavy post-retirement investing.
-            </Text>
-            <Text variant="bodySmall" style={{ color: '#B71C1C', lineHeight: 18 }}>
-              ⚠ Post-tax, in-hand passive returns from SWP / dividends / interest may be lower than the
-              headline SWR due to capital gains tax, TDS, and exit loads. Plan conservatively.
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowSWRDialog(false)}>Got it</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      {/* Summary */}
+      <View style={[styles.summaryCard, { backgroundColor: colors.successLight }]}>
+        <Text style={[styles.summaryTitle, { color: colors.success }]}>Plan Summary</Text>
+        <InfoRow label="Retire at" value={form.retirement_age} suffix={` (${FIRE_TYPES.find(t => t.key === form.fire_type)?.label})`} />
+        <InfoRow label="Monthly income (today)" value={formatCurrency(form.pension_income ?? 0, currency)} />
+        <InfoRow label="Inflation" value={`${form.inflation_rate ?? 6}%`} />
+        <InfoRow label="Corpus must last to" value={`age ${form.fire_target_age ?? 100}`} />
+      </View>
+
+      <TouchableOpacity
+        style={[styles.saveBtn, { backgroundColor: saved ? '#2E7D32' : colors.primary }]}
+        onPress={handleSave}
+        accessibilityRole="button"
+        accessibilityLabel={saved ? 'Goals saved' : 'Save goals'}
+        accessibilityState={{ disabled: saved }}
+      >
+        {saved ? (
+          <Feather name="check" size={20} color="#fff" />
+        ) : (
+          <Text style={styles.saveBtnText}>Save Goals</Text>
+        )}
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flexGrow: 1, padding: 16, paddingBottom: 40, backgroundColor: '#F5F5F5' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  card: { borderRadius: 16, padding: 8 },
-
-  title: { fontWeight: 'bold', color: '#1B5E20', marginBottom: 8 },
-  subtitle: { color: '#666', marginBottom: 24 },
-  sliderLabel: { marginTop: 16, marginBottom: 4, fontWeight: '600' },
-  sectionLabel: { marginTop: 24, marginBottom: 4, fontWeight: '700', color: '#1B5E20' },
-  sectionHint: { color: '#888', marginBottom: 12, lineHeight: 18 },
-  input: { marginBottom: 4, backgroundColor: '#FFFFFF' },
-  button: { marginTop: 32, borderRadius: 8 },
-  buttonContent: { paddingVertical: 8 },
-  fireTypeCardList: { gap: 8, marginBottom: 8 },
-  fireTypeCard: {
-    borderLeftWidth: 4, borderRadius: 10, padding: 12,
-    backgroundColor: '#FFF',
-    borderWidth: 1, borderColor: '#E0E0E0',
+  container: { flex: 1 },
+  content: { paddingHorizontal: 16 },
+  card: {
+    borderRadius: 16, padding: 20, marginBottom: 16,
+    ...shadow(2),
   },
-  fireTypeCardLabel: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
-  fireTypeCardDesc: { fontSize: 12, color: '#666', lineHeight: 16 },
-  fvCard: { backgroundColor: '#FFFDE7', borderLeftWidth: 2, borderLeftColor: '#F9A825', borderRadius: 6, padding: 10, marginTop: 8, marginBottom: 4 },
-  fvText: { fontSize: 12, color: '#4E342E', lineHeight: 18 },
-  fvHighlight: { fontWeight: '800', color: '#BF360C' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 16, fontFamily: 'Inter_700Bold' },
+  fireTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderRadius: 12, padding: 14, marginBottom: 10 },
+  radioOuter: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
+  radioInner: { width: 10, height: 10, borderRadius: 5 },
+  fireTypeContent: { flex: 1 },
+  fireTypeLabel: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  fireTypeDesc: { fontSize: 12, marginTop: 2, fontFamily: 'Inter_400Regular' },
+  sliderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  sliderLabel: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  sliderValue: { fontSize: 20, fontWeight: '800', fontFamily: 'Inter_700Bold' },
+  fieldLabel: { fontSize: 12, fontWeight: '600', marginBottom: 8, fontFamily: 'Inter_600SemiBold' },
+  input: { borderWidth: 1.5, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: 'Inter_400Regular' },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E8F5E9' },
+  infoLabel: { fontSize: 13, fontFamily: 'Inter_400Regular' },
+  infoValue: { fontSize: 13, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  summaryCard: { borderRadius: 16, padding: 20, marginBottom: 16 },
+  summaryTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 0.5, marginBottom: 8, fontFamily: 'Inter_700Bold' },
+  saveBtn: {
+    borderRadius: 16, padding: 18, alignItems: 'center', justifyContent: 'center',
+    ...shadow(3),
+    marginBottom: 16,
+  },
+  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: 'Inter_700Bold' },
 });

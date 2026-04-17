@@ -1,7 +1,7 @@
 import * as LegacyFileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Alert } from 'react-native';
-import { Asset, Expense, Profile } from '../db/queries';
+import { Asset, Expense, Profile } from '../engine/types';
 import { YearProjection } from '../engine/calculator';
 
 export async function exportToCSV(

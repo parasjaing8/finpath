@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Card, Button, Portal, Dialog } from 'react-native-paper';
-import { useProfile } from '../../hooks/useProfile';
-import { getAssets, getExpenses, getGoals, Asset, Expense, Goals } from '../../db/queries';
+import { useApp } from '../../context/AppContext';
 import { calculateProjections, CalculationOutput, formatCurrency, formatCurrencyFull } from '../../engine/calculator';
 import { exportToCSV } from '../../utils/export';
-import { useNavigation, useRouter, useFocusEffect } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { usePro } from '../../hooks/usePro';
 import { ProPaywall } from '../../components/ProPaywall';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -17,13 +16,9 @@ import { SIPControls } from '../../components/SIPControls';
 import { ProjectionTable } from '../../components/ProjectionTable';
 
 export default function DashboardScreen() {
-  const { currentProfile } = useProfile();
+  const { profile: currentProfile, assets, expenses, goals, isLoaded } = useApp();
   const navigation = useNavigation();
   const router = useRouter();
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [goals, setGoals] = useState<Goals | null>(null);
-  const [dataLoaded, setDataLoaded] = useState(false);
 
   // Dashboard Controls — calc states trigger useMemo projection
   const [sipAmount, setSipAmount] = useState(10000);
@@ -50,25 +45,8 @@ export default function DashboardScreen() {
     navigation.setOptions({ headerRight: undefined });
   }, [navigation]);
 
-  const loadData = useCallback(async () => {
-    if (!currentProfile) return;
-    const [a, e, g] = await Promise.all([
-      getAssets(currentProfile.id),
-      getExpenses(currentProfile.id),
-      getGoals(currentProfile.id),
-    ]);
-    setAssets(a);
-    setExpenses(e);
-    setGoals(g);
-    // goals fingerprint is updated below — auto-set will re-fire if goals changed
-    setDataLoaded(true);
-  }, [currentProfile]);
-
-  // Reload data every time this tab comes into focus — ensures fresh goals after saving
-  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
-
   const result: CalculationOutput | null = useMemo(() => {
-    if (!currentProfile || !goals || !dataLoaded) return null;
+    if (!currentProfile || !goals || !isLoaded) return null;
     try {
       return calculateProjections({
         profile: currentProfile,
@@ -84,7 +62,7 @@ export default function DashboardScreen() {
       if (__DEV__) console.error('calculateProjections error:', e);
       return null;
     }
-  }, [currentProfile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpEnabled, stepUpRate, dataLoaded]);
+  }, [currentProfile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpEnabled, stepUpRate, isLoaded]);
 
   // Insights: peak, depletion, affordability
   const insights = useMemo(() => {

@@ -1,10 +1,14 @@
-import { Asset, Expense, Goals, Profile } from '../db/queries';
-import { FREQUENCIES, DEFAULT_GROWTH_RATES } from '../constants/categories';
+import {
+  Asset,
+  Expense,
+  Goals,
+  Profile,
+  FrequencyInput,
+  FREQUENCY_TO_PAYMENTS_PER_YEAR,
+  DEFAULT_GROWTH_RATES,
+} from './types';
 
-/** Inflation rate applied to pension income year-over-year (6%). */
 export const PENSION_INFLATION_RATE = 0.06;
-
-/** Discount rate used for PV / FIRE corpus calculations (6%). */
 export const DEFAULT_DISCOUNT_RATE = 0.06;
 
 export interface CalculationInput {
@@ -28,12 +32,6 @@ export interface YearProjection {
   netWorthEOY: number;
   vestingIncome: number;
   isFireAchieved: boolean;
-  /**
-   * Combined outflow for chart visualisation.
-   * Pre-retirement  = plannedExpenses (salary-funded lifestyle costs).
-   * Post-retirement = pensionIncome + plannedExpenses (actual corpus drain).
-   * One-time future expenses (house, wedding) create visible spikes.
-   */
   totalOutflow: number;
 }
 
@@ -45,39 +43,35 @@ export interface CalculationOutput {
   isOnTrack: boolean;
   projections: YearProjection[];
   presentValueOfExpenses: number;
-  /** PV of FUTURE one-time/recurring expenses that fall after retirement (corpus-funded). */
   postRetirementExpensesPV: number;
-  /** Net worth used for FIRE projections — excludes self-use real estate. */
   investableNetWorth: number;
-  /** Total net worth across all assets including self-use real estate. */
   totalNetWorth: number;
-  /**
-   * Warning when required SIP exceeds or heavily burdens monthly income.
-   * null when there is no concern.
-   */
   sipBurdenWarning: string | null;
-  /** Projected net worth at retirement age (from projections loop). */
   netWorthAtRetirement: number;
-  /** Projected net worth at age 100 — negative means corpus depleted before 100. */
   netWorthAtAge100: number;
-  /** Age at which post-retirement corpus depletes. -1 if survives full horizon. */
   failureAge: number;
 }
 
-function getAge(dob: string, onDate: Date = new Date()): number {
+/**
+ * Compute integer age from a YYYY-MM-DD date of birth.
+ * The single source of truth — UI screens import this from here rather than
+ * duplicating their own date arithmetic.
+ */
+export function getAge(dob: string, onDate: Date = new Date()): number {
   const birth = new Date(dob);
   let age = onDate.getFullYear() - birth.getFullYear();
   const m = onDate.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && onDate.getDate() < birth.getDate())) {
-    age--;
-  }
+  if (m < 0 || (m === 0 && onDate.getDate() < birth.getDate())) age--;
   return age;
 }
 
 function getFrequencyMultiplier(freq: string | null): number {
-  if (!freq) return 12; // default monthly
-  const found = FREQUENCIES.find(f => f.key === freq);
-  return found ? found.multiplier : 12;
+  // Map-based lookup that accepts both canonical (`MONTHLY`/`ANNUALLY`) and
+  // legacy aliases (`ANNUAL`/`YEARLY`) for backward-compat with persisted data.
+  // Returns payments-per-year. Defaults to 12 (monthly) when missing/unknown.
+  if (!freq) return 12;
+  const m = FREQUENCY_TO_PAYMENTS_PER_YEAR[freq as FrequencyInput];
+  return typeof m === 'number' ? m : 12;
 }
 
 function calculateExpenseForYear(
@@ -88,21 +82,17 @@ function calculateExpenseForYear(
 ): number {
   const yearsFromNow = targetYear - currentYear;
   if (yearsFromNow < 0) return 0;
-
   const inflationRate = expense.inflation_rate / 100;
 
   if (expense.expense_type === 'CURRENT_RECURRING') {
-    const multiplier = getFrequencyMultiplier(expense.frequency);
+    const multiplier = getFrequencyMultiplier(expense.frequency ?? null);
     const endDate = expense.end_date ? new Date(expense.end_date) : null;
     const endYear = endDate ? endDate.getFullYear() : Infinity;
     if (targetYear > endYear) return 0;
-
-    // Determine effective month range for this year
     const firstMonth = (targetYear === currentYear) ? currentMonth : 0;
     const lastMonth = (endDate && targetYear === endYear) ? endDate.getMonth() : 11;
     const effectiveMonths = Math.max(0, lastMonth - firstMonth + 1);
     const monthFraction = effectiveMonths / 12;
-
     return expense.amount * Math.pow(1 + inflationRate, yearsFromNow) * multiplier * monthFraction;
   }
 
@@ -111,8 +101,6 @@ function calculateExpenseForYear(
     const startDate = new Date(expense.start_date);
     const startYear = startDate.getFullYear();
     if (targetYear === startYear) {
-      // Month-accurate inflation: from current month to purchase month
-      // e.g. Jan purchase from April = 8.75 yrs; Dec purchase from April = 9.67 yrs
       const startMonth = startDate.getMonth();
       const fractionalYears = yearsFromNow + (startMonth - currentMonth) / 12;
       return expense.amount * Math.pow(1 + inflationRate, Math.max(0, fractionalYears));
@@ -127,8 +115,7 @@ function calculateExpenseForYear(
     const end = expense.end_date ? new Date(expense.end_date) : null;
     const endYear = end ? end.getFullYear() : 9999;
     if (targetYear < startYear || targetYear > endYear) return 0;
-
-    const multiplier = getFrequencyMultiplier(expense.frequency);
+    const multiplier = getFrequencyMultiplier(expense.frequency ?? null);
     let monthFraction = 1;
     if (end && targetYear === startYear && targetYear === endYear) {
       monthFraction = Math.max(0, end.getMonth() - start.getMonth() + 1) / 12;
@@ -139,7 +126,6 @@ function calculateExpenseForYear(
     }
     return expense.amount * Math.pow(1 + inflationRate, yearsFromNow) * multiplier * monthFraction;
   }
-
   return 0;
 }
 
@@ -148,337 +134,43 @@ function calculateVestingForYear(assets: Asset[], targetYear: number): number {
   for (const asset of assets) {
     if (asset.category !== 'ESOP_RSU') continue;
     if (!asset.is_recurring || !asset.recurring_amount || !asset.next_vesting_date) continue;
-
     const vestingStart = new Date(asset.next_vesting_date);
     const vestingStartYear = vestingStart.getFullYear();
     if (targetYear < vestingStartYear) continue;
+    const vestingEnd = asset.vesting_end_date ? new Date(asset.vesting_end_date) : null;
+    const vestingEndYear = vestingEnd ? vestingEnd.getFullYear() : null;
+    if (vestingEndYear != null && targetYear > vestingEndYear) continue;
+    const timesPerYear = getFrequencyMultiplier(asset.recurring_frequency ?? null);
 
-    if (asset.vesting_end_date) {
-      const vestingEndYear = new Date(asset.vesting_end_date).getFullYear();
-      if (targetYear > vestingEndYear) continue;
-    }
+    // Apply a month fraction in the start year and end year so partial years
+    // don't get a full year of vesting income.
+    const firstMonth = targetYear === vestingStartYear ? vestingStart.getMonth() : 0;
+    const lastMonth = vestingEnd && targetYear === vestingEndYear ? vestingEnd.getMonth() : 11;
+    const months = Math.max(0, lastMonth - firstMonth + 1);
+    const monthFraction = months / 12;
 
-    const freq = asset.recurring_frequency;
-    const timesPerYear = getFrequencyMultiplier(freq);
-    total += asset.recurring_amount * timesPerYear;
+    total += asset.recurring_amount * timesPerYear * monthFraction;
   }
   return total;
 }
 
-/** Safe Withdrawal Rates (%) for each FIRE type. */
-export const FIRE_WITHDRAWAL_RATES: Record<string, number> = {
-  fat: 3,
-  moderate: 5,
-  slim: 7,
-};
-
-/** Target survival ages for each FIRE safety level. */
-export const FIRE_TARGET_AGES: Record<string, number> = {
-  slim: 85,       // Lean -- corpus survives to 85
-  moderate: 100,  // Comfortable -- corpus survives to 100
-  fat: 120,       // Rich -- corpus preserved to 120
-};
-
-/**
- * Calculate the FIRE corpus:
- *   Base  = pension / SWR  (sustains ongoing monthly withdrawals)
- *   Extra = PV of all FUTURE one-time/recurring expenses that fall at or after retirement
- *           (e.g. house purchase at 55, kid's college fees 52-56 post early-retirement)
- * CURRENT_RECURRING expenses are salary-funded and stop at retirement — excluded here.
- */
-function calculateFireCorpus(
-  pensionMonthly: number,
-  yearsToRetirement: number,
-  withdrawalRate: number,
-  postRetirementExpensesPV: number,
-): number {
-  const pensionCorpus = (() => {
-    if (pensionMonthly <= 0 || withdrawalRate <= 0) return 0;
-    const firstYearWithdrawal = pensionMonthly * 12 * Math.pow(1 + PENSION_INFLATION_RATE, yearsToRetirement);
-    return Math.ceil(firstYearWithdrawal / (withdrawalRate / 100));
-  })();
-  return pensionCorpus + postRetirementExpensesPV;
-}
-
-/**
- * Compute the weighted-average expected growth rate (%) across all investable assets.
- * Falls back to fallbackRate if no assets have expected_roi set.
- */
 function computeBlendedGrowthRate(assets: Asset[], fallbackRate: number): number {
   const investable = assets.filter(a => !(a.category === 'REAL_ESTATE' && a.is_self_use));
   const totalValue = investable.reduce((s, a) => s + a.current_value, 0);
   if (totalValue === 0) return fallbackRate;
-  const weighted = investable.reduce(
-    (s, a) => s + a.current_value * (a.expected_roi > 0 ? a.expected_roi : (DEFAULT_GROWTH_RATES[a.category] ?? fallbackRate)),
-    0,
-  );
+  const weighted = investable.reduce((s, a) => {
+    // Honor a user-set ROI even when it is exactly 0 (e.g. cash sitting idle).
+    // Only fall back to the category default when the value is truly missing
+    // or non-finite.
+    const userRoi = a.expected_roi;
+    const roi = Number.isFinite(userRoi)
+      ? userRoi
+      : (DEFAULT_GROWTH_RATES[a.category] ?? fallbackRate);
+    return s + a.current_value * roi;
+  }, 0);
   return weighted / totalValue;
 }
 
-
-export function calculateProjections(input: CalculationInput): CalculationOutput {
-  const { profile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpRate } = input;
-  const currentAge = getAge(profile.dob);
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-  const { retirement_age: retirementAge, sip_stop_age: sipStopAge } = goals;
-
-  // Calculate initial net worth from all assets
-  let initialNetWorth = 0;
-  let investableNetWorth = 0;
-  for (const asset of assets) {
-    initialNetWorth += asset.current_value;
-    if (asset.category !== 'REAL_ESTATE' || !asset.is_self_use) {
-      investableNetWorth += asset.current_value;
-    }
-  }
-
-  const monthlyPensionPV = goals.pension_income ?? 0;
-  const discountRate = (goals.inflation_rate ?? (DEFAULT_DISCOUNT_RATE * 100)) / 100;
-
-  // Split expenses by funding source:
-  // - CURRENT_RECURRING: salary-funded, stop at retirement
-  // - FUTURE (one-time or recurring): corpus-funded if they fall at/after retirement
-  const currentExpenses = expenses.filter(e => e.expense_type === 'CURRENT_RECURRING');
-  const futureExpenses  = expenses.filter(e => e.expense_type !== 'CURRENT_RECURRING');
-
-  // PV of pre-retirement expenses (what salary must fund — for expenses banner)
-  const retirementYear = currentYear + (retirementAge - currentAge);
-  let presentValueOfExpenses = 0;
-  for (let age = currentAge; age < retirementAge; age++) {
-    const year = currentYear + (age - currentAge);
-    let annualAmt = 0;
-    for (const exp of currentExpenses) {
-      annualAmt += calculateExpenseForYear(exp, year, currentYear, currentMonth);
-    }
-    // All future expenses (FUTURE_ONE_TIME + FUTURE_RECURRING) are corpus-funded
-    // pre-retirement — neither appears in the salary-funded PV.
-    const yearsFromNow = age - currentAge;
-    presentValueOfExpenses += annualAmt / Math.pow(1 + discountRate, yearsFromNow);
-  }
-
-  // PV of post-retirement FUTURE expenses — these come from corpus
-  // (e.g. house at 55 after retiring at 50, kid's college fees spanning retirement)
-  let postRetirementExpensesPV = 0;
-  for (let age = retirementAge; age <= 100; age++) {
-    const year = currentYear + (age - currentAge);
-    let annualAmt = 0;
-    for (const exp of futureExpenses) {
-      annualAmt += calculateExpenseForYear(exp, year, currentYear, currentMonth);
-    }
-    const yearsFromNow = age - currentAge;
-    postRetirementExpensesPV += annualAmt / Math.pow(1 + discountRate, yearsFromNow);
-  }
-
-  // FIRE corpus -- simulation-based: min corpus at retirement surviving to fireTargetAge
-  const fireTargetAge = goals.fire_target_age ?? 100;
-  const fireCorpus = calculateSimulationFireCorpus(
-    expenses, currentAge, currentYear, currentMonth,
-    retirementAge, postSipReturnRate, monthlyPensionPV,
-    fireTargetAge, discountRate, goals.fire_type ?? 'moderate',
-  );
-
-  // Compute blended growth rate for initial (existing) assets
-  const blendedExistingRate = computeBlendedGrowthRate(assets, sipReturnRate);
-
-  // Year-by-year projection — two-bucket: existing assets grow at blendedExistingRate, SIP at sipReturnRate
-  const projections: YearProjection[] = [];
-  let existingBucket = investableNetWorth;
-  let sipBucket = 0;
-  let retirementMerged = false;
-  let fireAchieved = false;
-  let fireAchievedAge = -1;
-  let failureAge = -1;
-
-  for (let age = currentAge; age <= 100; age++) {
-    const year = currentYear + (age - currentAge);
-    const yearsFromStart = age - currentAge;
-
-    // Annual SIP — FV of ordinary annuity (each monthly SIP compounds within the year)
-    // monthsThisYear: full 12 for future years; remaining months for current calendar year
-    const monthsThisYear = yearsFromStart === 0 ? (12 - currentMonth) : 12;
-    let annualSIP = 0;
-    if (age <= sipStopAge) {
-      const monthlyContrib = sipAmount * Math.pow(1 + stepUpRate / 100, yearsFromStart);
-      const monthlyRate = Math.pow(1 + sipReturnRate / 100, 1 / 12) - 1;
-      annualSIP = monthlyRate > 0
-        ? monthlyContrib * (Math.pow(1 + monthlyRate, monthsThisYear) - 1) / monthlyRate
-        : monthlyContrib * monthsThisYear;
-    }
-
-    // Pre-retirement: current lifestyle expenses shown for planning (salary-funded)
-    // Future expenses (one-time/recurring) shown pre-retirement — corpus-funded
-    // Post-retirement: future expenses (house, college, etc.) drawn from corpus
-    let plannedExpenses = 0;
-    if (age < retirementAge) {
-      for (const exp of currentExpenses) {
-        plannedExpenses += calculateExpenseForYear(exp, year, currentYear, currentMonth);
-      }
-      for (const exp of futureExpenses) {
-        plannedExpenses += calculateExpenseForYear(exp, year, currentYear, currentMonth);
-      }
-    } else {
-      // Post-retirement: only future expenses drawn from corpus (current expenses stopped)
-      for (const exp of futureExpenses) {
-        plannedExpenses += calculateExpenseForYear(exp, year, currentYear, currentMonth);
-      }
-    }
-
-    // Post-retirement: pension drawn from corpus each year (inflation-adjusted)
-    let pensionIncome = 0;
-    if (age >= retirementAge && monthlyPensionPV > 0) {
-      pensionIncome = monthlyPensionPV * 12 * Math.pow(1 + discountRate, yearsFromStart);
-    }
-
-    // Vesting income
-    const vestingIncome = calculateVestingForYear(assets, year);
-
-    // Net worth calculation — two-bucket approach
-    // Pre-retirement: ALL future expenses (one-time + recurring) are corpus-funded.
-    // CURRENT_RECURRING alone is salary-funded and not deducted from corpus.
-    let preRetFutureCost = 0;
-    if (age < retirementAge) {
-      for (const exp of futureExpenses) {
-        preRetFutureCost += calculateExpenseForYear(exp, year, currentYear, currentMonth);
-      }
-    }
-    const totalNetExpenses = age >= retirementAge ? (pensionIncome + plannedExpenses) : preRetFutureCost;
-    if (age >= retirementAge && !retirementMerged) {
-      // If sipStop coincides with retirement, preserve the last SIP contribution before merging
-      if (age <= sipStopAge) existingBucket += annualSIP;
-      existingBucket = existingBucket + sipBucket;
-      sipBucket = 0;
-      retirementMerged = true;
-    }
-    if (!retirementMerged) {
-      const er = age <= sipStopAge ? blendedExistingRate / 100 : postSipReturnRate / 100;
-      const sr = age <= sipStopAge ? sipReturnRate / 100 : postSipReturnRate / 100;
-      // Year 0: existing assets grow only for remaining calendar months, not the full year
-      const yearFraction = yearsFromStart === 0 ? monthsThisYear / 12 : 1;
-      const erAdj = Math.pow(1 + er, yearFraction) - 1;
-      const grownExisting = Math.max(0, existingBucket) * (1 + erAdj) + vestingIncome - preRetFutureCost;
-      if (grownExisting < 0) {
-        // existingBucket exhausted — spill overflow into sipBucket (liquidate investments)
-        existingBucket = 0;
-        sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP + grownExisting;
-      } else {
-        existingBucket = grownExisting;
-        sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP;
-      }
-    } else {
-      const newCorpus = Math.max(0, existingBucket) * (1 + postSipReturnRate / 100) + vestingIncome - totalNetExpenses;
-      if (newCorpus < 0 && failureAge === -1) failureAge = age;
-      existingBucket = Math.max(0, newCorpus);
-    }
-    const netWorth = existingBucket + sipBucket;
-
-    // Check FIRE
-    const isFireThisYear = !fireAchieved && netWorth >= fireCorpus && fireCorpus > 0;
-    if (isFireThisYear) {
-      fireAchieved = true;
-      fireAchievedAge = age;
-    }
-
-    projections.push({
-      year,
-      age,
-      annualSIP,
-      plannedExpenses,
-      pensionIncome,
-      totalNetExpenses,
-      netWorthEOY: netWorth,
-      vestingIncome,
-      isFireAchieved: fireAchieved,
-      totalOutflow: age >= retirementAge ? (pensionIncome + plannedExpenses) : plannedExpenses,
-    });
-  }
-
-  // Extract snapshot values from projections
-  const netWorthAtRetirement = projections.find(p => p.age === retirementAge)?.netWorthEOY ?? 0;
-  const netWorthAtAge100 = projections[projections.length - 1]?.netWorthEOY ?? 0;
-
-  // Calculate required monthly SIP using binary search targeting corpus survival to fire_target_age
-  const requiredMonthlySIP = calculateRequiredSIP(
-    investableNetWorth, assets, expenses,
-    currentAge, currentYear, currentMonth, retirementAge, sipStopAge,
-    sipReturnRate, postSipReturnRate, stepUpRate,
-    monthlyPensionPV, fireTargetAge, discountRate,
-  );
-
-  const timeToFire = fireAchievedAge >= 0 ? fireAchievedAge - currentAge : -1;
-
-  let sipBurdenWarning: string | null = null;
-  const monthlyIncome = profile.monthly_income;
-  const cur = profile.currency;
-  if (monthlyIncome > 0) {
-    if (requiredMonthlySIP > monthlyIncome) {
-      sipBurdenWarning = `Required SIP (${formatCurrency(requiredMonthlySIP, cur)}/mo) exceeds your monthly income (${formatCurrency(monthlyIncome, cur)}/mo). FIRE target is not achievable on your current income. Consider a later retirement age or increasing your income.`;
-    } else if (requiredMonthlySIP > monthlyIncome * 0.6) {
-      sipBurdenWarning = `Required SIP (${formatCurrency(requiredMonthlySIP, cur)}/mo) is ${Math.round(requiredMonthlySIP / monthlyIncome * 100)}% of your salary — a high burden. Consider extending your retirement age.`;
-    } else {
-      // Check combined SIP + current monthly expenses against income
-      let monthlyExpenses = 0;
-      for (const e of expenses) {
-        if (e.expense_type !== 'CURRENT_RECURRING') continue;
-        monthlyExpenses += e.amount * getFrequencyMultiplier(e.frequency ?? null) / 12;
-      }
-      const combined = requiredMonthlySIP + monthlyExpenses;
-      if (monthlyExpenses > 0 && combined > monthlyIncome) {
-        sipBurdenWarning = `Required SIP (${formatCurrency(requiredMonthlySIP, cur)}/mo) + current expenses (${formatCurrency(monthlyExpenses, cur)}/mo) = ${formatCurrency(combined, cur)}/mo, which exceeds your income (${formatCurrency(monthlyIncome, cur)}/mo). You may need to reduce expenses or extend your retirement age.`;
-      } else if (monthlyExpenses > 0 && combined > monthlyIncome * 0.9) {
-        sipBurdenWarning = `SIP + expenses leave less than 10% of your income (${formatCurrency(monthlyIncome, cur)}/mo) as buffer. Consider reviewing your targets.`;
-      }
-    }
-  }
-
-  return {
-    fireCorpus,
-    requiredMonthlySIP,
-    timeToFire,
-    fireAchievedAge,
-    isOnTrack: sipAmount >= requiredMonthlySIP,
-    projections,
-    presentValueOfExpenses,
-    postRetirementExpensesPV,
-    investableNetWorth,
-    totalNetWorth: initialNetWorth,
-    sipBurdenWarning,
-    netWorthAtRetirement,
-    netWorthAtAge100,
-    failureAge,
-  };
-}
-
-export function calculatePresentValueOfExpenses(
-  profile: Profile,
-  expenses: Expense[],
-  retirementAge: number = 60,
-  discountRate: number = DEFAULT_DISCOUNT_RATE,
-): number {
-  const currentAge = getAge(profile.dob);
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-  let pv = 0;
-  // Expenses are pre-retirement only
-  for (let age = currentAge; age < retirementAge; age++) {
-    const year = currentYear + (age - currentAge);
-    let annualExpenses = 0;
-    for (const exp of expenses) {
-      if (exp.expense_type !== 'CURRENT_RECURRING') continue; // only current recurring is salary-funded
-      annualExpenses += calculateExpenseForYear(exp, year, currentYear, currentMonth);
-    }
-    pv += annualExpenses / Math.pow(1 + discountRate, age - currentAge);
-  }
-  return pv;
-}
-
-/**
- * Simulate corpus from retirement age to targetAge WITHOUT clamping at 0.
- * Used for binary search in calculateSimulationFireCorpus.
- * Returns negative if corpus depletes -- intentional, for accurate binary search.
- */
 function simulatePostRetirementCorpus(
   startCorpus: number,
   retirementAge: number,
@@ -506,11 +198,6 @@ function simulatePostRetirementCorpus(
   return corpus;
 }
 
-/**
- * Binary-search for minimum corpus AT retirement age that survives to fireTargetAge.
- * For fat/Rich: corpus at targetAge must also >= starting corpus (wealth preservation).
- * Replaces the SWR-formula approach (calculateFireCorpus) for consistency with SIP simulation.
- */
 function calculateSimulationFireCorpus(
   expenses: Expense[],
   currentAge: number,
@@ -525,8 +212,6 @@ function calculateSimulationFireCorpus(
 ): number {
   if (monthlyPension <= 0) return 0;
   const isRich = fireType === 'fat';
-
-  // residual > 0 means corpus survived (or preserved for Rich); < 0 means depleted
   function residual(corpus: number): number {
     const final = simulatePostRetirementCorpus(
       corpus, retirementAge, fireTargetAge,
@@ -535,9 +220,15 @@ function calculateSimulationFireCorpus(
     );
     return isRich ? final - corpus : final;
   }
-
-  // Binary search -- residual is monotone increasing in starting corpus
-  let low = 0, high = 2_000_000_000; // 200 Cr cap
+  // Adaptive upper bound: corpus required scales with annual cash need.
+  // Cover at least (years × annual need × inflation overshoot) and grow until
+  // residual flips sign, so very-high net worth users are covered.
+  const yearsInRetirement = Math.max(1, fireTargetAge - retirementAge);
+  const annualNeed = Math.max(1, monthlyPension * 12);
+  let high = annualNeed * yearsInRetirement * Math.pow(1 + Math.max(inflationRate, 0.02), yearsInRetirement);
+  // Ensure the bound actually brackets the root.
+  for (let i = 0; i < 8 && residual(high) < 0; i++) high *= 4;
+  let low = 0;
   for (let i = 0; i < 60; i++) {
     const mid = (low + high) / 2;
     const r = residual(mid);
@@ -547,61 +238,6 @@ function calculateSimulationFireCorpus(
   return Math.ceil((low + high) / 2);
 }
 
-/**
- * Binary search for the monthly SIP that keeps corpus ≥ 0 at fireTargetAge.
- * Runs the full pre + post retirement lifecycle — the only honest way to size SIP.
- */
-function calculateRequiredSIP(
-  initialNetWorth: number,
-  assets: Asset[],
-  expenses: Expense[],
-  currentAge: number,
-  currentYear: number,
-  currentMonth: number,
-  retirementAge: number,
-  sipStopAge: number,
-  sipReturnRate: number,
-  postSipReturnRate: number,
-  stepUpRate: number,
-  monthlyPension: number,
-  fireTargetAge: number,
-  inflationRate: number,
-): number {
-  // If corpus already survives to target age with zero SIP, no SIP needed
-  const blendedRate = computeBlendedGrowthRate(assets, sipReturnRate);
-  const withNoSip = simulateCorpusAtAge(
-    initialNetWorth, assets, expenses,
-    currentAge, currentYear, currentMonth, retirementAge, sipStopAge,
-    sipReturnRate, postSipReturnRate, stepUpRate, 0, monthlyPension, fireTargetAge, inflationRate, blendedRate,
-  );
-  if (withNoSip >= 0) return 0;
-
-  let low = 0;
-  let high = 5000000; // ₹50L/month cap
-  const tolerance = 1000; // within ₹1K corpus at target age is close enough
-
-  for (let i = 0; i < 60; i++) {
-    const mid = (low + high) / 2;
-    const corpus = simulateCorpusAtAge(
-      initialNetWorth, assets, expenses,
-      currentAge, currentYear, currentMonth, retirementAge, sipStopAge,
-      sipReturnRate, postSipReturnRate, stepUpRate, mid, monthlyPension, fireTargetAge, inflationRate, blendedRate,
-    );
-
-    if (Math.abs(corpus) < tolerance) return Math.ceil(mid);
-    if (corpus < 0) low = mid;
-    else high = mid;
-  }
-
-  return Math.ceil((low + high) / 2);
-}
-
-/**
- * Simulate the full lifecycle corpus (pre + post retirement) at a given target age.
- * Pre-retirement: SIP + returns + vesting (expenses salary-funded, not deducted).
- * Post-retirement: returns − pension withdrawal − future expense dips.
- * Returns the corpus value at targetAge (negative = depleted).
- */
 function simulateCorpusAtAge(
   initialNetWorth: number,
   assets: Asset[],
@@ -629,7 +265,6 @@ function simulateCorpusAtAge(
   for (let age = currentAge; age <= targetAge; age++) {
     const year = currentYear + (age - currentAge);
     const yearsFromStart = age - currentAge;
-
     const monthsThisYear = yearsFromStart === 0 ? (12 - currentMonth) : 12;
     let annualSIP = 0;
     if (age <= sipStopAge) {
@@ -639,11 +274,9 @@ function simulateCorpusAtAge(
         ? monthlyContrib * (Math.pow(1 + monthlyRate, monthsThisYear) - 1) / monthlyRate
         : monthlyContrib * monthsThisYear;
     }
-
     const vestingIncome = calculateVestingForYear(assets, year);
 
     if (age >= retirementAge && !merged) {
-      // If sipStop coincides with retirement, preserve the last SIP contribution before merging
       if (age <= sipStopAge) existingBucket += annualSIP;
       existingBucket = existingBucket + sipBucket;
       sipBucket = 0;
@@ -652,23 +285,18 @@ function simulateCorpusAtAge(
 
     let withdrawal = 0;
     if (age >= retirementAge) {
-      if (monthlyPension > 0) {
+      if (monthlyPension > 0)
         withdrawal += monthlyPension * 12 * Math.pow(1 + inflationRate, yearsFromStart);
-      }
-      for (const exp of futureExpenses) {
+      for (const exp of futureExpenses)
         withdrawal += calculateExpenseForYear(exp, year, currentYear, currentMonth);
-      }
     }
 
     if (!merged) {
       const er = age <= sipStopAge ? existingRate / 100 : postSipReturnRate / 100;
       const sr = age <= sipStopAge ? sipReturnRate / 100 : postSipReturnRate / 100;
-      // Deduct ALL future expenses (one-time + recurring) from corpus pre-retirement
       let preRetFutureCost = 0;
-      for (const exp of futureExpenses) {
+      for (const exp of futureExpenses)
         preRetFutureCost += calculateExpenseForYear(exp, year, currentYear, currentMonth);
-      }
-      // Year 0: existing assets grow only for remaining calendar months, not the full year
       const yearFraction = yearsFromStart === 0 ? monthsThisYear / 12 : 1;
       const erAdj = Math.pow(1 + er, yearFraction) - 1;
       const grownExisting = Math.max(0, existingBucket) * (1 + erAdj) + vestingIncome - preRetFutureCost;
@@ -683,25 +311,315 @@ function simulateCorpusAtAge(
       existingBucket = Math.max(0, existingBucket) * (1 + postSipReturnRate / 100) + vestingIncome - withdrawal;
     }
   }
-
   return existingBucket + sipBucket;
 }
 
-export function formatCurrency(amount: number, currency: string = 'INR'): string {
-  if (currency === 'INR') {
-    const abs = Math.abs(amount);
-    const sign = amount < 0 ? '-' : '';
-    if (abs >= 1e7) return `${sign}₹${(abs / 1e7).toFixed(2)} Cr`;
-    if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(2)} L`;
-    if (abs >= 1e3) return `${sign}₹${(abs / 1e3).toFixed(1)}K`;
-    return `${sign}₹${abs.toFixed(0)}`;
+function calculateRequiredSIP(
+  initialNetWorth: number,
+  assets: Asset[],
+  expenses: Expense[],
+  currentAge: number,
+  currentYear: number,
+  currentMonth: number,
+  retirementAge: number,
+  sipStopAge: number,
+  sipReturnRate: number,
+  postSipReturnRate: number,
+  stepUpRate: number,
+  monthlyPension: number,
+  fireTargetAge: number,
+  inflationRate: number,
+): number {
+  const blendedRate = computeBlendedGrowthRate(assets, sipReturnRate);
+  const withNoSip = simulateCorpusAtAge(
+    initialNetWorth, assets, expenses,
+    currentAge, currentYear, currentMonth, retirementAge, sipStopAge,
+    sipReturnRate, postSipReturnRate, stepUpRate, 0, monthlyPension, fireTargetAge, inflationRate, blendedRate,
+  );
+  if (withNoSip >= 0) return 0;
+
+  // Adaptive upper bound for monthly SIP: scale with the magnitude of the
+  // shortfall so very-high net-worth shortfalls don't get clipped at a
+  // hardcoded ceiling.
+  const yearsInvesting = Math.max(1, sipStopAge - currentAge);
+  const shortfallProxy = Math.abs(withNoSip);
+  // Spread the shortfall across investing months, then add a 4× safety margin
+  // before growth helps. Floor at ₹5M/mo so small shortfalls still converge fast.
+  let high = Math.max(5_000_000, (shortfallProxy / Math.max(1, yearsInvesting * 12)) * 4);
+  // Ensure the bound brackets the root (corpus(high) >= 0).
+  for (let i = 0; i < 8; i++) {
+    const corpus = simulateCorpusAtAge(
+      initialNetWorth, assets, expenses,
+      currentAge, currentYear, currentMonth, retirementAge, sipStopAge,
+      sipReturnRate, postSipReturnRate, stepUpRate, high, monthlyPension, fireTargetAge, inflationRate, blendedRate,
+    );
+    if (corpus >= 0) break;
+    high *= 4;
   }
-  return `$${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  let low = 0;
+  const tolerance = 1000;
+  for (let i = 0; i < 60; i++) {
+    const mid = (low + high) / 2;
+    const corpus = simulateCorpusAtAge(
+      initialNetWorth, assets, expenses,
+      currentAge, currentYear, currentMonth, retirementAge, sipStopAge,
+      sipReturnRate, postSipReturnRate, stepUpRate, mid, monthlyPension, fireTargetAge, inflationRate, blendedRate,
+    );
+    if (Math.abs(corpus) < tolerance) return Math.ceil(mid);
+    if (corpus < 0) low = mid; else high = mid;
+  }
+  return Math.ceil((low + high) / 2);
+}
+
+export function calculateProjections(input: CalculationInput): CalculationOutput {
+  const { profile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpRate } = input;
+  const currentAge = getAge(profile.dob);
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const { retirement_age: retirementAge, sip_stop_age: sipStopAge } = goals;
+
+  let initialNetWorth = 0;
+  let investableNetWorth = 0;
+  for (const asset of assets) {
+    initialNetWorth += asset.current_value;
+    if (asset.category !== 'REAL_ESTATE' || !asset.is_self_use)
+      investableNetWorth += asset.current_value;
+  }
+
+  const monthlyPensionPV = goals.pension_income ?? 0;
+  const discountRate = (goals.inflation_rate ?? (DEFAULT_DISCOUNT_RATE * 100)) / 100;
+
+  const currentExpenses = expenses.filter(e => e.expense_type === 'CURRENT_RECURRING');
+  const futureExpenses = expenses.filter(e => e.expense_type !== 'CURRENT_RECURRING');
+
+  let presentValueOfExpenses = 0;
+  for (let age = currentAge; age < retirementAge; age++) {
+    const year = currentYear + (age - currentAge);
+    let annualAmt = 0;
+    for (const exp of currentExpenses)
+      annualAmt += calculateExpenseForYear(exp, year, currentYear, currentMonth);
+    const yearsFromNow = age - currentAge;
+    presentValueOfExpenses += annualAmt / Math.pow(1 + discountRate, yearsFromNow);
+  }
+
+  let postRetirementExpensesPV = 0;
+  for (let age = retirementAge; age <= 100; age++) {
+    const year = currentYear + (age - currentAge);
+    let annualAmt = 0;
+    for (const exp of futureExpenses)
+      annualAmt += calculateExpenseForYear(exp, year, currentYear, currentMonth);
+    const yearsFromNow = age - currentAge;
+    postRetirementExpensesPV += annualAmt / Math.pow(1 + discountRate, yearsFromNow);
+  }
+
+  const fireTargetAge = goals.fire_target_age ?? 100;
+  const fireCorpus = calculateSimulationFireCorpus(
+    expenses, currentAge, currentYear, currentMonth,
+    retirementAge, postSipReturnRate, monthlyPensionPV,
+    fireTargetAge, discountRate, goals.fire_type ?? 'moderate',
+  );
+
+  const blendedExistingRate = computeBlendedGrowthRate(assets, sipReturnRate);
+
+  const projections: YearProjection[] = [];
+  let existingBucket = investableNetWorth;
+  let sipBucket = 0;
+  let retirementMerged = false;
+  let fireAchieved = false;
+  let fireAchievedAge = -1;
+  let failureAge = -1;
+
+  for (let age = currentAge; age <= 100; age++) {
+    const year = currentYear + (age - currentAge);
+    const yearsFromStart = age - currentAge;
+    const monthsThisYear = yearsFromStart === 0 ? (12 - currentMonth) : 12;
+
+    let annualSIP = 0;
+    if (age <= sipStopAge) {
+      const monthlyContrib = sipAmount * Math.pow(1 + stepUpRate / 100, yearsFromStart);
+      const monthlyRate = Math.pow(1 + sipReturnRate / 100, 1 / 12) - 1;
+      annualSIP = monthlyRate > 0
+        ? monthlyContrib * (Math.pow(1 + monthlyRate, monthsThisYear) - 1) / monthlyRate
+        : monthlyContrib * monthsThisYear;
+    }
+
+    let plannedExpenses = 0;
+    if (age < retirementAge) {
+      for (const exp of currentExpenses)
+        plannedExpenses += calculateExpenseForYear(exp, year, currentYear, currentMonth);
+      for (const exp of futureExpenses)
+        plannedExpenses += calculateExpenseForYear(exp, year, currentYear, currentMonth);
+    } else {
+      for (const exp of futureExpenses)
+        plannedExpenses += calculateExpenseForYear(exp, year, currentYear, currentMonth);
+    }
+
+    let pensionIncome = 0;
+    if (age >= retirementAge && monthlyPensionPV > 0)
+      pensionIncome = monthlyPensionPV * 12 * Math.pow(1 + discountRate, yearsFromStart);
+
+    const vestingIncome = calculateVestingForYear(assets, year);
+
+    let preRetFutureCost = 0;
+    if (age < retirementAge) {
+      for (const exp of futureExpenses)
+        preRetFutureCost += calculateExpenseForYear(exp, year, currentYear, currentMonth);
+    }
+    const totalNetExpenses = age >= retirementAge ? (pensionIncome + plannedExpenses) : preRetFutureCost;
+
+    if (age >= retirementAge && !retirementMerged) {
+      if (age <= sipStopAge) existingBucket += annualSIP;
+      existingBucket = existingBucket + sipBucket;
+      sipBucket = 0;
+      retirementMerged = true;
+    }
+
+    if (!retirementMerged) {
+      const er = age <= sipStopAge ? blendedExistingRate / 100 : postSipReturnRate / 100;
+      const sr = age <= sipStopAge ? sipReturnRate / 100 : postSipReturnRate / 100;
+      const yearFraction = yearsFromStart === 0 ? monthsThisYear / 12 : 1;
+      const erAdj = Math.pow(1 + er, yearFraction) - 1;
+      const grownExisting = Math.max(0, existingBucket) * (1 + erAdj) + vestingIncome - preRetFutureCost;
+      if (grownExisting < 0) {
+        existingBucket = 0;
+        sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP + grownExisting;
+      } else {
+        existingBucket = grownExisting;
+        sipBucket = Math.max(0, sipBucket) * (1 + sr) + annualSIP;
+      }
+    } else {
+      const newCorpus = Math.max(0, existingBucket) * (1 + postSipReturnRate / 100) + vestingIncome - totalNetExpenses;
+      if (newCorpus < 0 && failureAge === -1) failureAge = age;
+      existingBucket = Math.max(0, newCorpus);
+    }
+
+    const netWorth = existingBucket + sipBucket;
+    const isFireThisYear = !fireAchieved && netWorth >= fireCorpus && fireCorpus > 0;
+    if (isFireThisYear) { fireAchieved = true; fireAchievedAge = age; }
+
+    projections.push({
+      year, age, annualSIP, plannedExpenses, pensionIncome,
+      totalNetExpenses, netWorthEOY: netWorth, vestingIncome,
+      isFireAchieved: fireAchieved,
+      totalOutflow: age >= retirementAge ? (pensionIncome + plannedExpenses) : plannedExpenses,
+    });
+  }
+
+  const netWorthAtRetirement = projections.find(p => p.age === retirementAge)?.netWorthEOY ?? 0;
+  const netWorthAtAge100 = projections[projections.length - 1]?.netWorthEOY ?? 0;
+
+  const requiredMonthlySIP = calculateRequiredSIP(
+    investableNetWorth, assets, expenses,
+    currentAge, currentYear, currentMonth, retirementAge, sipStopAge,
+    sipReturnRate, postSipReturnRate, stepUpRate,
+    monthlyPensionPV, fireTargetAge, discountRate,
+  );
+
+  const timeToFire = fireAchievedAge >= 0 ? fireAchievedAge - currentAge : -1;
+
+  let sipBurdenWarning: string | null = null;
+  const monthlyIncome = profile.monthly_income;
+  const cur = profile.currency;
+  if (monthlyIncome > 0) {
+    if (requiredMonthlySIP > monthlyIncome) {
+      sipBurdenWarning = `Required SIP (${formatCurrency(requiredMonthlySIP, cur)}/mo) exceeds your monthly income (${formatCurrency(monthlyIncome, cur)}/mo). Consider a later retirement age or increasing your income.`;
+    } else if (requiredMonthlySIP > monthlyIncome * 0.6) {
+      sipBurdenWarning = `Required SIP (${formatCurrency(requiredMonthlySIP, cur)}/mo) is ${Math.round(requiredMonthlySIP / monthlyIncome * 100)}% of your salary — a high burden.`;
+    } else {
+      let monthlyExpenses = 0;
+      for (const e of expenses) {
+        if (e.expense_type !== 'CURRENT_RECURRING') continue;
+        monthlyExpenses += e.amount * getFrequencyMultiplier(e.frequency ?? null) / 12;
+      }
+      const combined = requiredMonthlySIP + monthlyExpenses;
+      if (monthlyExpenses > 0 && combined > monthlyIncome) {
+        sipBurdenWarning = `Required SIP (${formatCurrency(requiredMonthlySIP, cur)}/mo) + current expenses (${formatCurrency(monthlyExpenses, cur)}/mo) = ${formatCurrency(combined, cur)}/mo, which exceeds your income (${formatCurrency(monthlyIncome, cur)}/mo).`;
+      } else if (monthlyExpenses > 0 && combined > monthlyIncome * 0.9) {
+        sipBurdenWarning = `SIP + expenses leave less than 10% of your income as buffer. Consider reviewing your targets.`;
+      }
+    }
+  }
+
+  return {
+    fireCorpus,
+    requiredMonthlySIP,
+    timeToFire,
+    fireAchievedAge,
+    isOnTrack: sipAmount >= requiredMonthlySIP,
+    projections,
+    presentValueOfExpenses,
+    postRetirementExpensesPV,
+    investableNetWorth,
+    totalNetWorth: initialNetWorth,
+    sipBurdenWarning,
+    netWorthAtRetirement,
+    netWorthAtAge100,
+    failureAge,
+  };
+}
+
+interface CurrencyMeta {
+  symbol: string;
+  locale: string;
+  // Optional short-scale labels (e.g. Lakh/Crore for INR).
+  shortScale?: { divisor: number; suffix: string }[];
+}
+
+const CURRENCY_META: Record<string, CurrencyMeta> = {
+  INR: {
+    symbol: '₹',
+    locale: 'en-IN',
+    shortScale: [
+      { divisor: 1e7, suffix: ' Cr' },
+      { divisor: 1e5, suffix: ' L' },
+      { divisor: 1e3, suffix: 'K' },
+    ],
+  },
+  USD: {
+    symbol: '$',
+    locale: 'en-US',
+    shortScale: [
+      { divisor: 1e9, suffix: 'B' },
+      { divisor: 1e6, suffix: 'M' },
+      { divisor: 1e3, suffix: 'K' },
+    ],
+  },
+  EUR: { symbol: '€', locale: 'de-DE', shortScale: [{ divisor: 1e9, suffix: 'B' }, { divisor: 1e6, suffix: 'M' }, { divisor: 1e3, suffix: 'K' }] },
+  GBP: { symbol: '£', locale: 'en-GB', shortScale: [{ divisor: 1e9, suffix: 'B' }, { divisor: 1e6, suffix: 'M' }, { divisor: 1e3, suffix: 'K' }] },
+  AUD: { symbol: 'A$', locale: 'en-AU', shortScale: [{ divisor: 1e9, suffix: 'B' }, { divisor: 1e6, suffix: 'M' }, { divisor: 1e3, suffix: 'K' }] },
+  CAD: { symbol: 'C$', locale: 'en-CA', shortScale: [{ divisor: 1e9, suffix: 'B' }, { divisor: 1e6, suffix: 'M' }, { divisor: 1e3, suffix: 'K' }] },
+  SGD: { symbol: 'S$', locale: 'en-SG', shortScale: [{ divisor: 1e9, suffix: 'B' }, { divisor: 1e6, suffix: 'M' }, { divisor: 1e3, suffix: 'K' }] },
+  AED: { symbol: 'د.إ', locale: 'ar-AE', shortScale: [{ divisor: 1e9, suffix: 'B' }, { divisor: 1e6, suffix: 'M' }, { divisor: 1e3, suffix: 'K' }] },
+};
+
+function getMeta(currency: string): CurrencyMeta {
+  return CURRENCY_META[currency.toUpperCase()] ?? { symbol: currency + ' ', locale: 'en-US' };
+}
+
+export function formatCurrency(amount: number, currency: string = 'INR'): string {
+  if (!Number.isFinite(amount)) return '—';
+  const meta = getMeta(currency);
+  const abs = Math.abs(amount);
+  const sign = amount < 0 ? '-' : '';
+  if (meta.shortScale) {
+    for (const s of meta.shortScale) {
+      if (abs >= s.divisor) {
+        const v = abs / s.divisor;
+        const fixed = v >= 100 ? 0 : v >= 10 ? 1 : 2;
+        return `${sign}${meta.symbol}${v.toFixed(fixed)}${s.suffix}`;
+      }
+    }
+  }
+  return `${sign}${meta.symbol}${abs.toLocaleString(meta.locale, { maximumFractionDigits: 0 })}`;
 }
 
 export function formatCurrencyFull(amount: number, currency: string = 'INR'): string {
-  if (currency === 'INR') {
-    return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-  }
-  return `$${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  if (!Number.isFinite(amount)) return '—';
+  const meta = getMeta(currency);
+  return `${meta.symbol}${amount.toLocaleString(meta.locale, { maximumFractionDigits: 0 })}`;
+}
+
+export function getCurrencySymbol(currency: string = 'INR'): string {
+  return getMeta(currency).symbol;
 }
