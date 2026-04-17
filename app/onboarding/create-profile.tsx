@@ -73,7 +73,11 @@ export default function CreateProfile() {
       if (enableBiometric) await setBiometricEnabled(profileId, true);
       await setCurrentProfileId(profileId);
       await refreshProfiles();
-      await setAppProfile({ id: String(profileId), name: name.trim(), dob, currency, monthly_income: parseFloat(monthlyIncome) || 0 });
+      try {
+        await setAppProfile({ id: String(profileId), name: name.trim(), dob, currency, monthly_income: parseFloat(monthlyIncome) || 0 });
+      } catch {
+        // AppContext sync is non-critical; SQLite data is the source of truth
+      }
       router.replace('/(tabs)/assets');
     } catch (e) {
       if (__DEV__) console.error('Failed to create profile:', e);

@@ -120,7 +120,7 @@ export default function LoginScreen() {
       await resetFailedAttempts(profile.id);
       await setCurrentProfileId(profile.id);
       await refreshProfiles();
-      await syncToAppContext(profile);
+      try { await syncToAppContext(profile); } catch { /* non-critical */ }
       router.replace('/(tabs)/assets');
     }
   }
@@ -166,7 +166,7 @@ export default function LoginScreen() {
         await resetFailedAttempts(selectedProfile.id);
         await setCurrentProfileId(selectedProfile.id);
         await refreshProfiles();
-        await syncToAppContext(selectedProfile);
+        try { await syncToAppContext(selectedProfile); } catch { /* non-critical */ }
         router.replace('/(tabs)/assets');
       } else {
         const { lockoutUntil } = await recordFailedAttempt(selectedProfile.id);

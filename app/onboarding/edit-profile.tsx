@@ -56,7 +56,9 @@ export default function EditProfile() {
         await saveProfilePin(currentProfile.id, `${salt}$${hash}`);
       }
       await refreshProfiles();
-      await setAppProfile({ id: String(currentProfile.id), name: name.trim(), dob, currency, monthly_income: parseFloat(monthlyIncome) || 0 });
+      try {
+        await setAppProfile({ id: String(currentProfile.id), name: name.trim(), dob, currency, monthly_income: parseFloat(monthlyIncome) || 0 });
+      } catch { /* non-critical */ }
       router.back();
     } catch {
       Alert.alert('Error', 'Could not save changes. Please try again.');
