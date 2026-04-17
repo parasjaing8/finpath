@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Card, Button, DataTable, Portal, Dialog } from 'react-native-paper';
+import { Text, Card, Button, Portal, Dialog } from 'react-native-paper';
 import { useProfile } from '../../hooks/useProfile';
 import { getAssets, getExpenses, getGoals, Asset, Expense, Goals } from '../../db/queries';
 import { calculateProjections, CalculationOutput, formatCurrency, formatCurrencyFull } from '../../engine/calculator';
@@ -14,6 +14,7 @@ import { HeroCard } from '../../components/HeroCard';
 import { SnapshotTiles } from '../../components/SnapshotTiles';
 import { InsightCard } from '../../components/InsightCard';
 import { SIPControls } from '../../components/SIPControls';
+import { ProjectionTable } from '../../components/ProjectionTable';
 
 export default function DashboardScreen() {
   const { currentProfile } = useProfile();
@@ -39,10 +40,6 @@ export default function DashboardScreen() {
   const { isPro } = usePro();
   const [showCorpusInfo, setShowCorpusInfo] = useState(false);
   const [showDepletionInfo, setShowDepletionInfo] = useState(false);
-
-  // Table pagination
-  const [tablePage, setTablePage] = useState(0);
-  const rowsPerPage = 10;
 
   // Track the goals snapshot that was used for the last SIP auto-set.
   // Auto-set only fires again when goals actually change, not on every tab focus.
@@ -114,11 +111,6 @@ export default function DashboardScreen() {
     };
   }, [result, sipAmount, expenses, currentProfile]);
 
-  // Reset table to page 0 when projections change
-  useEffect(() => {
-    setTablePage(0);
-  }, [result]);
-
   // Auto-set SIP when goals change (not on every tab focus)
   useEffect(() => {
     if (!goals || !result || result.requiredMonthlySIP <= 0) return;
@@ -163,7 +155,6 @@ export default function DashboardScreen() {
 
   const currency = currentProfile.currency;
   const projections = result.projections;
-  const paginatedRows = projections.slice(tablePage * rowsPerPage, (tablePage + 1) * rowsPerPage);
 
   // Plain variables — must NOT be hooks (useMemo) here because they are after early returns,
   // which would violate React's Rules of Hooks and crash on first load.
@@ -175,7 +166,6 @@ export default function DashboardScreen() {
     return a;
   })();
   const firstFireYear = projections.find(p => p.isFireAchieved)?.year ?? -1;
-  const hasVesting = projections.some(p => p.vestingIncome > 0);
 
   // Plan status: 5-state decision engine for hero card
   const planStatus = (() => {
@@ -273,6 +263,7 @@ export default function DashboardScreen() {
       <Card style={styles.chartCard}>
         <Card.Content>
           <Text variant="titleMedium" style={styles.chartTitle}>Net Worth Projection</Text>
+          <Text variant="bodySmall" style={styles.chartSubtitle}>{`Your financial journey till age ${goals.fire_target_age ?? 100}`}</Text>
           <ProjectionChart
             projections={projections}
             retirementAge={retirementAge}
@@ -299,56 +290,11 @@ export default function DashboardScreen() {
             </Button>
             <ProPaywall visible={showPaywall} onDismiss={() => setShowPaywall(false)} />
           </View>
-
-          <ScrollView horizontal>
-            <DataTable>
-              <DataTable.Header>
-                <DataTable.Title style={styles.colNarrow}>Year</DataTable.Title>
-                <DataTable.Title style={styles.colNarrow}>Age</DataTable.Title>
-                <DataTable.Title style={styles.colWide} numeric>Annual SIP</DataTable.Title>
-                {hasVesting && <DataTable.Title style={styles.colWide} numeric>Vesting</DataTable.Title>}
-                <DataTable.Title style={styles.colWide} numeric>Expenses</DataTable.Title>
-                <DataTable.Title style={styles.colWide} numeric>Pension</DataTable.Title>
-                <DataTable.Title style={styles.colWide} numeric>Net Worth</DataTable.Title>
-              </DataTable.Header>
-
-              {paginatedRows.map(row => {
-                const isFireRow = row.year === firstFireYear;
-                return (
-                  <DataTable.Row key={row.year} style={isFireRow ? styles.fireRow : undefined}>
-                    <DataTable.Cell style={styles.colNarrow}>{row.year}</DataTable.Cell>
-                    <DataTable.Cell style={styles.colNarrow}>{row.age}</DataTable.Cell>
-                    <DataTable.Cell style={styles.colWide} numeric>
-                      {formatCurrency(row.annualSIP, currency)}
-                    </DataTable.Cell>
-                    {hasVesting && (
-                      <DataTable.Cell style={styles.colWide} numeric>
-                        {row.vestingIncome > 0 ? formatCurrency(row.vestingIncome, currency) : '—'}
-                      </DataTable.Cell>
-                    )}
-                    <DataTable.Cell style={styles.colWide} numeric>
-                      {formatCurrency(row.plannedExpenses, currency)}
-                    </DataTable.Cell>
-                    <DataTable.Cell style={styles.colWide} numeric>
-                      {formatCurrency(row.pensionIncome, currency)}
-                    </DataTable.Cell>
-                    <DataTable.Cell style={styles.colWide} numeric>
-                      {formatCurrency(row.netWorthEOY, currency)}
-                    </DataTable.Cell>
-                  </DataTable.Row>
-                );
-              })}
-
-              <DataTable.Pagination
-                page={tablePage}
-                numberOfPages={Math.ceil(projections.length / rowsPerPage)}
-                onPageChange={setTablePage}
-                label={`${tablePage * rowsPerPage + 1}-${Math.min((tablePage + 1) * rowsPerPage, projections.length)} of ${projections.length}`}
-                numberOfItemsPerPage={rowsPerPage}
-                showFastPaginationControls
-              />
-            </DataTable>
-          </ScrollView>
+          <ProjectionTable
+            projections={projections}
+            currency={currency}
+            firstFireYear={firstFireYear}
+          />
         </Card.Content>
       </Card>
 
@@ -430,10 +376,8 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 40 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   chartCard: { marginBottom: 16, borderRadius: 12 },
-  chartTitle: { fontWeight: 'bold', marginBottom: 12 },
+  chartTitle: { fontWeight: 'bold', marginBottom: 2 },
+  chartSubtitle: { color: '#6B7A6B', marginBottom: 12, marginTop: 2 },
   tableCard: { marginBottom: 16, borderRadius: 12 },
   tableHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  colNarrow: { width: 60 },
-  colWide: { width: 100 },
-  fireRow: { backgroundColor: '#C8E6C9' },
 });
