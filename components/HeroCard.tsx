@@ -45,7 +45,9 @@ export function HeroCard({
         <Text style={styles.heroAmount}>No SIP needed</Text>
       )}
       <Text style={styles.heroStatusTitle}>{planStatus.title}</Text>
-      <Text style={styles.heroSubtitle}>{planStatus.subtitle}</Text>
+      {(!isOnTrack || failureAge > 0 || planStatus.title !== "You're on track") && (
+        <Text style={styles.heroSubtitle}>{planStatus.subtitle}</Text>
+      )}
       <View style={styles.heroPillRow}>
         <View style={[styles.heroPill, styles.heroPillStatus]}>
           <Text style={[styles.heroPillText, { color: isOnTrack ? '#1B5E20' : '#C62828' }]}>
