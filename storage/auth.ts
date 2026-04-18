@@ -29,7 +29,18 @@ interface StoredCredentials {
 function bytesToBase64(bytes: Uint8Array): string {
   let bin = '';
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return typeof btoa === 'function' ? btoa(bin) : Buffer.from(bin, 'binary').toString('base64');
+  // btoa is available in React Native and all modern JS environments.
+  if (typeof btoa === 'function') return btoa(bin);
+  // Pure-JS fallback (no Buffer/Node required).
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let out = '';
+  for (let i = 0; i < bin.length; i += 3) {
+    const b0 = bin.charCodeAt(i), b1 = bin.charCodeAt(i + 1), b2 = bin.charCodeAt(i + 2);
+    out += chars[b0 >> 2] + chars[((b0 & 3) << 4) | (b1 >> 4 || 0)]
+      + (isNaN(b1) ? '=' : chars[((b1 & 15) << 2) | (b2 >> 6 || 0)])
+      + (isNaN(b2) ? '=' : chars[b2 & 63]);
+  }
+  return out;
 }
 
 async function hashPin(salt: string, pin: string): Promise<string> {

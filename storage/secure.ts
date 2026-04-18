@@ -47,19 +47,43 @@ let inflightKeyInit: Promise<DerivedKeys> | null = null;
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  // btoa is available in React Native and all modern JS environments.
   if (typeof btoa === 'function') return btoa(binary);
-  // Fallback for environments without btoa.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  return Buffer.from(binary, 'binary').toString('base64');
+  // Pure-JS fallback (no Buffer/Node required).
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let out = '';
+  for (let i = 0; i < binary.length; i += 3) {
+    const b0 = binary.charCodeAt(i), b1 = binary.charCodeAt(i + 1), b2 = binary.charCodeAt(i + 2);
+    out += chars[b0 >> 2] + chars[((b0 & 3) << 4) | (b1 >> 4 || 0)]
+      + (isNaN(b1) ? '=' : chars[((b1 & 15) << 2) | (b2 >> 6 || 0)])
+      + (isNaN(b2) ? '=' : chars[b2 & 63]);
+  }
+  return out;
 }
 
 function base64ToBytes(b64: string): Uint8Array {
-  let binary: string;
-  if (typeof atob === 'function') binary = atob(b64);
-  else binary = Buffer.from(b64, 'base64').toString('binary');
-  const out = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-  return out;
+  // atob is available in React Native and all modern JS environments.
+  if (typeof atob === 'function') {
+    const binary = atob(b64);
+    const out = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+    return out;
+  }
+  // Pure-JS fallback (no Buffer/Node required).
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const lookup = new Uint8Array(256);
+  for (let i = 0; i < chars.length; i++) lookup[chars.charCodeAt(i)] = i;
+  const clean = b64.replace(/=+$/, '');
+  const out = new Uint8Array(Math.floor(clean.length * 3 / 4));
+  let j = 0;
+  for (let i = 0; i < clean.length; i += 4) {
+    const a = lookup[clean.charCodeAt(i)], b = lookup[clean.charCodeAt(i + 1)];
+    const c = lookup[clean.charCodeAt(i + 2)], d = lookup[clean.charCodeAt(i + 3)];
+    out[j++] = (a << 2) | (b >> 4);
+    if (i + 2 < clean.length) out[j++] = ((b & 15) << 4) | (c >> 2);
+    if (i + 3 < clean.length) out[j++] = ((c & 3) << 6) | d;
+  }
+  return out.subarray(0, j);
 }
 
 function utf8ToBytes(s: string): Uint8Array {
