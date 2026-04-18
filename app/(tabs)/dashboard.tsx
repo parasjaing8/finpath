@@ -10,7 +10,7 @@ import { exportToCSV } from '../../utils/export';
 import { useNavigation, useRouter } from 'expo-router';
 import { usePro } from '../../hooks/usePro';
 import { ProPaywall } from '../../components/ProPaywall';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { ProjectionChart } from '../../components/ProjectionChart';
 import { HeroCard } from '../../components/HeroCard';
 import { SnapshotTiles } from '../../components/SnapshotTiles';
@@ -273,12 +273,16 @@ function Dashboard() {
         <Card.Content>
           <View style={styles.tableHeader}>
             <Text variant="titleMedium" style={styles.chartTitle}>Year-by-Year Projection</Text>
-            <Button mode="text" icon="download" compact
+            <Button
+              mode="text"
+              icon={({ color, size }) => <Feather name="star" color={color} size={size} />}
+              compact
               onPress={() => {
                 if (!isPro) { setShowPaywall(true); return; }
                 exportToCSV(currentProfile, assets, expenses, projections);
-              }}>
-              {isPro ? 'CSV' : '👑 CSV'}
+              }}
+            >
+              CSV
             </Button>
             <ProPaywall visible={showPaywall} onDismiss={() => setShowPaywall(false)} />
           </View>
