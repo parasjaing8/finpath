@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Share, Alert, Linking } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -141,9 +141,14 @@ export default function ProfileScreen() {
       }
     } else {
       try {
+        // Write to a temp file so the share sheet offers a real .json file
+        // that can be saved and later picked by the document picker on restore.
+        const tmpUri = FileSystem.cacheDirectory + filename;
+        await FileSystem.writeAsStringAsync(tmpUri, json, { encoding: FileSystem.EncodingType.UTF8 });
         await Share.share({
           title: filename,
-          message: json,
+          url: tmpUri,   // iOS / Android file share — produces a real file
+          message: json, // fallback for apps that only accept text
         });
       } catch (e: any) {
         Alert.alert('Export failed', e?.message ?? 'Unknown error');
