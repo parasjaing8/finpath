@@ -35,13 +35,29 @@ export function CustomSlider({
 
   const containerWidth = useRef(0);
 
+  // Keep mutable refs in sync on every render so the PanResponder (created
+  // once) always reads the latest prop values rather than stale closure values.
+  const minRef = useRef(minimumValue);
+  const maxRef = useRef(maximumValue);
+  const stepRef = useRef(step);
+  const onValueChangeRef = useRef(onValueChange);
+  const onSlidingCompleteRef = useRef(onSlidingComplete);
+  minRef.current = minimumValue;
+  maxRef.current = maximumValue;
+  stepRef.current = step;
+  onValueChangeRef.current = onValueChange;
+  onSlidingCompleteRef.current = onSlidingComplete;
+
   const clamp = useCallback((v: number) => {
-    let clamped = Math.max(minimumValue, Math.min(maximumValue, v));
-    if (step > 0) {
-      clamped = Math.round((clamped - minimumValue) / step) * step + minimumValue;
+    const min = minRef.current;
+    const max = maxRef.current;
+    const s = stepRef.current;
+    let clamped = Math.max(min, Math.min(max, v));
+    if (s > 0) {
+      clamped = Math.round((clamped - min) / s) * s + min;
     }
     return clamped;
-  }, [minimumValue, maximumValue, step]);
+  }, []);
 
   const ratio = (value - minimumValue) / (maximumValue - minimumValue);
   const percent = Math.max(0, Math.min(1, ratio)) * 100;
@@ -57,28 +73,28 @@ export function CustomSlider({
       const w = containerWidth.current;
       if (w <= 0) return;
       const r = locationX / w;
-      const raw = minimumValue + r * (maximumValue - minimumValue);
+      const raw = minRef.current + r * (maxRef.current - minRef.current);
       const clamped = clamp(raw);
-      onValueChange?.(clamped);
+      onValueChangeRef.current?.(clamped);
     },
     onPanResponderMove: (evt) => {
       const { locationX } = evt.nativeEvent;
       const w = containerWidth.current;
       if (w <= 0) return;
       const r = locationX / w;
-      const raw = minimumValue + r * (maximumValue - minimumValue);
+      const raw = minRef.current + r * (maxRef.current - minRef.current);
       const clamped = clamp(raw);
-      onValueChange?.(clamped);
+      onValueChangeRef.current?.(clamped);
     },
     onPanResponderRelease: (evt) => {
       const { locationX } = evt.nativeEvent;
       const w = containerWidth.current;
       if (w <= 0) return;
       const r = locationX / w;
-      const raw = minimumValue + r * (maximumValue - minimumValue);
+      const raw = minRef.current + r * (maxRef.current - minRef.current);
       const clamped = clamp(raw);
-      onValueChange?.(clamped);
-      onSlidingComplete?.(clamped);
+      onValueChangeRef.current?.(clamped);
+      onSlidingCompleteRef.current?.(clamped);
     },
   })).current;
 
