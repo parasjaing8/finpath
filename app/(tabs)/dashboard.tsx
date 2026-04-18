@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useColors } from '../../hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Card, Button, Portal, Dialog } from 'react-native-paper';
@@ -134,7 +134,12 @@ function Dashboard() {
   }
 
   if (!result) {
-    return <View style={styles.center}><Text>Calculating...</Text></View>;
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginBottom: 16 }} />
+        <Text style={{ color: colors.mutedForeground, fontSize: 18, fontWeight: '500' }}>Calculating...</Text>
+      </View>
+    );
   }
 
   const currency = currentProfile.currency;
