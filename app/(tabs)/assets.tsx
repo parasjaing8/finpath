@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
+import { Portal, Dialog } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
-import { useApp } from '@/context/AppContext';
+import { useProfile } from '../../hooks/useProfile';
+import { getAssets, createAsset, updateAsset as updateAssetDb, deleteAsset as deleteAssetDb } from '../../db/queries';
 import { Asset } from '@/engine/types';
 import { formatCurrency, getCurrencySymbol } from '@/engine/calculator';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
@@ -80,18 +82,30 @@ const EMPTY_FORM: AssetForm = {
 export default function AssetsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { assets, addAsset, deleteAsset, updateAsset, profile } = useApp();
+  const { currentProfile } = useProfile();
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<AssetForm>(EMPTY_FORM);
 
-  const currency = profile?.currency ?? 'INR';
+  const currency = currentProfile?.currency ?? 'INR';
   const totalNetWorth = assets.reduce((s, a) => s + a.current_value, 0);
   const investable = assets.filter(a => !a.is_self_use);
   const investableNetWorth = investable.reduce((s, a) => s + a.current_value, 0);
 
   const webTop = Platform.OS === 'web' ? WEB_HEADER_OFFSET : 0;
   const webBottom = Platform.OS === 'web' ? WEB_BOTTOM_OFFSET : 0;
+
+  async function loadAssets() {
+    if (!currentProfile) return;
+    const dbAssets = await getAssets(currentProfile.id);
+    setAssets(dbAssets);
+  }
+
+  React.useEffect(() => {
+    loadAssets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProfile]);
 
   function openAdd() {
     setEditId(null);
@@ -111,23 +125,28 @@ export default function AssetsScreen() {
     setShowModal(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
+    if (!currentProfile) return;
     const value = parseFloat(form.current_value);
     const roi = parseFloat(form.expected_roi);
     if (!form.name.trim() || isNaN(value) || value <= 0) {
       Alert.alert('Validation', 'Please enter a valid name and value.');
       return;
     }
-    const asset: Asset = {
-      id: editId ?? genId(),
+    const asset: Omit<Asset, 'id'> = {
+      profile_id: currentProfile.id,
       name: form.name.trim(),
       category: form.category,
       current_value: value,
       expected_roi: isNaN(roi) ? 8 : roi,
       is_self_use: form.is_self_use,
     };
-    if (editId) updateAsset(asset);
-    else addAsset(asset);
+    if (editId) {
+      await updateAssetDb({ ...asset, id: editId });
+    } else {
+      await createAsset(asset);
+    }
+    await loadAssets();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setShowModal(false);
   }
@@ -135,7 +154,11 @@ export default function AssetsScreen() {
   function handleDelete(id: string) {
     Alert.alert('Delete Asset', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => { deleteAsset(id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        await deleteAssetDb(id);
+        await loadAssets();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } },
     ]);
   }
 
@@ -225,29 +248,17 @@ export default function AssetsScreen() {
         <Feather name="plus" size={24} color="#fff" />
       </TouchableOpacity>
 
-      {/* Add/Edit Modal */}
-      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior="padding" style={styles.kavWrapper}>
-            <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: colors.foreground }]}>{editId ? 'Edit Asset' : 'Add Asset'}</Text>
-                <TouchableOpacity
-                  onPress={() => setShowModal(false)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Close asset form"
-                  hitSlop={10}
-                >
-                  <Feather name="x" size={22} color={colors.mutedForeground} />
-                </TouchableOpacity>
-              </View>
-
-              <KeyboardAwareScrollViewCompat
-                style={{ flex: 1 }}
-                showsVerticalScrollIndicator={false}
-                bottomOffset={20}
-                contentContainerStyle={{ paddingBottom: 8 }}
-              >
+      {/* Add/Edit Dialog */}
+      <Portal>
+        <Dialog visible={showModal} onDismiss={() => setShowModal(false)} style={{ backgroundColor: colors.card, borderRadius: 24, maxHeight: '85%' }}>
+          <Dialog.Title style={{ color: colors.foreground }}>{editId ? 'Edit Asset' : 'Add Asset'}</Dialog.Title>
+          <Dialog.Content style={{ paddingHorizontal: 0 }}>
+            <KeyboardAwareScrollViewCompat
+              style={{ flex: 1 }}
+              showsVerticalScrollIndicator={false}
+              bottomOffset={20}
+              contentContainerStyle={{ paddingBottom: 8 }}
+            >
               <Text style={styles.fieldLabel}>Name</Text>
               <TextInput
                 style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
@@ -305,36 +316,34 @@ export default function AssetsScreen() {
                   accessibilityState={{ checked: form.is_self_use }}
                   accessibilityLabel="Self-use property"
                 >
-                  <View style={[styles.checkbox, { borderColor: colors.primary, backgroundColor: form.is_self_use ? colors.primary : 'transparent' }]}>
+                  <View style={[styles.checkbox, { borderColor: colors.primary, backgroundColor: form.is_self_use ? colors.primary : 'transparent' }]}> 
                     {form.is_self_use && <Feather name="check" size={12} color="#fff" />}
                   </View>
                   <Text style={[styles.checkLabel, { color: colors.foreground }]}>Self-use property (excluded from investable net worth)</Text>
                 </TouchableOpacity>
               )}
-
-              </KeyboardAwareScrollViewCompat>
-              <View style={[styles.modalBtns, { paddingBottom: Math.max(insets.bottom, 16), borderTopColor: colors.border }]}>
-                <TouchableOpacity
-                  style={[styles.cancelBtn, { borderColor: colors.border }]}
-                  onPress={() => setShowModal(false)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cancel"
-                >
-                  <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-                  onPress={handleSave}
-                  accessibilityRole="button"
-                  accessibilityLabel={editId ? 'Save changes to asset' : 'Save new asset'}
-                >
-                  <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+            </KeyboardAwareScrollViewCompat>
+          </Dialog.Content>
+          <Dialog.Actions style={{ flexDirection: 'row', gap: 12, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 16) }}>
+            <TouchableOpacity
+              style={[styles.cancelBtn, { borderColor: colors.border }]}
+              onPress={() => setShowModal(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+            >
+              <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+              onPress={handleSave}
+              accessibilityRole="button"
+              accessibilityLabel={editId ? 'Save changes to asset' : 'Save new asset'}
+            >
+              <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Save</Text>
+            </TouchableOpacity>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
