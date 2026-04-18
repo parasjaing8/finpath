@@ -11,10 +11,13 @@ import { formatCurrency, getCurrencySymbol, getAge } from '@/engine/calculator';
 import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow } from '@/constants/theme';
 
 const FIRE_TYPES = [
-  { key: 'slim', label: 'Lean FIRE', desc: 'Survive to 85 — minimal corpus', color: '#E65100' },
-  { key: 'moderate', label: 'FIRE', desc: 'Sustain to 100 — comfortable', color: '#1B5E20' },
-  { key: 'fat', label: 'Fat FIRE', desc: 'Preserve wealth to 120', color: '#5E35B1' },
+  { key: 'lean',     label: 'Lean',     targetAge: 85,  desc: 'Survive to 85 — minimal corpus',   color: '#E65100' },
+  { key: 'moderate', label: 'Moderate', targetAge: 100, desc: 'Sustain to 100 — comfortable',       color: '#1B5E20' },
+  { key: 'fat',      label: 'Fat',      targetAge: 120, desc: 'Preserve wealth to 120',             color: '#5E35B1' },
+  { key: 'custom',   label: 'Custom',   targetAge: null, desc: 'Set your own target age manually', color: '#0277BD' },
 ];
+
+const PRESET_AGE: Record<string, number> = { lean: 85, moderate: 100, fat: 120 };
 
 export default function GoalsScreen() {
   const colors = useColors();
@@ -62,32 +65,6 @@ export default function GoalsScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.content, { paddingTop: 16 + webTop, paddingBottom: 40 + webBottom + insets.bottom }]}
     >
-      {/* FIRE Type */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>FIRE Strategy</Text>
-        {FIRE_TYPES.map(t => (
-          <TouchableOpacity
-            key={t.key}
-            style={[
-              styles.fireTypeRow,
-              { borderColor: form.fire_type === t.key ? t.color : colors.border, backgroundColor: form.fire_type === t.key ? `${t.color}15` : colors.background },
-            ]}
-            onPress={() => setForm(f => ({ ...f, fire_type: t.key }))}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: form.fire_type === t.key }}
-            accessibilityLabel={`${t.label}: ${t.desc}`}
-          >
-            <View style={[styles.radioOuter, { borderColor: t.color }]}>
-              {form.fire_type === t.key && <View style={[styles.radioInner, { backgroundColor: t.color }]} />}
-            </View>
-            <View style={styles.fireTypeContent}>
-              <Text style={[styles.fireTypeLabel, { color: form.fire_type === t.key ? t.color : colors.foreground }]}>{t.label}</Text>
-              <Text style={[styles.fireTypeDesc, { color: colors.mutedForeground }]}>{t.desc}</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
-
       {/* Retirement Age */}
       <View style={[styles.card, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Retirement Age</Text>
@@ -157,13 +134,42 @@ export default function GoalsScreen() {
           maximumTrackTintColor={colors.border}
         />
 
-        <View style={[styles.sliderRow, { marginTop: 12 }]}>
+        {/* FIRE Strategy chips */}
+        <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 20 }]}>FIRE Strategy</Text>
+        <View style={styles.fireChipRow}>
+          {FIRE_TYPES.map(t => {
+            const selected = form.fire_type === t.key;
+            return (
+              <TouchableOpacity
+                key={t.key}
+                style={[styles.fireChip, { borderColor: selected ? t.color : colors.border, backgroundColor: selected ? `${t.color}18` : colors.background }]}
+                onPress={() => {
+                  const newAge = t.targetAge ?? form.fire_target_age;
+                  setForm(f => ({ ...f, fire_type: t.key, fire_target_age: newAge }));
+                }}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`${t.label}: ${t.desc}`}
+              >
+                <Text style={[styles.fireChipText, { color: selected ? t.color : colors.mutedForeground, fontFamily: selected ? 'Inter_700Bold' : 'Inter_500Medium' }]}>{t.label}</Text>
+                <Text style={[styles.fireChipDesc, { color: selected ? t.color : colors.mutedForeground }]}>{t.desc}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={[styles.sliderRow, { marginTop: 16 }]}>
           <Text style={[styles.sliderLabel, { color: colors.mutedForeground }]}>Survive to age</Text>
           <Text style={[styles.sliderValue, { color: colors.purple }]}>{form.fire_target_age ?? 100}</Text>
         </View>
         <Slider
           value={form.fire_target_age ?? 100}
-          onValueChange={v => setForm(f => ({ ...f, fire_target_age: Math.round(v) }))}
+          onValueChange={v => {
+            const rounded = Math.round(v);
+            const preset = PRESET_AGE[form.fire_type ?? ''];
+            const switchToCustom = preset !== undefined && preset !== rounded;
+            setForm(f => ({ ...f, fire_target_age: rounded, ...(switchToCustom ? { fire_type: 'custom' } : {}) }));
+          }}
           minimumValue={80}
           maximumValue={120}
           step={1}
@@ -176,7 +182,7 @@ export default function GoalsScreen() {
       {/* Summary */}
       <View style={[styles.summaryCard, { backgroundColor: colors.successLight }]}>
         <Text style={[styles.summaryTitle, { color: colors.success }]}>Plan Summary</Text>
-        <InfoRow label="Retire at" value={form.retirement_age} suffix={` (${FIRE_TYPES.find(t => t.key === form.fire_type)?.label})`} />
+        <InfoRow label="Retire at" value={form.retirement_age} suffix={` (${FIRE_TYPES.find(t => t.key === form.fire_type)?.label ?? 'Moderate'})`} />
         <InfoRow label="Monthly income (today)" value={formatCurrency(form.pension_income ?? 0, currency)} />
         <InfoRow label="Inflation" value={`${form.inflation_rate ?? 6}%`} />
         <InfoRow label="Corpus must last to" value={`age ${form.fire_target_age ?? 100}`} />
@@ -207,12 +213,10 @@ const styles = StyleSheet.create({
     ...shadow(2),
   },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 16, fontFamily: 'Inter_700Bold' },
-  fireTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderRadius: 12, padding: 14, marginBottom: 10 },
-  radioOuter: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
-  radioInner: { width: 10, height: 10, borderRadius: 5 },
-  fireTypeContent: { flex: 1 },
-  fireTypeLabel: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  fireTypeDesc: { fontSize: 12, marginTop: 2, fontFamily: 'Inter_400Regular' },
+  fireChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  fireChip: { flex: 1, minWidth: '45%', borderWidth: 1.5, borderRadius: 12, padding: 10, alignItems: 'center' },
+  fireChipText: { fontSize: 13, marginBottom: 2 },
+  fireChipDesc: { fontSize: 10, textAlign: 'center', fontFamily: 'Inter_400Regular' },
   sliderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   sliderLabel: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   sliderValue: { fontSize: 20, fontWeight: '800', fontFamily: 'Inter_700Bold' },
