@@ -9,6 +9,7 @@ import { Expense, Frequency, FrequencyInput, FREQUENCY_TO_MONTHS_PER_PAYMENT } f
 import { formatCurrency, getCurrencySymbol } from '@/engine/calculator';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { DateInput } from '@/components/DateInput';
+import { CustomSlider } from '@/components/CustomSlider';
 import { EXPENSE_CATEGORIES } from '@/constants/categories';
 import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow, FAB_SIZE, FAB_RIGHT, FAB_BOTTOM_NATIVE, FAB_BOTTOM_WEB } from '@/constants/theme';
 
@@ -139,7 +140,7 @@ export default function ExpensesScreen() {
         <View style={styles.expInfo}>
           <Text style={[styles.expName, { color: colors.foreground }]}>{e.name}</Text>
           <Text style={[styles.expMeta, { color: colors.mutedForeground }]}>
-            {e.frequency ? `${e.frequency.charAt(0) + e.frequency.slice(1).toLowerCase()} · ` : ''}
+            {e.expense_type !== 'FUTURE_ONE_TIME' && e.frequency ? `${e.frequency.charAt(0) + e.frequency.slice(1).toLowerCase()} · ` : ''}
             {e.inflation_rate}% inflation
             {e.start_date ? ` · from ${e.start_date.slice(0, 7)}` : ''}
           </Text>
@@ -244,7 +245,7 @@ export default function ExpensesScreen() {
                 <TouchableOpacity
                   key={t.key}
                   style={[styles.typeRow, { borderColor: form.expense_type === t.key ? colors.primary : colors.border, backgroundColor: form.expense_type === t.key ? colors.secondary : colors.background }]}
-                  onPress={() => setForm(f => ({ ...f, expense_type: t.key }))}
+                  onPress={() => setForm(f => ({ ...f, expense_type: t.key, ...(t.key === 'FUTURE_ONE_TIME' ? { frequency: 'MONTHLY' as Frequency } : {}) }))}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: form.expense_type === t.key }}
                   accessibilityLabel={`${t.label}: ${t.desc}`}
@@ -311,15 +312,16 @@ export default function ExpensesScreen() {
                 </>
               )}
 
-              <Text style={styles.fieldLabel}>Inflation Rate (%)</Text>
-              <TextInput
-                style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
-                value={form.inflation_rate}
-                onChangeText={t => setForm(f => ({ ...f, inflation_rate: t }))}
-                keyboardType="numeric"
-                placeholder="e.g., 6"
-                placeholderTextColor={colors.mutedForeground}
-                accessibilityLabel="Annual inflation rate in percent"
+              <View style={styles.sliderRow}>
+                <Text style={styles.fieldLabel}>Inflation Rate (%)</Text>
+                <Text style={[styles.sliderVal, { color: colors.warning }]}>{parseFloat(form.inflation_rate) || 0}%</Text>
+              </View>
+              <CustomSlider
+                value={parseFloat(form.inflation_rate) || 0}
+                onValueChange={v => setForm(f => ({ ...f, inflation_rate: String(Math.round(v * 10) / 10) }))}
+                minimumValue={0}
+                maximumValue={20}
+                step={0.5}
               />
 
               {form.expense_type !== 'CURRENT_RECURRING' && (
@@ -417,6 +419,8 @@ const styles = StyleSheet.create({
   catScroll: { marginBottom: 4 },
   catChip: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 1 },
   catChipText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  sliderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 2 },
+  sliderVal: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24, marginBottom: 32 },
   cancelBtn: { flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: 'center' },
   saveBtn: { flex: 1, borderRadius: 12, padding: 14, alignItems: 'center' },

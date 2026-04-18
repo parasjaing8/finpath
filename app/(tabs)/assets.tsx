@@ -8,7 +8,23 @@ import { useApp } from '@/context/AppContext';
 import { Asset } from '@/engine/types';
 import { formatCurrency, getCurrencySymbol } from '@/engine/calculator';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
+import { CustomSlider } from '@/components/CustomSlider';
 import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow, FAB_SIZE, FAB_RIGHT, FAB_BOTTOM_NATIVE, FAB_BOTTOM_WEB } from '@/constants/theme';
+
+const ASSET_NAME_PLACEHOLDER: Record<string, string> = {
+  EQUITY: 'e.g., Nifty 50 ETF',
+  MUTUAL_FUND: 'e.g., HDFC Flexi Cap',
+  DEBT: 'e.g., Corporate Bond Fund',
+  FIXED_DEPOSIT: 'e.g., SBI Fixed Deposit',
+  PPF: 'e.g., PPF Account',
+  EPF: 'e.g., EPFO Account',
+  GOLD: 'e.g., SGB 2024',
+  REAL_ESTATE: 'e.g., Flat in Bangalore',
+  CRYPTO: 'e.g., Bitcoin',
+  CASH: 'e.g., Savings Account',
+  ESOP_RSU: 'e.g., Infosys RSU',
+  OTHERS: 'e.g., Startup Investment',
+};
 
 const CATEGORIES = [
   { key: 'EQUITY', label: 'Equity', roi: 12 },
@@ -234,7 +250,7 @@ export default function AssetsScreen() {
                 style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
                 value={form.name}
                 onChangeText={t => setForm(f => ({ ...f, name: t }))}
-                placeholder="e.g., HDFC Flexi Cap"
+                placeholder={ASSET_NAME_PLACEHOLDER[form.category] ?? 'e.g., Asset Name'}
                 placeholderTextColor={colors.mutedForeground}
                 accessibilityLabel="Asset name"
               />
@@ -266,15 +282,16 @@ export default function AssetsScreen() {
                 accessibilityLabel="Current value in your currency"
               />
 
-              <Text style={styles.fieldLabel}>Expected Return (% p.a.)</Text>
-              <TextInput
-                style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
-                value={form.expected_roi}
-                onChangeText={t => setForm(f => ({ ...f, expected_roi: t }))}
-                keyboardType="numeric"
-                placeholder="e.g., 12"
-                placeholderTextColor={colors.mutedForeground}
-                accessibilityLabel="Expected annual return in percent"
+              <View style={styles.sliderRow}>
+                <Text style={styles.fieldLabel}>Expected Return (% p.a.)</Text>
+                <Text style={[styles.sliderVal, { color: colors.primary }]}>{parseFloat(form.expected_roi) || 0}%</Text>
+              </View>
+              <CustomSlider
+                value={parseFloat(form.expected_roi) || 0}
+                onValueChange={v => setForm(f => ({ ...f, expected_roi: String(Math.round(v * 10) / 10) }))}
+                minimumValue={0}
+                maximumValue={20}
+                step={0.5}
               />
 
               {form.category === 'REAL_ESTATE' && (
@@ -362,6 +379,8 @@ const styles = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 1,
   },
   catChipText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  sliderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 2 },
+  sliderVal: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
   checkLabel: { flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular' },
