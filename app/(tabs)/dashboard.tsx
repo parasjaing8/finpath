@@ -113,11 +113,11 @@ function Dashboard() {
   if (!goals) {
     return (
       <View style={styles.center}>
-        <MaterialCommunityIcons name="flag-outline" size={48} color="#C8E6C9" />
-        <Text variant="titleMedium" style={{ textAlign: 'center', color: '#333', marginTop: 16, fontWeight: '700' }}>
+        <MaterialCommunityIcons name="flag-outline" size={48} color={colors.success} />
+        <Text variant="titleMedium" style={{ textAlign: 'center', color: colors.foreground, marginTop: 16, fontWeight: '700' }}>
           No plan set yet
         </Text>
-        <Text variant="bodyMedium" style={{ textAlign: 'center', color: '#666', marginTop: 8, marginHorizontal: 32, lineHeight: 22 }}>
+        <Text variant="bodyMedium" style={{ textAlign: 'center', color: colors.mutedForeground, marginTop: 8, marginHorizontal: 32, lineHeight: 22 }}>
           Set your retirement age, withdrawal target, and withdrawal rate to see your projection here.
         </Text>
         <Button
