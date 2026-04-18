@@ -364,15 +364,17 @@ export default function AssetsScreen() {
         }
       />
 
-      {/* FAB */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.primary, bottom: (Platform.OS === 'web' ? FAB_BOTTOM_WEB + webBottom : FAB_BOTTOM_NATIVE) + insets.bottom }]}
-        onPress={openAdd}
-        accessibilityRole="button"
-        accessibilityLabel="Add new asset"
-      >
-        <Feather name="plus" size={24} color="#fff" />
-      </TouchableOpacity>
+      {/* FAB (hide if asset list is empty) */}
+      {assets.length > 0 && (
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: colors.primary, bottom: (Platform.OS === 'web' ? FAB_BOTTOM_WEB + webBottom : FAB_BOTTOM_NATIVE) + insets.bottom }]}
+          onPress={openAdd}
+          accessibilityRole="button"
+          accessibilityLabel="Add new asset"
+        >
+          <Feather name="plus" size={24} color="#fff" />
+        </TouchableOpacity>
+      )}
 
       {/* Add/Edit Dialog */}
       <Portal>
