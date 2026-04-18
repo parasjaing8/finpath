@@ -211,6 +211,10 @@ export default function AssetsScreen() {
       {/* Add/Edit Modal */}
       <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
         <View style={styles.modalOverlay}>
+          <KeyboardAwareScrollViewCompat
+            showsVerticalScrollIndicator={false}
+            bottomOffset={20}
+          >
           <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>{editId ? 'Edit Asset' : 'Add Asset'}</Text>
@@ -223,12 +227,6 @@ export default function AssetsScreen() {
                 <Feather name="x" size={22} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
-
-            <KeyboardAwareScrollViewCompat
-              showsVerticalScrollIndicator={false}
-              bottomOffset={20}
-              contentContainerStyle={{ paddingBottom: 8 }}
-            >
               <Text style={styles.fieldLabel}>Name</Text>
               <TextInput
                 style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
@@ -308,8 +306,8 @@ export default function AssetsScreen() {
                   <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Save</Text>
                 </TouchableOpacity>
               </View>
-            </KeyboardAwareScrollViewCompat>
           </View>
+          </KeyboardAwareScrollViewCompat>
         </View>
       </Modal>
     </View>
@@ -347,8 +345,8 @@ const styles = StyleSheet.create({
     borderRadius: FAB_SIZE / 2, justifyContent: 'center', alignItems: 'center',
     ...shadow(4),
   },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '85%' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  modalSheet: { marginTop: 80, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, minHeight: '100%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 6, marginTop: 12, fontFamily: 'Inter_600SemiBold' },
