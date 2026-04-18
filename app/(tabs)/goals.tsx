@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platfo
 import { CustomSlider as Slider } from '@/components/CustomSlider';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/context/AppContext';
@@ -22,6 +23,7 @@ const PRESET_AGE: Record<string, number> = { lean: 85, moderate: 100, fat: 120 }
 export default function GoalsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { goals, setGoals, profile } = useApp();
 
   const currency = profile?.currency ?? 'INR';
@@ -38,8 +40,6 @@ export default function GoalsScreen() {
     fire_target_age: 100,
   });
 
-  const [saved, setSaved] = useState(false);
-
   useEffect(() => {
     if (goals) setForm(goals);
   }, [goals]);
@@ -47,8 +47,7 @@ export default function GoalsScreen() {
   function handleSave() {
     setGoals(form);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    router.replace('/(tabs)/dashboard' as any);
   }
 
   function InfoRow({ label, value, suffix = '' }: { label: string; value: string | number; suffix?: string }) {
@@ -189,17 +188,12 @@ export default function GoalsScreen() {
       </View>
 
       <TouchableOpacity
-        style={[styles.saveBtn, { backgroundColor: saved ? '#2E7D32' : colors.primary }]}
+        style={[styles.saveBtn, { backgroundColor: colors.primary }]}
         onPress={handleSave}
         accessibilityRole="button"
-        accessibilityLabel={saved ? 'Goals saved' : 'Save goals'}
-        accessibilityState={{ disabled: saved }}
+        accessibilityLabel="Save & calculate"
       >
-        {saved ? (
-          <Feather name="check" size={20} color="#fff" />
-        ) : (
-          <Text style={styles.saveBtnText}>Save Goals</Text>
-        )}
+        <Text style={styles.saveBtnText}>Save &amp; Calculate</Text>
       </TouchableOpacity>
     </ScrollView>
   );
