@@ -303,7 +303,7 @@ export default function ProfileScreen() {
           {CURRENCIES.map(c => (
             <TouchableOpacity
               key={c.key}
-              style={[styles.currChip, {
+              style={[styles.currPill, {
                 borderColor: form.currency === c.key ? colors.primary : colors.border,
                 backgroundColor: form.currency === c.key ? colors.secondary : colors.background,
               }]}
@@ -311,8 +311,9 @@ export default function ProfileScreen() {
               accessibilityRole="button"
               accessibilityLabel={`Set currency to ${c.label}`}
             >
-              <Text style={[styles.currSymbol, { color: form.currency === c.key ? colors.primary : colors.foreground }]}>{c.symbol}</Text>
-              <Text style={[styles.currLabel, { color: form.currency === c.key ? colors.primary : colors.mutedForeground }]}>{c.label}</Text>
+              <Text style={[styles.currPillText, { color: form.currency === c.key ? colors.primary : colors.mutedForeground }]}>
+                {c.symbol} {c.key}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -447,7 +448,7 @@ const styles = StyleSheet.create({
   avatarName: { fontSize: 16, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   avatarAge: { fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 2 },
   card: {
-    borderRadius: 16, padding: 20, marginBottom: 16,
+    borderRadius: 16, padding: 14, marginBottom: 16,
     ...shadow(2),
   },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 16, fontFamily: 'Inter_700Bold' },
@@ -455,10 +456,9 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 6, marginTop: 12, fontFamily: 'Inter_600SemiBold' },
   input: { borderWidth: 1.5, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: 'Inter_400Regular' },
   errorText: { color: '#C62828', fontSize: 12, marginTop: 6, fontFamily: 'Inter_500Medium' },
-  currencyRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  currChip: { flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: 'center' },
-  currSymbol: { fontSize: 22, fontWeight: '800', fontFamily: 'Inter_700Bold' },
-  currLabel: { fontSize: 12, marginTop: 2, fontFamily: 'Inter_400Regular' },
+  currencyRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  currPill: { borderWidth: 1.5, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 14 },
+  currPillText: { fontSize: 13, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   saveBtn: {
     borderRadius: 16, padding: 18, alignItems: 'center', justifyContent: 'center',
     ...shadow(3),
