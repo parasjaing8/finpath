@@ -217,7 +217,11 @@ function calculateSimulationFireCorpus(
   inflationRate: number,
   fireType: string,
 ): number {
-  if (monthlyPension <= 0) return 0;
+  const futureExpenses = expenses.filter(e => e.expense_type !== 'CURRENT_RECURRING');
+  // No pension AND no future expenses → any corpus is sufficient; return 0 so
+  // the FIRE trigger can use the "retirement age + positive NW" path instead.
+  if (monthlyPension <= 0 && futureExpenses.length === 0) return 0;
+
   const isRich = fireType === 'fat';
   function residual(corpus: number): number {
     const final = simulatePostRetirementCorpus(
@@ -228,10 +232,11 @@ function calculateSimulationFireCorpus(
     return isRich ? final - corpus : final;
   }
   // Adaptive upper bound: corpus required scales with annual cash need.
-  // Cover at least (years × annual need × inflation overshoot) and grow until
-  // residual flips sign, so very-high net worth users are covered.
+  // Include a rough per-year estimate of one-time future expenses so the
+  // initial bound is sensible even when pension_income = 0.
   const yearsInRetirement = Math.max(1, fireTargetAge - retirementAge);
-  const annualNeed = Math.max(1, monthlyPension * 12);
+  const annualFutureExpEst = futureExpenses.reduce((s, e) => s + e.amount, 0) / yearsInRetirement;
+  const annualNeed = Math.max(1, monthlyPension * 12 + annualFutureExpEst);
   let high = annualNeed * yearsInRetirement * Math.pow(1 + Math.max(inflationRate, 0.02), yearsInRetirement);
   // Ensure the bound actually brackets the root.
   for (let i = 0; i < 8 && residual(high) < 0; i++) high *= 4;
@@ -502,7 +507,13 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     }
 
     const netWorth = existingBucket + sipBucket;
-    const isFireThisYear = !fireAchieved && netWorth >= fireCorpus && fireCorpus > 0;
+    // fireCorpus === 0 means no withdrawal need (no pension, no future expenses):
+    // treat any positive net worth at or after retirement as FIRE-achieved.
+    const isFireThisYear = !fireAchieved && (
+      fireCorpus === 0
+        ? age >= retirementAge && netWorth > 0
+        : netWorth >= fireCorpus
+    );
     if (isFireThisYear) { fireAchieved = true; fireAchievedAge = age; }
 
     projections.push({

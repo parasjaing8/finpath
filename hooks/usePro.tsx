@@ -9,7 +9,7 @@ import {
   purchaseUpdatedListener,
   purchaseErrorListener,
   finishTransaction,
-  ProductPurchase,
+  Purchase,
   PurchaseError,
 } from 'react-native-iap';
 
@@ -65,7 +65,7 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
         await initConnection();
 
         // Listen for purchase updates
-        purchaseListenerRef.current = purchaseUpdatedListener(async (purchase: ProductPurchase) => {
+        purchaseListenerRef.current = purchaseUpdatedListener(async (purchase: Purchase) => {
           if (purchase.productId === PRO_PRODUCT_ID) {
             await finishTransaction({ purchase, isConsumable: false });
             await unlockPro();
@@ -101,7 +101,7 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
   const purchasePro = useCallback(async () => {
     setPurchasing(true);
     try {
-      await fetchProducts({ skus: [PRO_PRODUCT_ID], type: "inapp" });
+      await fetchProducts({ skus: [PRO_PRODUCT_ID], type: "in-app" });
       await requestPurchase({
         request: {
           google: {
