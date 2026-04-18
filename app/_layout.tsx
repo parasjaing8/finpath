@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Slot } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { ProfileProvider } from '../hooks/useProfile';
@@ -44,17 +45,19 @@ function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ErrorBoundary>
-        <PaperProvider theme={theme}>
-          <AppProvider>
-            <ProProvider>
-              <ProfileProvider>
-                <Slot />
-              </ProfileProvider>
-            </ProProvider>
-          </AppProvider>
-        </PaperProvider>
-      </ErrorBoundary>
+      <KeyboardProvider>
+        <ErrorBoundary>
+          <PaperProvider theme={theme}>
+            <AppProvider>
+              <ProProvider>
+                <ProfileProvider>
+                  <Slot />
+                </ProfileProvider>
+              </ProProvider>
+            </AppProvider>
+          </PaperProvider>
+        </ErrorBoundary>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }
