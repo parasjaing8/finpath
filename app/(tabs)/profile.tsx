@@ -375,34 +375,24 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* About */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>About</Text>
+      {/* About — subtle footer links */}
+      <View style={styles.footerLinks}>
         <TouchableOpacity
-          style={[styles.linkRow, { borderBottomColor: colors.border }]}
           onPress={() => Linking.openURL('https://aihomecloud.com/finpath/')}
           accessibilityRole="link"
           accessibilityLabel="About us"
         >
-          <Feather name="info" size={18} color={colors.primary} />
-          <Text style={[styles.linkLabel, { color: colors.foreground }]}>About Us</Text>
-          <Feather name="external-link" size={16} color={colors.mutedForeground} />
+          <Text style={[styles.footerLink, { color: colors.mutedForeground }]}>About Us</Text>
         </TouchableOpacity>
+        <Text style={[styles.footerDot, { color: colors.mutedForeground }]}>·</Text>
         <TouchableOpacity
-          style={styles.linkRow}
           onPress={() => Linking.openURL('https://aihomecloud.com/finpath/privacy')}
           accessibilityRole="link"
           accessibilityLabel="Privacy policy"
         >
-          <Feather name="shield" size={18} color={colors.primary} />
-          <Text style={[styles.linkLabel, { color: colors.foreground }]}>Privacy Policy</Text>
-          <Feather name="external-link" size={16} color={colors.mutedForeground} />
+          <Text style={[styles.footerLink, { color: colors.mutedForeground }]}>Privacy Policy</Text>
         </TouchableOpacity>
       </View>
-
-      <Text style={[styles.credit, { color: colors.mutedForeground }]}>
-        Made with {'\u2764\uFE0F'} in {'\uD83C\uDDEE\uD83C\uDDF3'} for the world
-      </Text>
 
       {/* Danger Zone */}
       <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -453,22 +443,6 @@ const styles = StyleSheet.create({
   currChip: { flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: 'center' },
   currSymbol: { fontSize: 22, fontWeight: '800', fontFamily: 'Inter_700Bold' },
   currLabel: { fontSize: 12, marginTop: 2, fontFamily: 'Inter_400Regular' },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'transparent',
-  },
-  linkLabel: { flex: 1, fontSize: 15, fontFamily: 'Inter_500Medium' },
-  credit: {
-    textAlign: 'center',
-    fontSize: 13,
-    marginTop: 8,
-    marginBottom: 8,
-    fontFamily: 'Inter_500Medium',
-  },
   statsCard: { borderRadius: 16, padding: 20, marginBottom: 16 },
   statsRow: { flexDirection: 'row', alignItems: 'center' },
   statItem: { flex: 1, alignItems: 'center' },
@@ -487,17 +461,12 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16,
   },
   backupBtnText: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
-  modalBackdrop: {
-    flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  modalCard: {
-    borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32,
-  },
-  importInput: { minHeight: 140, textAlignVertical: 'top', fontSize: 12, fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) },
-  modalRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
   dangerRow: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   dangerLabel: { flex: 1, fontSize: 15, fontFamily: 'Inter_500Medium' },
+  footerLinks: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginBottom: 12, marginTop: 4 },
+  footerLink: { fontSize: 12, textDecorationLine: 'underline', fontFamily: 'Inter_400Regular' },
+  footerDot: { fontSize: 12, fontFamily: 'Inter_400Regular' },
 });

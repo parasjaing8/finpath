@@ -281,6 +281,7 @@ export default function LoginScreen() {
               disabled={pin.length !== 6 || loading || lockoutSeconds > 0}
               style={styles.loginBtn}
               contentStyle={styles.loginBtnContent}
+              textColor="#fff"
               accessibilityLabel={lockoutSeconds > 0 ? `Account locked, wait ${lockoutSeconds} seconds` : 'Login'}
             >
               {lockoutSeconds > 0 ? `Locked (${lockoutSeconds}s)` : 'Login'}
@@ -298,21 +299,9 @@ export default function LoginScreen() {
           </View>
         )}
 
-        {/* Add New Profile */}
-        <Button
-          mode="text"
-          onPress={() => router.push('/onboarding/create-profile')}
-          style={styles.newProfileBtn}
-          textColor="#1B5E20"
-          icon="account-plus-outline"
-          accessibilityLabel="Add new profile"
-        >
-          Add New Profile
-        </Button>
-
         {/* Privacy Policy */}
         <TouchableOpacity
-          onPress={() => Linking.openURL('https://parasjaing8.github.io/finpath/PRIVACY_POLICY')}
+          onPress={() => Linking.openURL('https://aihomecloud.com/finpath/privacy')}
           style={styles.privacyLink}
           accessibilityRole="link"
         >
@@ -481,9 +470,6 @@ const styles = StyleSheet.create({
   },
   loginBtnContent: {
     height: 48,
-  },
-  newProfileBtn: {
-    marginTop: 12,
   },
   privacyLink: {
     alignItems: 'center',
