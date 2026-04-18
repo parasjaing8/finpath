@@ -214,7 +214,7 @@ export default function GoalsScreen() {
           disabled={calculating}
         >
           {saved ? (
-            <Feather name="check" size={20} color="#fff" />
+            <Text style={styles.saveBtnText}>Saved ✓</Text>
           ) : (
             <Text style={styles.saveBtnText}>Save Goals and Calculate</Text>
           )}
