@@ -154,7 +154,7 @@ function calculateVestingForYear(assets: Asset[], targetYear: number): number {
 }
 
 function computeBlendedGrowthRate(assets: Asset[], fallbackRate: number): number {
-  const investable = assets.filter(a => !(a.category === 'REAL_ESTATE' && a.is_self_use));
+  const investable = assets.filter(a => !a.is_self_use);
   const totalValue = investable.reduce((s, a) => s + a.current_value, 0);
   if (totalValue === 0) return fallbackRate;
   const weighted = investable.reduce((s, a) => {
@@ -389,7 +389,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
   let investableNetWorth = 0;
   for (const asset of assets) {
     initialNetWorth += asset.current_value;
-    if (asset.category !== 'REAL_ESTATE' || !asset.is_self_use)
+    if (!asset.is_self_use)
       investableNetWorth += asset.current_value;
   }
 

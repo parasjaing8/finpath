@@ -70,7 +70,7 @@ export default function AssetsScreen() {
 
   const currency = profile?.currency ?? 'INR';
   const totalNetWorth = assets.reduce((s, a) => s + a.current_value, 0);
-  const investable = assets.filter(a => !(a.category === 'REAL_ESTATE' && a.is_self_use));
+  const investable = assets.filter(a => !a.is_self_use);
   const investableNetWorth = investable.reduce((s, a) => s + a.current_value, 0);
 
   const webTop = Platform.OS === 'web' ? WEB_HEADER_OFFSET : 0;
@@ -277,20 +277,18 @@ export default function AssetsScreen() {
                 accessibilityLabel="Expected annual return in percent"
               />
 
-              {form.category === 'REAL_ESTATE' && (
-                <TouchableOpacity
+              <TouchableOpacity
                   style={styles.checkRow}
                   onPress={() => setForm(f => ({ ...f, is_self_use: !f.is_self_use }))}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: form.is_self_use }}
-                  accessibilityLabel="Self-use property"
+                  accessibilityLabel="Self-use asset"
                 >
                   <View style={[styles.checkbox, { borderColor: colors.primary, backgroundColor: form.is_self_use ? colors.primary : 'transparent' }]}>
                     {form.is_self_use && <Feather name="check" size={12} color="#fff" />}
                   </View>
-                  <Text style={[styles.checkLabel, { color: colors.foreground }]}>Self-use property (excluded from investable net worth)</Text>
+                  <Text style={[styles.checkLabel, { color: colors.foreground }]}>Self-use asset (excluded from investable net worth)</Text>
                 </TouchableOpacity>
-              )}
 
               <View style={styles.modalBtns}>
                 <TouchableOpacity
