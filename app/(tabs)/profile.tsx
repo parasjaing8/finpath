@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Modal, Share, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Share, Alert, Linking } from 'react-native';
+import { Portal, Dialog } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
-import { useApp, ExportPayload } from '@/context/AppContext';
+import { useProfile } from '../../hooks/useProfile';
+import { getAllProfiles, getAssets, getExpenses, getGoals, createProfile, updateProfile, createAsset, updateAsset, createExpense, updateExpense, saveGoals, deleteProfile, deleteAsset, deleteExpense } from '../../db/queries';
 import { Profile } from '@/engine/types';
 import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow } from '@/constants/theme';
 
@@ -42,10 +44,19 @@ function validateDob(dob: string): { ok: true; age: number } | { ok: false; erro
   return { ok: true, age };
 }
 
-export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { profile, setProfile, exportAll, importAll } = useApp();
+  const { currentProfile, refreshProfiles } = useProfile();
+  const [form, setForm] = useState<Profile>({
+    id: 0,
+    name: '',
+    dob: '1995-01-01',
+    currency: 'INR',
+    monthly_income: 0,
+    failed_attempts: 0,
+    lockout_until: 0,
+    created_at: '',
+  });
   const [saved, setSaved] = useState(false);
 
   const webTop = Platform.OS === 'web' ? WEB_HEADER_OFFSET : 0;
@@ -64,54 +75,71 @@ export default function ProfileScreen() {
   const [importError, setImportError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (profile) setForm(profile);
-  }, [profile]);
+    if (currentProfile) setForm(currentProfile);
+  }, [currentProfile]);
 
   const dobCheck = validateDob(form.dob);
   const dobError = dobCheck.ok ? null : dobCheck.error;
   const currentAge = dobCheck.ok ? dobCheck.age : 0;
 
-  function handleSave() {
+  async function handleSave() {
     if (!dobCheck.ok) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Invalid date of birth', dobCheck.error);
       return;
     }
-    setProfile(form);
+    if (!form.name.trim()) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Name required', 'Please enter your name.');
+      return;
+    }
+    await updateProfile(form.id, form.monthly_income, form.currency, form.dob, form.name.trim());
+    await refreshProfiles();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
 
   const handleExport = useCallback(async () => {
-    const payload = exportAll();
-    const json = JSON.stringify(payload, null, 2);
-    const filename = `fire-planner-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    if (Platform.OS === 'web') {
-      try {
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      } catch (e: any) {
-        Alert.alert('Export failed', e?.message ?? 'Unknown error');
+    // Export all profiles, assets, expenses, and goals from SQLite
+    try {
+      const profiles = await getAllProfiles();
+      const assets: Record<number, any[]> = {};
+      const expenses: Record<number, any[]> = {};
+      const goals: Record<number, any> = {};
+      for (const p of profiles) {
+        assets[p.id] = await getAssets(p.id);
+        expenses[p.id] = await getExpenses(p.id);
+        goals[p.id] = await getGoals(p.id);
       }
-    } else {
-      try {
-        await Share.share({
-          title: filename,
-          message: json,
-        });
-      } catch (e: any) {
-        Alert.alert('Export failed', e?.message ?? 'Unknown error');
+      const payload = { profiles, assets, expenses, goals };
+      const json = JSON.stringify(payload, null, 2);
+      const filename = `finpath-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      if (Platform.OS === 'web') {
+        try {
+          const blob = new Blob([json], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (e: any) {
+          Alert.alert('Export failed', e?.message ?? 'Unknown error');
+        }
+      } else {
+        try {
+          await Share.share({ title: filename, message: json });
+        } catch (e: any) {
+          Alert.alert('Export failed', e?.message ?? 'Unknown error');
+        }
       }
+    } catch (e: any) {
+      Alert.alert('Export failed', e?.message ?? 'Unknown error');
     }
-  }, [exportAll]);
+  }, []);
 
   const openImport = useCallback(() => {
     setImportText('');
@@ -119,15 +147,41 @@ export default function ProfileScreen() {
     setImportVisible(true);
   }, []);
 
-  const runImport = useCallback(async (parsed: ExportPayload) => {
+  const runImport = useCallback(async (parsed: any) => {
     try {
-      await importAll(parsed);
+      // Clear all existing data (dangerous!)
+      const profiles = await getAllProfiles();
+      for (const p of profiles) {
+        await deleteProfile(p.id);
+      }
+      // Insert all profiles
+      for (const p of parsed.profiles) {
+        const pid = await createProfile(p.name, p.dob, p.monthly_income, p.currency, '000000'); // PIN must be reset
+        // Insert assets
+        if (parsed.assets && parsed.assets[p.id]) {
+          for (const a of parsed.assets[p.id]) {
+            await createAsset({ ...a, profile_id: pid });
+          }
+        }
+        // Insert expenses
+        if (parsed.expenses && parsed.expenses[p.id]) {
+          for (const e of parsed.expenses[p.id]) {
+            await createExpense({ ...e, profile_id: pid });
+          }
+        }
+        // Insert goals
+        if (parsed.goals && parsed.goals[p.id]) {
+          const g = parsed.goals[p.id];
+          await saveGoals(pid, g.retirement_age, g.sip_stop_age, g.pension_income, g.fire_type, g.fire_target_age, g.withdrawal_rate, g.inflation_rate);
+        }
+      }
+      await refreshProfiles();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setImportVisible(false);
     } catch (e: any) {
       setImportError(e?.message ?? 'Import failed.');
     }
-  }, [importAll]);
+  }, [refreshProfiles]);
 
   const confirmImport = useCallback(async () => {
     let parsed: ExportPayload;
@@ -329,10 +383,10 @@ export default function ProfileScreen() {
         Made with {'\u2764\uFE0F'} in {'\uD83C\uDDEE\uD83C\uDDF3'} for the world
       </Text>
 
-      <Modal visible={importVisible} animationType="slide" transparent onRequestClose={() => setImportVisible(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Restore from backup</Text>
+      <Portal>
+        <Dialog visible={importVisible} onDismiss={() => setImportVisible(false)} style={{ backgroundColor: colors.card, borderRadius: 24, maxWidth: 420, alignSelf: 'center' }}>
+          <Dialog.Title style={{ color: colors.foreground }}>Restore from backup</Dialog.Title>
+          <Dialog.Content>
             <Text style={styles.helpText}>Paste the contents of your backup JSON below.</Text>
             <TextInput
               style={[
@@ -354,24 +408,24 @@ export default function ProfileScreen() {
               accessibilityLabel="Backup JSON"
             />
             {importError && <Text style={styles.errorText}>{importError}</Text>}
-            <View style={styles.modalRow}>
-              <TouchableOpacity
-                style={[styles.backupBtn, { borderColor: colors.border }]}
-                onPress={() => setImportVisible(false)}
-              >
-                <Text style={[styles.backupBtnText, { color: colors.foreground }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.backupBtn, { borderColor: colors.primary, backgroundColor: colors.primary }]}
-                onPress={confirmImport}
-                disabled={!importText.trim()}
-              >
-                <Text style={[styles.backupBtnText, { color: '#fff' }]}>Restore</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+          </Dialog.Content>
+          <Dialog.Actions style={{ flexDirection: 'row', gap: 12, paddingBottom: 8 }}>
+            <TouchableOpacity
+              style={[styles.backupBtn, { borderColor: colors.border }]}
+              onPress={() => setImportVisible(false)}
+            >
+              <Text style={[styles.backupBtnText, { color: colors.foreground }]}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.backupBtn, { borderColor: colors.primary, backgroundColor: colors.primary }]}
+              onPress={confirmImport}
+              disabled={!importText.trim()}
+            >
+              <Text style={[styles.backupBtnText, { color: '#fff' }]}>Restore</Text>
+            </TouchableOpacity>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </ScrollView>
   );
 }
