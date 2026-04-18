@@ -401,8 +401,8 @@ const styles = StyleSheet.create({
   scroll: { padding: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   chartCard: { marginBottom: 16, borderRadius: 12 },
-  chartTitle: { fontWeight: 'bold', marginBottom: 2 },
-  chartSubtitle: { color: '#6B7A6B', marginBottom: 12, marginTop: 2 },
+  chartTitle: { fontFamily: 'Inter_700Bold', fontWeight: '700', marginBottom: 2 },
+  chartSubtitle: { fontFamily: 'Inter_400Regular', color: '#6B7A6B', marginBottom: 12, marginTop: 2 },
   tableCard: { marginBottom: 16, borderRadius: 12 },
 
   tableHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
