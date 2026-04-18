@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Animated } from 'react-native';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import { Portal, Dialog } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
@@ -6,8 +7,53 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useProfile } from '../../hooks/useProfile';
+
 import { getAssets, createAsset, updateAsset as updateAssetDb, deleteAsset as deleteAssetDb } from '../../db/queries';
-import { Asset } from '@/engine/types';
+import type { Asset as UIAsset } from '@/engine/types';
+
+// Map DB Asset to UI Asset
+function dbToUiAsset(dbAsset: any): UIAsset {
+  return {
+    id: String(dbAsset.id),
+    name: dbAsset.name,
+    category: dbAsset.category,
+    current_value: dbAsset.current_value,
+    expected_roi: dbAsset.expected_roi,
+    is_self_use: !!dbAsset.is_self_use,
+    is_recurring: !!dbAsset.is_recurring,
+    recurring_amount: dbAsset.recurring_amount ?? undefined,
+    recurring_frequency: dbAsset.recurring_frequency ?? undefined,
+    next_vesting_date: dbAsset.next_vesting_date ?? undefined,
+    vesting_end_date: dbAsset.vesting_end_date ?? undefined,
+  };
+}
+
+// Map UI Asset to DB Asset (for create/update)
+function uiToDbAsset(
+  uiAsset: UIAsset,
+  profileId: number,
+  currency: string,
+  id?: string
+) {
+  const dbAsset: any = {
+    profile_id: profileId,
+    name: uiAsset.name,
+    category: uiAsset.category,
+    current_value: uiAsset.current_value,
+    expected_roi: uiAsset.expected_roi,
+    currency,
+    is_self_use: uiAsset.is_self_use ? 1 : 0,
+    is_recurring: uiAsset.is_recurring ? 1 : 0,
+    recurring_amount: uiAsset.recurring_amount ?? null,
+    recurring_frequency: uiAsset.recurring_frequency ?? null,
+    next_vesting_date: uiAsset.next_vesting_date ?? null,
+    vesting_end_date: uiAsset.vesting_end_date ?? null,
+    gold_silver_unit: null,
+    gold_silver_quantity: null,
+  };
+  if (id !== undefined) dbAsset.id = Number(id);
+  return dbAsset;
+}
 import { formatCurrency, getCurrencySymbol } from '@/engine/calculator';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
@@ -80,10 +126,12 @@ const EMPTY_FORM: AssetForm = {
 };
 
 export default function AssetsScreen() {
+  const [showCheck, setShowCheck] = useState(false);
+  const checkAnim = React.useRef(new Animated.Value(0)).current;
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { currentProfile } = useProfile();
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const [assets, setAssets] = useState<UIAsset[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<AssetForm>(EMPTY_FORM);
@@ -96,10 +144,53 @@ export default function AssetsScreen() {
   const webTop = Platform.OS === 'web' ? WEB_HEADER_OFFSET : 0;
   const webBottom = Platform.OS === 'web' ? WEB_BOTTOM_OFFSET : 0;
 
+  // Map DB Asset to UI Asset
+  function dbToUiAsset(dbAsset: any): UIAsset {
+    return {
+      id: String(dbAsset.id),
+      name: dbAsset.name,
+      category: dbAsset.category,
+      current_value: dbAsset.current_value,
+      expected_roi: dbAsset.expected_roi,
+      is_self_use: !!dbAsset.is_self_use,
+      is_recurring: !!dbAsset.is_recurring,
+      recurring_amount: dbAsset.recurring_amount ?? undefined,
+      recurring_frequency: dbAsset.recurring_frequency ?? undefined,
+      next_vesting_date: dbAsset.next_vesting_date ?? undefined,
+      vesting_end_date: dbAsset.vesting_end_date ?? undefined,
+    };
+  }
+
+  // Map UI Asset to DB Asset (for create/update)
+  function uiToDbAsset(
+    uiAsset: UIAsset,
+    profileId: number,
+    currency: string,
+    id?: string
+  ) {
+    return {
+      ...(id ? { id: Number(id) } : {}),
+      profile_id: profileId,
+      name: uiAsset.name,
+      category: uiAsset.category,
+      current_value: uiAsset.current_value,
+      expected_roi: uiAsset.expected_roi,
+      currency,
+      is_self_use: uiAsset.is_self_use ? 1 : 0,
+      is_recurring: uiAsset.is_recurring ? 1 : 0,
+      recurring_amount: uiAsset.recurring_amount ?? null,
+      recurring_frequency: uiAsset.recurring_frequency ?? null,
+      next_vesting_date: uiAsset.next_vesting_date ?? null,
+      vesting_end_date: uiAsset.vesting_end_date ?? null,
+      gold_silver_unit: null,
+      gold_silver_quantity: null,
+    };
+  }
+
   async function loadAssets() {
     if (!currentProfile) return;
     const dbAssets = await getAssets(currentProfile.id);
-    setAssets(dbAssets);
+    setAssets(dbAssets.map(dbToUiAsset));
   }
 
   React.useEffect(() => {
@@ -113,7 +204,7 @@ export default function AssetsScreen() {
     setShowModal(true);
   }
 
-  function openEdit(a: Asset) {
+  function openEdit(a: UIAsset) {
     setEditId(a.id);
     setForm({
       name: a.name,
@@ -133,29 +224,35 @@ export default function AssetsScreen() {
       Alert.alert('Validation', 'Please enter a valid name and value.');
       return;
     }
-    const asset: Omit<Asset, 'id'> = {
-      profile_id: currentProfile.id,
+    const uiAsset: UIAsset = {
+      id: editId ?? '',
       name: form.name.trim(),
       category: form.category,
       current_value: value,
       expected_roi: isNaN(roi) ? 8 : roi,
       is_self_use: form.is_self_use,
     };
-    if (editId) {
-      await updateAssetDb({ ...asset, id: editId });
+    if (editId && !isNaN(Number(editId))) {
+      await updateAssetDb({ ...uiToDbAsset(uiAsset, currentProfile.id, currency, editId), id: Number(editId) });
     } else {
-      await createAsset(asset);
+      await createAsset(uiToDbAsset(uiAsset, currentProfile.id, currency));
     }
     await loadAssets();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setShowModal(false);
+    setShowCheck(true);
+    Animated.sequence([
+      Animated.timing(checkAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.delay(900),
+      Animated.timing(checkAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]).start(() => setShowCheck(false));
   }
 
   function handleDelete(id: string) {
     Alert.alert('Delete Asset', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
-        await deleteAssetDb(id);
+        await deleteAssetDb(Number(id));
         await loadAssets();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       } },
@@ -163,7 +260,31 @@ export default function AssetsScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}> 
+      {/* Visual feedback check overlay */}
+      {showCheck && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.checkOverlay,
+            {
+              opacity: checkAnim,
+              transform: [
+                {
+                  scale: checkAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.7, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.checkCircle}>
+            <Feather name="check" size={48} color="#fff" />
+          </View>
+        </Animated.View>
+      )}
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: 16 + webTop, paddingBottom: 40 + webBottom + insets.bottom }]}
       >
@@ -259,7 +380,7 @@ export default function AssetsScreen() {
               bottomOffset={20}
               contentContainerStyle={{ paddingBottom: 8 }}
             >
-              <Text style={styles.fieldLabel}>Name</Text>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Name</Text>
               <TextInput
                 style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
                 value={form.name}
@@ -269,7 +390,7 @@ export default function AssetsScreen() {
                 accessibilityLabel="Asset name"
               />
 
-              <Text style={styles.fieldLabel}>Category</Text>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Category</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
                 {CATEGORIES.map(c => (
                   <TouchableOpacity
@@ -285,7 +406,7 @@ export default function AssetsScreen() {
                 ))}
               </ScrollView>
 
-              <Text style={styles.fieldLabel}>Current Value ({getCurrencySymbol(currency)})</Text>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Current Value ({getCurrencySymbol(currency)})</Text>
               <TextInput
                 style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
                 value={form.current_value}
@@ -297,7 +418,7 @@ export default function AssetsScreen() {
               />
 
               <View style={styles.sliderRow}>
-                <Text style={styles.fieldLabel}>Expected Return (% p.a.)</Text>
+                <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Expected Return (% p.a.)</Text>
                 <Text style={[styles.sliderVal, { color: colors.primary }]}>{parseFloat(form.expected_roi) || 0}%</Text>
               </View>
               <CustomSlider
@@ -349,6 +470,51 @@ export default function AssetsScreen() {
 }
 
 const styles = StyleSheet.create({
+      checkOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 100,
+        backgroundColor: 'rgba(46, 125, 50, 0.10)',
+      },
+      checkCircle: {
+        width: 96,
+        height: 96,
+        borderRadius: 48,
+        backgroundColor: '#43A047',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.18,
+        shadowRadius: 8,
+        elevation: 6,
+      },
+    input: {
+      borderWidth: 1.5,
+      borderRadius: 10,
+      padding: 12,
+      fontSize: 15,
+      fontFamily: 'Inter_400Regular',
+    },
+    catScroll: { marginBottom: 4 },
+    catChip: {
+      height: 34,
+      borderRadius: 17,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      marginRight: 8,
+      borderWidth: 1,
+    },
+    catChipText: { fontSize: 13, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+    sliderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+    sliderVal: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', minWidth: 36, textAlign: 'right' },
+    checkRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 4 },
   container: { flex: 1 },
   content: { paddingHorizontal: 16 },
   summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
@@ -384,24 +550,7 @@ const styles = StyleSheet.create({
   modalSheet: { flex: 1, maxHeight: '85%', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20, paddingHorizontal: 24 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.mutedForeground, marginBottom: 6, marginTop: 12, fontFamily: 'Inter_600SemiBold' },
-  input: {
-    borderWidth: 1.5, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: 'Inter_400Regular',
-  },
-  catScroll: { marginBottom: 4 },
-  catChip: {
-    height: 34,
-    borderRadius: 17,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    marginRight: 8,
-    borderWidth: 1,
-  },
-  catChipText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
-  sliderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 2 },
-  sliderVal: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
+  fieldLabel: { fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 12, fontFamily: 'Inter_600SemiBold' },
   checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
   checkLabel: { flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular' },
   modalBtns: { flexDirection: 'row', gap: 12, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth },
