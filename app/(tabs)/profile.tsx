@@ -7,6 +7,7 @@ import { useColors } from '@/hooks/useColors';
 import { useApp, ExportPayload } from '@/context/AppContext';
 import { Profile } from '@/engine/types';
 import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow } from '@/constants/theme';
+import { formatDateMask } from '@/components/DateInput';
 
 const CURRENCIES = [
   { key: 'INR', symbol: '₹', label: 'Indian Rupee' },
@@ -197,10 +198,11 @@ export default function ProfileScreen() {
             },
           ]}
           value={form.dob}
-          onChangeText={t => setForm(f => ({ ...f, dob: t }))}
-          placeholder="e.g., 1995-04-15"
+          onChangeText={t => setForm(f => ({ ...f, dob: formatDateMask(t) }))}
+          keyboardType="number-pad"
+          maxLength={10}
+          placeholder="YYYY-MM-DD"
           placeholderTextColor={colors.mutedForeground}
-          autoCapitalize="none"
           accessibilityLabel="Date of birth"
         />
         {dobError && <Text style={styles.errorText}>{dobError}</Text>}

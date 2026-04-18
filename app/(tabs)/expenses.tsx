@@ -9,6 +9,7 @@ import { Expense, Frequency, FrequencyInput, FREQUENCY_TO_MONTHS_PER_PAYMENT } f
 import { formatCurrency, getCurrencySymbol } from '@/engine/calculator';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow, FAB_SIZE, FAB_RIGHT, FAB_BOTTOM_NATIVE, FAB_BOTTOM_WEB } from '@/constants/theme';
+import { formatDateMask } from '@/components/DateInput';
 
 const EXPENSE_TYPES = [
   { key: 'CURRENT_RECURRING', label: 'Current Recurring', desc: 'Ongoing lifestyle costs (salary-funded)' },
@@ -310,8 +311,10 @@ export default function ExpensesScreen() {
                   <TextInput
                     style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
                     value={form.start_date}
-                    onChangeText={t => setForm(f => ({ ...f, start_date: t }))}
-                    placeholder="e.g., 2030-06-01"
+                    onChangeText={t => setForm(f => ({ ...f, start_date: formatDateMask(t) }))}
+                    keyboardType="number-pad"
+                    maxLength={10}
+                    placeholder="YYYY-MM-DD"
                     placeholderTextColor={colors.mutedForeground}
                     accessibilityLabel="Start date in year month day format"
                   />
@@ -324,8 +327,10 @@ export default function ExpensesScreen() {
                   <TextInput
                     style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
                     value={form.end_date}
-                    onChangeText={t => setForm(f => ({ ...f, end_date: t }))}
-                    placeholder="e.g., 2035-12-31"
+                    onChangeText={t => setForm(f => ({ ...f, end_date: formatDateMask(t) }))}
+                    keyboardType="number-pad"
+                    maxLength={10}
+                    placeholder="YYYY-MM-DD"
                     placeholderTextColor={colors.mutedForeground}
                     accessibilityLabel="End date in year month day format"
                   />
