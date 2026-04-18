@@ -40,10 +40,6 @@ export const FREQUENCIES: { key: Frequency; multiplier: number; label: string }[
   { key: 'ONE_TIME', multiplier: 1, label: 'One-time' },
 ];
 
-export function getFrequencyMonthsPerPayment(freq: string | null | undefined): number {
-  if (!freq) return 1;
-  return FREQUENCY_TO_MONTHS_PER_PAYMENT[freq as FrequencyInput] ?? 1;
-}
 
 export const DEFAULT_GROWTH_RATES: Record<string, number> = {
   EQUITY: 12,

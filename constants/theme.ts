@@ -56,20 +56,4 @@ export const FAB_RIGHT = 20;
 export const FAB_BOTTOM_NATIVE = 80;
 export const FAB_BOTTOM_WEB = 24;
 
-/** Chart layout. */
-export const CHART_HEIGHT = 200;
-export const CHART_PADDING = { top: 24, bottom: 28, left: 48, right: 16 };
 
-/** Brand / status colors that aren't part of the themed palette. */
-export const BRAND_COLORS = {
-  successDeep: '#1B5E20',
-  successDark: '#2E7D32',
-  successMid: '#388E3C',
-  warningDeep: '#E65100',
-  warningDark: '#BF360C',
-  dangerDeep: '#B71C1C',
-  dangerDark: '#7F0000',
-  dangerMid: '#C62828',
-  infoMid: '#1565C0',
-  successPale: '#C8E6C9',
-} as const;

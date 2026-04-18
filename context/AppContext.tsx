@@ -49,11 +49,6 @@ interface AppContextType {
   addExpense: (e: Expense) => Promise<void>;
   updateExpense: (e: Expense) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
-  /**
-   * Persist the onboarding profile, seed sample data so the dashboard isn't
-   * empty, and mark the user as onboarded.
-   */
-  completeOnboarding: (profile: Profile) => Promise<void>;
   exportAll: () => ExportPayload;
   importAll: (payload: ExportPayload) => Promise<void>;
 }
@@ -76,17 +71,6 @@ const DEFAULT_GOALS: Goals = {
   fire_type: 'moderate',
   fire_target_age: 100,
 };
-
-const SAMPLE_ASSETS: Asset[] = [
-  { id: 'a1', name: 'Equity Mutual Funds', category: 'MUTUAL_FUND', current_value: 2000000, expected_roi: 12 },
-  { id: 'a2', name: 'EPF', category: 'EPF', current_value: 500000, expected_roi: 8.15 },
-  { id: 'a3', name: 'Fixed Deposit', category: 'FIXED_DEPOSIT', current_value: 300000, expected_roi: 7 },
-];
-
-const SAMPLE_EXPENSES: Expense[] = [
-  { id: 'e1', name: 'Rent', category: 'RENT', expense_type: 'CURRENT_RECURRING', amount: 30000, frequency: 'MONTHLY', inflation_rate: 8 },
-  { id: 'e2', name: 'Food & Groceries', category: 'OTHERS', expense_type: 'CURRENT_RECURRING', amount: 15000, frequency: 'MONTHLY', inflation_rate: 6 },
-];
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback;
@@ -204,25 +188,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const completeOnboarding = useCallback(async (p: Profile) => {
-    const seedAssets = SAMPLE_ASSETS;
-    const seedExpenses = SAMPLE_EXPENSES;
-    const seedGoals = DEFAULT_GOALS;
-    setProfileState(p);
-    setAssetsState(seedAssets);
-    setExpensesState(seedExpenses);
-    setGoalsState(seedGoals);
-    setOnboarded(true);
-    await Promise.all([
-      secureSetItem(STORAGE_KEYS.PROFILE, JSON.stringify(p)),
-      secureSetItem(STORAGE_KEYS.ASSETS, JSON.stringify(seedAssets)),
-      secureSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(seedExpenses)),
-      secureSetItem(STORAGE_KEYS.GOALS, JSON.stringify(seedGoals)),
-      AsyncStorage.setItem(SCHEMA_VERSION_KEY, String(CURRENT_SCHEMA_VERSION)),
-      AsyncStorage.setItem(STORAGE_KEYS.ONBOARDED, '1'),
-    ]);
-  }, []);
-
   const setProfile = useCallback(async (p: Profile) => {
     setProfileState(p);
     await secureSetItem(STORAGE_KEYS.PROFILE, JSON.stringify(p));
@@ -327,7 +292,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setProfile, setAssets, setExpenses, setGoals,
       addAsset, updateAsset, deleteAsset,
       addExpense, updateExpense, deleteExpense,
-      completeOnboarding,
       exportAll, importAll,
     }}>
       {children}

@@ -18,8 +18,7 @@
     "preset": "ts-jest",
     "testEnvironment": "node",
     "moduleNameMapper": {
-      "^../db/queries$": "<rootDir>/__tests__/__mocks__/queries.ts",
-      "^../constants/categories$": "<rootDir>/constants/categories.ts"
+      "^../db/queries$": "<rootDir>/__tests__/__mocks__/queries.ts"
     },
     "testMatch": [
       "**/__tests__/**/*.test.ts"

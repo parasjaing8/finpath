@@ -1,0 +1,522 @@
+{
+  "communities": {
+    "0": [
+      "db_queries_ts",
+      "queries_biometrickey",
+      "queries_createasset",
+      "queries_createexpense",
+      "queries_createprofile",
+      "queries_deleteasset",
+      "queries_deleteexpense",
+      "queries_deleteprofile",
+      "queries_deleteprofilepin",
+      "queries_getallprofiles",
+      "queries_getassets",
+      "queries_getbiometricenabled",
+      "queries_getexpenses",
+      "queries_getgoals",
+      "queries_getprofile",
+      "queries_getprofilepin",
+      "queries_gettotalnetworth",
+      "queries_pinkey",
+      "queries_recordfailedattempt",
+      "queries_resetfailedattempts",
+      "queries_savegoals",
+      "queries_saveprofilepin",
+      "queries_setbiometricenabled",
+      "queries_updateasset",
+      "queries_updateexpense",
+      "queries_updateprofile"
+    ],
+    "1": [
+      "secure_base64tobytes",
+      "secure_bytestobase64",
+      "secure_concat",
+      "secure_constanttimeequal",
+      "secure_decryptstring",
+      "secure_derivesubkey",
+      "secure_encryptstring",
+      "secure_getderivedkeys",
+      "secure_hmacsha256",
+      "secure_lookslikejson",
+      "secure_pkcs7pad",
+      "secure_pkcs7unpad",
+      "secure_readmasterkey",
+      "secure_resetencryptionkeyfortesting",
+      "secure_securegetitem",
+      "secure_secureremoveitem",
+      "secure_securesetitem",
+      "secure_sha256",
+      "secure_utf8tobytes",
+      "secure_writemasterkey",
+      "storage_secure_ts"
+    ],
+    "2": [
+      "components_customslider_tsx",
+      "components_depletiondialog_corpusinfodialog",
+      "components_depletiondialog_depletiondialog",
+      "components_depletiondialog_tsx",
+      "components_herocard_tsx",
+      "components_projectionchart_tsx",
+      "components_sipcontrols_tsx",
+      "components_snapshottiles_tsx",
+      "constants_theme_shadow",
+      "constants_theme_ts",
+      "customslider_handlelayout",
+      "inflation_inflationadjusted",
+      "inflation_presentvalue",
+      "projectionchart_fmty",
+      "tests_inflation_test_ts",
+      "theme_shadow",
+      "utils_inflation_inflationadjusted",
+      "utils_inflation_presentvalue",
+      "utils_inflation_ts"
+    ],
+    "3": [
+      "context_appcontext",
+      "db_queries",
+      "db_schema",
+      "engine_calculator",
+      "engine_types",
+      "hooks_usepro",
+      "hooks_useprofile",
+      "index_indexscreen",
+      "layout_rootlayout",
+      "login_loginscreen",
+      "onboarding_createprofile",
+      "onboarding_editprofile",
+      "storage_migrations",
+      "storage_session",
+      "tabs_assetsscreen",
+      "tabs_dashboardscreen",
+      "tabs_expensesscreen",
+      "tabs_goalsscreen",
+      "tabs_profilescreen"
+    ],
+    "4": [
+      "calculator_calculateexpenseforyear",
+      "calculator_calculatepresentvalueofexpenses",
+      "calculator_calculateprojections",
+      "calculator_calculaterequiredsip",
+      "calculator_calculatesimulationfirecorpus",
+      "calculator_calculatevestingforyear",
+      "calculator_computeblendedgrowthrate",
+      "calculator_formatcurrency",
+      "calculator_formatcurrencyfull",
+      "calculator_getage",
+      "calculator_getcurrencysymbol",
+      "calculator_getfrequencymultiplier",
+      "calculator_getmeta",
+      "calculator_simulatecorpusatage",
+      "calculator_simulatepostretirementcorpus",
+      "engine_calculator_ts"
+    ],
+    "5": [
+      "calculator_test_baseinput",
+      "calculator_test_makecurrentexpense",
+      "calculator_test_makedob",
+      "calculator_test_makeesopasset",
+      "calculator_test_makefutureonetimeexpense",
+      "calculator_test_makefuturerecurringexpense",
+      "calculator_test_makegoals",
+      "calculator_test_makemfasset",
+      "calculator_test_makeprofile",
+      "calculator_test_makesavingsasset",
+      "calculator_test_makeselfuserealestate",
+      "constants_categories_ts",
+      "constants_colors_ts",
+      "tests_calculator_test_ts"
+    ],
+    "6": [
+      "auth_bytestobase64",
+      "auth_getcredentials",
+      "auth_hascredentials",
+      "auth_hashpin",
+      "auth_isbiometricsupported",
+      "auth_promptbiometric",
+      "auth_setbiometricenabled",
+      "auth_setcredentials",
+      "auth_verifypin",
+      "storage_auth",
+      "storage_auth_ts",
+      "storage_secure"
+    ],
+    "7": [
+      "currency_converttoinr",
+      "currency_fetchgoldprice",
+      "currency_getusdtoinr",
+      "export_exporttocsv",
+      "utils_currency_converttoinr",
+      "utils_currency_fetchgoldprice",
+      "utils_currency_getusdtoinr",
+      "utils_currency_ts",
+      "utils_export_exporttocsv",
+      "utils_export_ts"
+    ],
+    "8": [
+      "components_errorboundary_tsx",
+      "components_errorfallback_tsx",
+      "errorboundary_errorboundary",
+      "errorboundary_errorboundary_componentdidcatch",
+      "errorboundary_errorboundary_getderivedstatefromerror",
+      "errorboundary_errorboundary_render",
+      "errorfallback_handlerestart"
+    ],
+    "9": [
+      "android_app_src_main_java_com_aihomecloud_finpath_mainapplication_kt",
+      "mainapplication_getjsmainmodulename",
+      "mainapplication_getpackages",
+      "mainapplication_getusedevelopersupport",
+      "mainapplication_mainapplication",
+      "mainapplication_mainapplication_onconfigurationchanged",
+      "mainapplication_mainapplication_oncreate"
+    ],
+    "10": [
+      "app_login_tsx",
+      "login_handlelogin",
+      "login_hashpin",
+      "login_selectprofile",
+      "login_synctoappcontext",
+      "login_triggerbiometric"
+    ],
+    "11": [
+      "app_tabs_assets_tsx",
+      "assets_genid",
+      "assets_handledelete",
+      "assets_handlesave",
+      "assets_openadd",
+      "assets_openedit"
+    ],
+    "12": [
+      "components_dateinput_tsx",
+      "dateinput_confirmdate",
+      "dateinput_daysinmonth",
+      "dateinput_openpicker",
+      "dateinput_pad",
+      "dateinput_parsedate"
+    ],
+    "13": [
+      "components_corpusprimer_tsx",
+      "corpusprimer_check",
+      "corpusprimer_dialogkey",
+      "corpusprimer_dismissdialog",
+      "corpusprimer_dismisshint",
+      "corpusprimer_hintkey"
+    ],
+    "14": [
+      "android_app_src_main_java_com_aihomecloud_finpath_mainactivity_kt",
+      "mainactivity_mainactivity",
+      "mainactivity_mainactivity_createreactactivitydelegate",
+      "mainactivity_mainactivity_getmaincomponentname",
+      "mainactivity_mainactivity_invokedefaultonbackpressed",
+      "mainactivity_mainactivity_oncreate"
+    ],
+    "15": [
+      "appcontext_appprovider",
+      "appcontext_safeparse",
+      "appcontext_useapp",
+      "context_appcontext_tsx"
+    ],
+    "16": [
+      "app_onboarding_create_profile_tsx",
+      "create_profile_checkbiometric",
+      "create_profile_handlesubmit",
+      "create_profile_validate"
+    ],
+    "17": [
+      "session_isunlockedforsession",
+      "session_locksession",
+      "session_markunlockedforsession",
+      "storage_session_ts"
+    ],
+    "18": [
+      "app_tabs_goals_tsx",
+      "goals_handlesave",
+      "goals_inforow"
+    ],
+    "19": [
+      "app_tabs_profile_tsx",
+      "profile_handlesave",
+      "profile_validatedob"
+    ],
+    "20": [
+      "app_tabs_expenses_tsx",
+      "expenses_expensesscreen",
+      "expenses_genid"
+    ],
+    "21": [
+      "app_onboarding_edit_profile_tsx",
+      "edit_profile_handlesave",
+      "edit_profile_validate"
+    ],
+    "22": [
+      "migrations_migratev1tov2",
+      "migrations_runmigrations",
+      "storage_migrations_ts"
+    ],
+    "23": [
+      "hooks_useprofile_tsx",
+      "useprofile_profileprovider",
+      "useprofile_useprofile"
+    ],
+    "24": [
+      "hooks_usepro_tsx",
+      "usepro_proprovider",
+      "usepro_usepro"
+    ],
+    "25": [
+      "db_schema_ts",
+      "schema_getdatabase",
+      "schema_initializedatabase"
+    ],
+    "26": [
+      "app_onboarding_layout_tsx",
+      "layout_onboardinglayout"
+    ],
+    "27": [
+      "plugins_withflagsecure_js",
+      "plugins_withremovesystemalertwindow_js"
+    ],
+    "28": [
+      "components_keyboardawarescrollviewcompat_tsx",
+      "keyboardawarescrollviewcompat_keyboardawarescrollviewcompat"
+    ],
+    "29": [
+      "components_insightcard_tsx",
+      "insightcard_insightcard"
+    ],
+    "30": [
+      "components_propaywall_tsx",
+      "propaywall_handledismiss"
+    ],
+    "31": [
+      "hooks_usecolors_ts",
+      "usecolors_usecolors"
+    ],
+    "32": [
+      "engine_types_ts",
+      "types_getfrequencymonthsperpayment"
+    ],
+    "33": [
+      "types_aes_js_d_ts"
+    ],
+    "34": [
+      "app_index_tsx"
+    ],
+    "35": [
+      "app_layout_tsx"
+    ],
+    "36": [
+      "app_tabs_dashboard_tsx"
+    ],
+    "37": [
+      "app_tabs_layout_tsx"
+    ],
+    "38": [
+      "plugins_withreleasesigning_js"
+    ],
+    "39": [
+      "components_projectiontable_tsx"
+    ],
+    "40": [
+      "tests_mocks_queries_ts"
+    ],
+    "41": [
+      "tabs_layout_tablayout"
+    ],
+    "42": [
+      "hooks_usecolors"
+    ]
+  },
+  "cohesion": {
+    "0": 0.1,
+    "1": 0.2,
+    "2": 0.12,
+    "3": 0.22,
+    "4": 0.29,
+    "5": 0.21,
+    "6": 0.26,
+    "7": 0.22,
+    "8": 0.29,
+    "9": 0.29,
+    "10": 0.53,
+    "11": 0.4,
+    "12": 0.53,
+    "13": 0.6,
+    "14": 0.33,
+    "15": 0.5,
+    "16": 0.67,
+    "17": 0.5,
+    "18": 0.67,
+    "19": 0.67,
+    "20": 0.67,
+    "21": 1.0,
+    "22": 0.67,
+    "23": 0.67,
+    "24": 0.67,
+    "25": 1.0,
+    "26": 1.0,
+    "27": 1.0,
+    "28": 1.0,
+    "29": 1.0,
+    "30": 1.0,
+    "31": 1.0,
+    "32": 1.0,
+    "33": 1.0,
+    "34": 1.0,
+    "35": 1.0,
+    "36": 1.0,
+    "37": 1.0,
+    "38": 1.0,
+    "39": 1.0,
+    "40": 1.0,
+    "41": 1.0,
+    "42": 1.0
+  },
+  "gods": [
+    {
+      "id": "context_appcontext",
+      "label": "App Context Provider",
+      "edges": 13
+    },
+    {
+      "id": "engine_types",
+      "label": "Engine Types",
+      "edges": 10
+    },
+    {
+      "id": "secure_decryptstring",
+      "label": "decryptString()",
+      "edges": 9
+    },
+    {
+      "id": "calculator_calculateprojections",
+      "label": "calculateProjections()",
+      "edges": 9
+    },
+    {
+      "id": "secure_encryptstring",
+      "label": "encryptString()",
+      "edges": 8
+    },
+    {
+      "id": "db_queries",
+      "label": "DB Queries",
+      "edges": 7
+    },
+    {
+      "id": "calculator_calculateexpenseforyear",
+      "label": "calculateExpenseForYear()",
+      "edges": 6
+    },
+    {
+      "id": "secure_concat",
+      "label": "concat()",
+      "edges": 5
+    },
+    {
+      "id": "secure_hmacsha256",
+      "label": "hmacSha256()",
+      "edges": 5
+    },
+    {
+      "id": "mainactivity_mainactivity",
+      "label": "MainActivity",
+      "edges": 5
+    }
+  ],
+  "surprises": [
+    {
+      "source": "Profile Screen",
+      "target": "Engine Types",
+      "source_files": [
+        "app/(tabs)/profile.tsx",
+        "engine/types.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "shares_data_with",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `Profile Screen` unexpectedly reaches hub `Engine Types`"
+    },
+    {
+      "source": "Index Screen",
+      "target": "DB Queries",
+      "source_files": [
+        "app/index.tsx",
+        "db/queries.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; peripheral node `Index Screen` unexpectedly reaches hub `DB Queries`"
+    },
+    {
+      "source": "Login Screen",
+      "target": "Session State",
+      "source_files": [
+        "app/login.tsx",
+        "storage/session.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "references",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories"
+    },
+    {
+      "source": "Assets Screen",
+      "target": "Engine Types",
+      "source_files": [
+        "app/(tabs)/assets.tsx",
+        "engine/types.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "shares_data_with",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories"
+    },
+    {
+      "source": "Expenses Screen",
+      "target": "Engine Types",
+      "source_files": [
+        "app/(tabs)/expenses.tsx",
+        "engine/types.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "shares_data_with",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories"
+    }
+  ],
+  "questions": [
+    {
+      "type": "ambiguous_edge",
+      "question": "What is the exact relationship between `currency.ts` and `HeroCard.tsx`?",
+      "why": "Edge tagged AMBIGUOUS (relation: shares_data_with) - confidence is low."
+    },
+    {
+      "type": "ambiguous_edge",
+      "question": "What is the exact relationship between `SnapshotTiles.tsx` and `DepletionDialog.tsx`?",
+      "why": "Edge tagged AMBIGUOUS (relation: shares_data_with) - confidence is low."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `Engine Types` connect `Community 3` to `Community 4`?",
+      "why": "High betweenness centrality (0.046) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `DB Schema` connect `Community 3` to `Community 0`?",
+      "why": "High betweenness centrality (0.043) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `App Context Provider` connect `Community 3` to `Community 6`?",
+      "why": "High betweenness centrality (0.032) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 6 inferred relationships involving `Engine Types` (e.g. with `Assets Screen` and `Expenses Screen`) actually correct?",
+      "why": "`Engine Types` has 6 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `Tab Layout`, `Colors Hook`, `Auth Storage` to the rest of the system?",
+      "why": "4 weakly-connected nodes found - possible documentation gaps or missing edges."
+    }
+  ]
+}
