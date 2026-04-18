@@ -319,10 +319,17 @@ export default function AssetsScreen() {
               </View>
               <View style={styles.assetInfo}> 
                 <Text style={[styles.assetName, { color: colors.foreground }]}>{asset.name}</Text>
-                <Text style={[styles.assetMeta, { color: colors.mutedForeground }]}> 
-                  {cat?.label ?? asset.category} · {asset.expected_roi}% p.a.
-                  {asset.is_self_use ? ' · Self-use' : ''}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[styles.assetMeta, { color: colors.mutedForeground }]}> 
+                    {cat?.label ?? asset.category} · {asset.expected_roi}% p.a.
+                  </Text>
+                  {asset.is_self_use && (
+                    <View style={[styles.selfUseBadge, { backgroundColor: colors.secondary, borderColor: colors.primary }]}> 
+                      <Feather name="user" size={12} color={colors.primary} style={{ marginRight: 2 }} />
+                      <Text style={styles.selfUseBadgeText}>Self-use</Text>
+                    </View>
+                  )}
+                </View>
               </View>
               <Text style={[styles.assetValue, { color: colors.primary }]}> 
                 {formatCurrency(asset.current_value, currency)}
@@ -468,6 +475,21 @@ export default function AssetsScreen() {
 }
 
 const styles = StyleSheet.create({
+        selfUseBadge: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          borderWidth: 1,
+          borderRadius: 8,
+          paddingHorizontal: 6,
+          paddingVertical: 1,
+          marginLeft: 4,
+        },
+        selfUseBadgeText: {
+          fontSize: 11,
+          color: '#388E3C',
+          fontFamily: 'Inter_600SemiBold',
+          marginLeft: 2,
+        },
       checkOverlay: {
         position: 'absolute',
         top: 0,
