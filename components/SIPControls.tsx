@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Card, Switch } from 'react-native-paper';
 import { CustomSlider } from './CustomSlider';
 import { formatCurrency } from '../engine/calculator';
+import { Feather } from '@expo/vector-icons';
 
 interface Props {
   sipAmountDisplay: number;
@@ -69,8 +70,14 @@ export function SIPControls({
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text variant="labelMedium" style={styles.advancedToggleText}>
-              Advanced {showAdvanced ? '▲' : '▼'}
+              Advanced
             </Text>
+            <Feather
+              name={showAdvanced ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color="#1B5E20"
+              style={{ marginLeft: 4, marginRight: 8 }}
+            />
             <Text variant="bodySmall" style={{ color: '#999', fontStyle: 'italic', fontSize: 11 }}>
               Stops {sipStopAge} · Step-up {stepUpEnabled ? `${stepUpRateDisplay}%` : 'off'}
             </Text>
