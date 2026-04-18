@@ -314,12 +314,12 @@ export default function AssetsScreen() {
                   onPress={() => setForm(f => ({ ...f, is_self_use: !f.is_self_use }))}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: form.is_self_use }}
-                  accessibilityLabel="Self-use property"
+                  accessibilityLabel="Self-use asset"
                 >
                   <View style={[styles.checkbox, { borderColor: colors.primary, backgroundColor: form.is_self_use ? colors.primary : 'transparent' }]}> 
                     {form.is_self_use && <Feather name="check" size={12} color="#fff" />}
                   </View>
-                  <Text style={[styles.checkLabel, { color: colors.foreground }]}>Self-use property (excluded from investable net worth)</Text>
+                  <Text style={[styles.checkLabel, { color: colors.foreground }]}>Self-use asset (excluded from investable net worth)</Text>
                 </TouchableOpacity>
               )}
             </KeyboardAwareScrollViewCompat>
