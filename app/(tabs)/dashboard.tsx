@@ -1,5 +1,8 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
+import { useColors } from '../../hooks/useColors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Card, Button, Portal, Dialog } from 'react-native-paper';
 import { useApp } from '../../context/AppContext';
 import { calculateProjections, CalculationOutput, formatCurrency, formatCurrencyFull } from '../../engine/calculator';
@@ -15,8 +18,11 @@ import { InsightCard } from '../../components/InsightCard';
 import { SIPControls } from '../../components/SIPControls';
 import { ProjectionTable } from '../../components/ProjectionTable';
 
-export default function DashboardScreen() {
+function Dashboard() {
+  const colors = useColors();
+
   const { profile: currentProfile, assets, expenses, goals, isLoaded } = useApp();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const router = useRouter();
 
@@ -174,7 +180,10 @@ export default function DashboardScreen() {
   })();
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.scroll, { paddingBottom: 40 + insets.bottom }]}
+    >
 
 
       {/* Section A — Hero Card */}
@@ -347,15 +356,19 @@ export default function DashboardScreen() {
 
     </ScrollView>
   );
+
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
-  scroll: { padding: 16, paddingBottom: 40 },
+  container: { flex: 1 },
+  scroll: { padding: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   chartCard: { marginBottom: 16, borderRadius: 12 },
   chartTitle: { fontWeight: 'bold', marginBottom: 2 },
   chartSubtitle: { color: '#6B7A6B', marginBottom: 12, marginTop: 2 },
   tableCard: { marginBottom: 16, borderRadius: 12 },
+
   tableHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 });
+
+export default Dashboard;
