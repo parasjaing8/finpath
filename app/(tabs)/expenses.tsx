@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
+import { Portal, Dialog } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -254,28 +255,16 @@ export default function ExpensesScreen() {
         <Feather name="plus" size={24} color="#fff" />
       </TouchableOpacity>
 
-      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
-        <View style={styles.overlay}>
-          <KeyboardAvoidingView behavior="padding" style={styles.kavWrapper}>
-            <View style={[styles.sheet, { backgroundColor: colors.card }]}>
-              <View style={styles.sheetHeader}>
-                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{editId ? 'Edit Expense' : 'Add Expense'}</Text>
-                <TouchableOpacity
-                  onPress={() => setShowModal(false)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Close expense form"
-                  hitSlop={10}
-                >
-                  <Feather name="x" size={22} color={colors.mutedForeground} />
-                </TouchableOpacity>
-              </View>
-              <KeyboardAwareScrollViewCompat
-                style={{ flex: 1 }}
-                showsVerticalScrollIndicator={false}
-                bottomOffset={20}
-                contentContainerStyle={styles.scrollContent}
-              >
-
+      <Portal>
+        <Dialog visible={showModal} onDismiss={() => setShowModal(false)} style={{ backgroundColor: colors.card, borderRadius: 24, maxHeight: '85%' }}>
+          <Dialog.Title style={{ color: colors.foreground }}>{editId ? 'Edit Expense' : 'Add Expense'}</Dialog.Title>
+          <Dialog.Content style={{ paddingHorizontal: 0 }}>
+            <KeyboardAwareScrollViewCompat
+              style={{ flex: 1 }}
+              showsVerticalScrollIndicator={false}
+              bottomOffset={20}
+              contentContainerStyle={styles.scrollContent}
+            >
               <Text style={styles.fieldLabel}>Type</Text>
               {EXPENSE_TYPES.map(t => (
                 <TouchableOpacity
@@ -385,30 +374,28 @@ export default function ExpensesScreen() {
                   />
                 </>
               )}
-
-              </KeyboardAwareScrollViewCompat>
-              <View style={[styles.modalBtns, { paddingBottom: Math.max(insets.bottom, 16), borderTopColor: colors.border }]}>
-                <TouchableOpacity
-                  style={[styles.cancelBtn, { borderColor: colors.border }]}
-                  onPress={() => setShowModal(false)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cancel"
-                >
-                  <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.saveBtn, { backgroundColor: colors.warning }]}
-                  onPress={handleSave}
-                  accessibilityRole="button"
-                  accessibilityLabel={editId ? 'Save changes to expense' : 'Save new expense'}
-                >
-                  <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+            </KeyboardAwareScrollViewCompat>
+          </Dialog.Content>
+          <Dialog.Actions style={{ flexDirection: 'row', gap: 12, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 16) }}>
+            <TouchableOpacity
+              style={[styles.cancelBtn, { borderColor: colors.border }]}
+              onPress={() => setShowModal(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+            >
+              <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: colors.warning }]}
+              onPress={handleSave}
+              accessibilityRole="button"
+              accessibilityLabel={editId ? 'Save changes to expense' : 'Save new expense'}
+            >
+              <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Save</Text>
+            </TouchableOpacity>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
