@@ -223,11 +223,12 @@ export default function ExpensesScreen() {
 
       <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
         <View style={styles.overlay}>
-          <KeyboardAwareScrollViewCompat
-            showsVerticalScrollIndicator={false}
-            bottomOffset={20}
-          >
-            <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+          <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+            <KeyboardAwareScrollViewCompat
+              showsVerticalScrollIndicator={false}
+              bottomOffset={20}
+              contentContainerStyle={styles.scrollContent}
+            >
               <View style={styles.sheetHeader}>
                 <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{editId ? 'Edit Expense' : 'Add Expense'}</Text>
                 <TouchableOpacity
@@ -346,26 +347,26 @@ export default function ExpensesScreen() {
                 </>
               )}
 
-              <View style={styles.modalBtns}>
-                <TouchableOpacity
-                  style={[styles.cancelBtn, { borderColor: colors.border }]}
-                  onPress={() => setShowModal(false)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cancel"
-                >
-                  <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.saveBtn, { backgroundColor: colors.warning }]}
-                  onPress={handleSave}
-                  accessibilityRole="button"
-                  accessibilityLabel={editId ? 'Save changes to expense' : 'Save new expense'}
-                >
-                  <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Save</Text>
-                </TouchableOpacity>
-              </View>
+            </KeyboardAwareScrollViewCompat>
+            <View style={[styles.modalBtns, { paddingBottom: Math.max(insets.bottom, 16), borderTopColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.cancelBtn, { borderColor: colors.border }]}
+                onPress={() => setShowModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
+              >
+                <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: colors.warning }]}
+                onPress={handleSave}
+                accessibilityRole="button"
+                accessibilityLabel={editId ? 'Save changes to expense' : 'Save new expense'}
+              >
+                <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Save</Text>
+              </TouchableOpacity>
             </View>
-          </KeyboardAwareScrollViewCompat>
+          </View>
         </View>
       </Modal>
     </View>
@@ -404,8 +405,9 @@ const styles = StyleSheet.create({
     borderRadius: FAB_SIZE / 2, justifyContent: 'center', alignItems: 'center',
     ...shadow(4),
   },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
-  sheet: { marginTop: 80, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, minHeight: '100%' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20, paddingHorizontal: 24, maxHeight: '92%' },
+  scrollContent: { paddingBottom: 4 },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   sheetTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 6, marginTop: 12, fontFamily: 'Inter_600SemiBold' },
@@ -417,11 +419,11 @@ const styles = StyleSheet.create({
   freqChip: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
   freqText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   catScroll: { marginBottom: 4 },
-  catChip: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 1 },
+  catChip: { height: 34, borderRadius: 17, paddingHorizontal: 14, marginRight: 8, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
   catChipText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   sliderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 2 },
   sliderVal: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24, marginBottom: 32 },
+  modalBtns: { flexDirection: 'row', gap: 12, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth },
   cancelBtn: { flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: 'center' },
   saveBtn: { flex: 1, borderRadius: 12, padding: 14, alignItems: 'center' },
 });
