@@ -138,7 +138,11 @@ export default function GoalsScreen() {
                 styles.fireTypeRow,
                 { borderColor: form.fire_type === t.key ? t.color : colors.border, backgroundColor: form.fire_type === t.key ? `${t.color}15` : colors.background },
               ]}
-              onPress={() => setForm(f => ({ ...f, fire_type: t.key }))}
+              onPress={() => setForm(f => ({
+                ...f,
+                fire_type: t.key,
+                fire_target_age: t.key === 'slim' ? 85 : t.key === 'moderate' ? 100 : 120
+              }))}
               accessibilityRole="radio"
               accessibilityState={{ selected: form.fire_type === t.key }}
               accessibilityLabel={`${t.label}: ${t.desc}`}
@@ -160,9 +164,9 @@ export default function GoalsScreen() {
           <Slider
             value={form.inflation_rate ?? 6}
             onValueChange={v => setForm(f => ({ ...f, inflation_rate: parseFloat(v.toFixed(1)) }))}
-            minimumValue={3}
-            maximumValue={10}
-            step={0.5}
+            minimumValue={0}
+            maximumValue={12}
+            step={0.1}
             minimumTrackTintColor={colors.warning}
             thumbTintColor={colors.warning}
             maximumTrackTintColor={colors.border}
@@ -174,7 +178,15 @@ export default function GoalsScreen() {
           </View>
           <Slider
             value={form.fire_target_age ?? 100}
-            onValueChange={v => setForm(f => ({ ...f, fire_target_age: Math.round(v) }))}
+            onValueChange={v => {
+              const val = Math.round(v);
+              // If user moves slider to a preset, sync fire_type; else set to null
+              let fire_type = null;
+              if (val === 85) fire_type = 'slim';
+              else if (val === 100) fire_type = 'moderate';
+              else if (val === 120) fire_type = 'fat';
+              setForm(f => ({ ...f, fire_target_age: val, fire_type: fire_type || f.fire_type }));
+            }}
             minimumValue={80}
             maximumValue={120}
             step={1}

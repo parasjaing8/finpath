@@ -4,7 +4,8 @@ import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
-import { useApp } from '@/context/AppContext';
+import { useProfile } from '../../hooks/useProfile';
+import { getExpenses, createExpense, updateExpense as updateExpenseDb, deleteExpense as deleteExpenseDb } from '../../db/queries';
 import { Expense, Frequency, FrequencyInput, FREQUENCY_TO_MONTHS_PER_PAYMENT } from '@/engine/types';
 import { formatCurrency, getCurrencySymbol } from '@/engine/calculator';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
@@ -61,15 +62,35 @@ const EMPTY_FORM: ExpenseForm = {
 export default function ExpensesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { expenses, addExpense, deleteExpense, updateExpense, profile } = useApp();
+  const { currentProfile } = useProfile();
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<ExpenseForm>(EMPTY_FORM);
 
-  const currency = profile?.currency ?? 'INR';
+  const currency = currentProfile?.currency ?? 'INR';
 
   const webTop = Platform.OS === 'web' ? WEB_HEADER_OFFSET : 0;
   const webBottom = Platform.OS === 'web' ? WEB_BOTTOM_OFFSET : 0;
+
+  async function loadExpenses() {
+    if (!currentProfile) return;
+    const dbExpenses = await getExpenses(currentProfile.id);
+    // Convert DB Expense (number id) to UI Expense (string id)
+    setExpenses(dbExpenses.map(e => ({
+      ...e,
+      id: String(e.id),
+      expense_type: e.expense_type as 'CURRENT_RECURRING' | 'FUTURE_ONE_TIME' | 'FUTURE_RECURRING',
+      frequency: e.frequency ?? undefined,
+      start_date: e.start_date ?? undefined,
+      end_date: e.end_date ?? undefined,
+    })));
+  }
+
+  React.useEffect(() => {
+    loadExpenses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProfile]);
 
   const currentRecurring = expenses.filter(e => e.expense_type === 'CURRENT_RECURRING');
   const futureExpenses = expenses.filter(e => e.expense_type !== 'CURRENT_RECURRING');
@@ -100,26 +121,33 @@ export default function ExpensesScreen() {
     setShowModal(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
+    if (!currentProfile) return;
     const amount = parseFloat(form.amount);
     const inflation = parseFloat(form.inflation_rate);
     if (!form.name.trim() || isNaN(amount) || amount <= 0) {
       Alert.alert('Validation', 'Please enter a valid name and amount.');
       return;
     }
-    const exp: Expense = {
-      id: editId ?? genId(),
+    // DB expects number id/profile_id, engine/types expects string id
+    const expDb = {
+      profile_id: currentProfile.id,
       name: form.name.trim(),
       category: form.category as any,
       expense_type: form.expense_type as any,
       amount,
       frequency: form.frequency,
       inflation_rate: isNaN(inflation) ? 6 : inflation,
-      start_date: form.start_date || undefined,
-      end_date: form.end_date || undefined,
+      start_date: form.start_date ? form.start_date : null,
+      end_date: form.end_date ? form.end_date : null,
+      currency: currency,
     };
-    if (editId) updateExpense(exp);
-    else addExpense(exp);
+    if (editId) {
+      await updateExpenseDb({ ...expDb, id: Number(editId) });
+    } else {
+      await createExpense(expDb);
+    }
+    await loadExpenses();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setShowModal(false);
   }
@@ -127,7 +155,11 @@ export default function ExpensesScreen() {
   function handleDelete(id: string) {
     Alert.alert('Delete Expense', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => { deleteExpense(id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        await deleteExpenseDb(Number(id));
+        await loadExpenses();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } },
     ]);
   }
 
@@ -275,7 +307,11 @@ export default function ExpensesScreen() {
                   <TouchableOpacity
                     key={c.key}
                     style={[styles.catChip, { backgroundColor: form.category === c.key ? colors.warning : colors.secondary, borderColor: colors.border }]}
-                    onPress={() => setForm(f => ({ ...f, category: c.key, inflation_rate: String(c.defaultInflation) }))}
+                    onPress={() => setForm(f => ({
+                      ...f,
+                      category: c.key,
+                      inflation_rate: String(Math.max(0, Math.min(12, c.defaultInflation)))
+                    }))}
                     accessibilityRole="button"
                     accessibilityLabel={`Category: ${c.label}`}
                     accessibilityState={{ selected: form.category === c.key }}
@@ -324,8 +360,8 @@ export default function ExpensesScreen() {
                 value={parseFloat(form.inflation_rate) || 0}
                 onValueChange={v => setForm(f => ({ ...f, inflation_rate: String(Math.round(v * 10) / 10) }))}
                 minimumValue={0}
-                maximumValue={20}
-                step={0.5}
+                maximumValue={12}
+                step={0.1}
               />
 
               {form.expense_type !== 'CURRENT_RECURRING' && (

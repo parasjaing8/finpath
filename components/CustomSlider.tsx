@@ -3,6 +3,7 @@ import { View, StyleSheet, PanResponder, LayoutChangeEvent, Platform, StyleProp,
 import { useColors } from '@/hooks/useColors';
 import { shadow } from '@/constants/theme';
 
+// For inflation sliders, use minimumValue={0} and maximumValue={12}
 interface Props {
   value: number;
   onValueChange?: (value: number) => void;
