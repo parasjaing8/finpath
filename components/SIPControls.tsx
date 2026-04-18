@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Card, Switch } from 'react-native-paper';
-import { Slider } from '@miblanchard/react-native-slider';
+import { CustomSlider } from './CustomSlider';
 import { formatCurrency } from '../engine/calculator';
 
 interface Props {
@@ -52,10 +52,10 @@ export function SIPControls({
         </View>
 
         {/* Primary control — always visible */}
-        <Slider
+        <CustomSlider
           value={sipAmountDisplay}
-          onValueChange={(v: number[]) => onSipChange(Math.round(v[0] / 1000) * 1000)}
-          onSlidingComplete={(v: number[]) => onSipCommit(Math.round(v[0] / 1000) * 1000)}
+          onValueChange={(v: number) => onSipChange(Math.round(v / 1000) * 1000)}
+          onSlidingComplete={(v: number) => onSipCommit(Math.round(v / 1000) * 1000)}
           minimumValue={1000} maximumValue={2000000} step={1000}
           minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
         />
@@ -82,20 +82,20 @@ export function SIPControls({
             <Text variant="labelMedium" style={styles.sliderLabel}>
               Return While Investing (until age {sipStopAge}): {sipReturnRateDisplay}%
             </Text>
-            <Slider
+            <CustomSlider
               value={sipReturnRateDisplay}
-              onValueChange={(v: number[]) => onReturnChange(Math.round(v[0]))}
-              onSlidingComplete={(v: number[]) => onReturnCommit(Math.round(v[0]))}
+              onValueChange={(v: number) => onReturnChange(Math.round(v))}
+              onSlidingComplete={(v: number) => onReturnCommit(Math.round(v))}
               minimumValue={5} maximumValue={20} step={1}
               minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
             />
             <Text variant="labelMedium" style={styles.sliderLabel}>
               Return After SIP Stops (from age {sipStopAge}): {postSipReturnRateDisplay}%
             </Text>
-            <Slider
+            <CustomSlider
               value={postSipReturnRateDisplay}
-              onValueChange={(v: number[]) => onPostReturnChange(Math.round(v[0]))}
-              onSlidingComplete={(v: number[]) => onPostReturnCommit(Math.round(v[0]))}
+              onValueChange={(v: number) => onPostReturnChange(Math.round(v))}
+              onSlidingComplete={(v: number) => onPostReturnCommit(Math.round(v))}
               minimumValue={3} maximumValue={15} step={1}
               minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
             />
@@ -112,10 +112,10 @@ export function SIPControls({
                 <Text variant="labelMedium" style={styles.sliderLabel}>
                   Step-Up Rate: {stepUpRateDisplay}%/year
                 </Text>
-                <Slider
+                <CustomSlider
                   value={stepUpRateDisplay}
-                  onValueChange={(v: number[]) => onStepUpChange(Math.round(v[0]))}
-                  onSlidingComplete={(v: number[]) => onStepUpCommit(Math.round(v[0]))}
+                  onValueChange={(v: number) => onStepUpChange(Math.round(v))}
+                  onSlidingComplete={(v: number) => onStepUpCommit(Math.round(v))}
                   minimumValue={5} maximumValue={20} step={1}
                   minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
                 />
