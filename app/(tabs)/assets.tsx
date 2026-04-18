@@ -8,6 +8,7 @@ import { useApp } from '@/context/AppContext';
 import { Asset } from '@/engine/types';
 import { formatCurrency, getCurrencySymbol } from '@/engine/calculator';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { CustomSlider } from '@/components/CustomSlider';
 import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow, FAB_SIZE, FAB_RIGHT, FAB_BOTTOM_NATIVE, FAB_BOTTOM_WEB } from '@/constants/theme';
 
@@ -227,24 +228,26 @@ export default function AssetsScreen() {
       {/* Add/Edit Modal */}
       <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.foreground }]}>{editId ? 'Edit Asset' : 'Add Asset'}</Text>
-              <TouchableOpacity
-                onPress={() => setShowModal(false)}
-                accessibilityRole="button"
-                accessibilityLabel="Close asset form"
-                hitSlop={10}
-              >
-                <Feather name="x" size={22} color={colors.mutedForeground} />
-              </TouchableOpacity>
-            </View>
+          <KeyboardAvoidingView behavior="padding" style={styles.kavWrapper}>
+            <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>{editId ? 'Edit Asset' : 'Add Asset'}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowModal(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close asset form"
+                  hitSlop={10}
+                >
+                  <Feather name="x" size={22} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              </View>
 
-            <KeyboardAwareScrollViewCompat
-              showsVerticalScrollIndicator={false}
-              bottomOffset={20}
-              contentContainerStyle={{ paddingBottom: 8 }}
-            >
+              <KeyboardAwareScrollViewCompat
+                style={{ flex: 1 }}
+                showsVerticalScrollIndicator={false}
+                bottomOffset={20}
+                contentContainerStyle={{ paddingBottom: 8 }}
+              >
               <Text style={styles.fieldLabel}>Name</Text>
               <TextInput
                 style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
@@ -309,7 +312,8 @@ export default function AssetsScreen() {
                 </TouchableOpacity>
               )}
 
-              <View style={styles.modalBtns}>
+              </KeyboardAwareScrollViewCompat>
+              <View style={[styles.modalBtns, { paddingBottom: Math.max(insets.bottom, 16), borderTopColor: colors.border }]}>
                 <TouchableOpacity
                   style={[styles.cancelBtn, { borderColor: colors.border }]}
                   onPress={() => setShowModal(false)}
@@ -327,8 +331,8 @@ export default function AssetsScreen() {
                   <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Save</Text>
                 </TouchableOpacity>
               </View>
-            </KeyboardAwareScrollViewCompat>
-          </View>
+            </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </View>
@@ -366,8 +370,9 @@ const styles = StyleSheet.create({
     borderRadius: FAB_SIZE / 2, justifyContent: 'center', alignItems: 'center',
     ...shadow(4),
   },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '85%' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  kavWrapper: { flex: 1, justifyContent: 'flex-end' },
+  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20, paddingHorizontal: 24, maxHeight: '100%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 6, marginTop: 12, fontFamily: 'Inter_600SemiBold' },
@@ -384,7 +389,7 @@ const styles = StyleSheet.create({
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
   checkLabel: { flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular' },
-  modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24 },
+  modalBtns: { flexDirection: 'row', gap: 12, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth },
   cancelBtn: { flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: 'center' },
   saveBtn: { flex: 1, borderRadius: 12, padding: 14, alignItems: 'center' },
 });
