@@ -53,6 +53,7 @@ export const DEFAULT_GROWTH_RATES: Record<string, number> = {
   ESOP_RSU: 12,
   CRYPTO: 15,
   CASH: 3.5,
+  SAVINGS: 6,
   OTHERS: 8,
 };
 

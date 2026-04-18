@@ -148,15 +148,7 @@ function calculateVestingForYear(assets: Asset[], targetYear: number): number {
     const vestingEndYear = vestingEnd ? vestingEnd.getFullYear() : null;
     if (vestingEndYear != null && targetYear > vestingEndYear) continue;
     const timesPerYear = getFrequencyMultiplier(asset.recurring_frequency ?? null);
-
-    // Apply a month fraction in the start year and end year so partial years
-    // don't get a full year of vesting income.
-    const firstMonth = targetYear === vestingStartYear ? vestingStart.getMonth() : 0;
-    const lastMonth = vestingEnd && targetYear === vestingEndYear ? vestingEnd.getMonth() : 11;
-    const months = Math.max(0, lastMonth - firstMonth + 1);
-    const monthFraction = months / 12;
-
-    total += asset.recurring_amount * timesPerYear * monthFraction;
+    total += asset.recurring_amount * timesPerYear;
   }
   return total;
 }
@@ -170,7 +162,9 @@ function computeBlendedGrowthRate(assets: Asset[], fallbackRate: number): number
     // Only fall back to the category default when the value is truly missing
     // or non-finite.
     const userRoi = a.expected_roi;
-    const roi = Number.isFinite(userRoi)
+    // expected_roi of 0 means "not set" — fall back to the category default.
+    // Only honour a user-supplied rate when it is explicitly positive.
+    const roi = userRoi > 0
       ? userRoi
       : (DEFAULT_GROWTH_RATES[a.category] ?? fallbackRate);
     return s + a.current_value * roi;
@@ -581,7 +575,8 @@ interface CurrencyMeta {
   symbol: string;
   locale: string;
   // Optional short-scale labels (e.g. Lakh/Crore for INR).
-  shortScale?: { divisor: number; suffix: string }[];
+  // decimals: fixed decimal places to show for this scale entry.
+  shortScale?: { divisor: number; suffix: string; decimals: number }[];
 }
 
 const CURRENCY_META: Record<string, CurrencyMeta> = {
@@ -589,26 +584,19 @@ const CURRENCY_META: Record<string, CurrencyMeta> = {
     symbol: '₹',
     locale: 'en-IN',
     shortScale: [
-      { divisor: 1e7, suffix: ' Cr' },
-      { divisor: 1e5, suffix: ' L' },
-      { divisor: 1e3, suffix: 'K' },
+      { divisor: 1e7, suffix: ' Cr', decimals: 2 },
+      { divisor: 1e5, suffix: ' L',  decimals: 2 },
+      { divisor: 1e3, suffix: 'K',   decimals: 1 },
     ],
   },
-  USD: {
-    symbol: '$',
-    locale: 'en-US',
-    shortScale: [
-      { divisor: 1e9, suffix: 'B' },
-      { divisor: 1e6, suffix: 'M' },
-      { divisor: 1e3, suffix: 'K' },
-    ],
-  },
-  EUR: { symbol: '€', locale: 'de-DE', shortScale: [{ divisor: 1e9, suffix: 'B' }, { divisor: 1e6, suffix: 'M' }, { divisor: 1e3, suffix: 'K' }] },
-  GBP: { symbol: '£', locale: 'en-GB', shortScale: [{ divisor: 1e9, suffix: 'B' }, { divisor: 1e6, suffix: 'M' }, { divisor: 1e3, suffix: 'K' }] },
-  AUD: { symbol: 'A$', locale: 'en-AU', shortScale: [{ divisor: 1e9, suffix: 'B' }, { divisor: 1e6, suffix: 'M' }, { divisor: 1e3, suffix: 'K' }] },
-  CAD: { symbol: 'C$', locale: 'en-CA', shortScale: [{ divisor: 1e9, suffix: 'B' }, { divisor: 1e6, suffix: 'M' }, { divisor: 1e3, suffix: 'K' }] },
-  SGD: { symbol: 'S$', locale: 'en-SG', shortScale: [{ divisor: 1e9, suffix: 'B' }, { divisor: 1e6, suffix: 'M' }, { divisor: 1e3, suffix: 'K' }] },
-  AED: { symbol: 'د.إ', locale: 'ar-AE', shortScale: [{ divisor: 1e9, suffix: 'B' }, { divisor: 1e6, suffix: 'M' }, { divisor: 1e3, suffix: 'K' }] },
+  // Non-INR currencies use toLocaleString (full number with commas).
+  USD: { symbol: '$',    locale: 'en-US' },
+  EUR: { symbol: '€',    locale: 'de-DE' },
+  GBP: { symbol: '£',    locale: 'en-GB' },
+  AUD: { symbol: 'A$',   locale: 'en-AU' },
+  CAD: { symbol: 'C$',   locale: 'en-CA' },
+  SGD: { symbol: 'S$',   locale: 'en-SG' },
+  AED: { symbol: 'د.إ', locale: 'ar-AE' },
 };
 
 /**
@@ -652,8 +640,7 @@ export function formatCurrency(amount: number, currency: string = 'INR'): string
     for (const s of meta.shortScale) {
       if (abs >= s.divisor) {
         const v = abs / s.divisor;
-        const fixed = v >= 100 ? 0 : v >= 10 ? 1 : 2;
-        return `${sign}${meta.symbol}${v.toFixed(fixed)}${s.suffix}`;
+        return `${sign}${meta.symbol}${v.toFixed(s.decimals)}${s.suffix}`;
       }
     }
   }

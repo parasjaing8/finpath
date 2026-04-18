@@ -132,3 +132,39 @@ Fix 2: FUTURE_ONE_TIME inflation uses fractionalYears = yearsFromNow + (startMon
 - peak dot label: bare value -> Peak <value>
 - All chatgpt.txt sections fully implemented
 - BUILD SUCCESSFUL in 23s; copied to Windows Dropbox
+
+---
+## 2026-04-18 — Dead code cleanup (commit d8880f9)
+
+**What changed:**
+- Deleted storage/auth.ts — superseded by db/queries.ts per-profile PIN system
+- Deleted utils/currency.ts — fetchGoldPrice/getUSDToINR never called anywhere
+- Deleted constants/categories.ts — all screens use inline arrays; jest mapper also removed
+- Deleted components/CorpusPrimer.tsx — never imported in any screen
+- Deleted storage/session.ts — session-lock flow never integrated
+- Deleted components/DepletionDialog.tsx — dashboard.tsx re-implements inline
+- Deleted Replit/ legacy subfolder entirely
+- Removed CHART_HEIGHT, CHART_PADDING, BRAND_COLORS from constants/theme.ts
+- Removed getFrequencyMonthsPerPayment from engine/types.ts
+- Removed completeOnboarding, SAMPLE_ASSETS, SAMPLE_EXPENSES from AppContext.tsx
+
+**Verified:** 0 TypeScript errors after all changes  
+**Commit:** d8880f9 | Branch: verified24 | No APK built
+
+---
+## 2026-04-18 - Dead code cleanup (commit d8880f9)
+
+**What changed:**
+- Deleted storage/auth.ts (superseded by db/queries.ts per-profile PIN system)
+- Deleted utils/currency.ts (fetchGoldPrice/getUSDToINR never called anywhere)
+- Deleted constants/categories.ts (all screens use inline arrays; jest mapper also removed)
+- Deleted components/CorpusPrimer.tsx (never imported in any screen)
+- Deleted storage/session.ts (session-lock flow never integrated)
+- Deleted components/DepletionDialog.tsx (dashboard.tsx re-implements inline)
+- Deleted Replit/ legacy subfolder entirely
+- Removed CHART_HEIGHT, CHART_PADDING, BRAND_COLORS from constants/theme.ts
+- Removed getFrequencyMonthsPerPayment from engine/types.ts
+- Removed completeOnboarding, SAMPLE_ASSETS, SAMPLE_EXPENSES from AppContext.tsx
+
+**Verified:** 0 TypeScript errors after all changes
+**Commit:** d8880f9 | Branch: verified24 | No APK built
