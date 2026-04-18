@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Modal, Share, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Share, Alert, Linking } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -62,9 +64,7 @@ export default function ProfileScreen() {
     monthly_income: 0,
   });
 
-  const [importVisible, setImportVisible] = useState(false);
-  const [importText, setImportText] = useState('');
-  const [importError, setImportError] = useState<string | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
 
   useEffect(() => {
     if (profile) setForm(profile);
@@ -151,38 +151,55 @@ export default function ProfileScreen() {
     }
   }, [exportAll]);
 
-  const openImport = useCallback(() => {
-    setImportText('');
-    setImportError(null);
-    setImportVisible(true);
+  const openImport = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      // Web: fallback to a hidden file input since DocumentPicker is Android/iOS only
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        const text = await file.text();
+        runImport(text);
+      };
+      input.click();
+      return;
+    }
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/json',
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      const uri = result.assets[0].uri;
+      const text = await FileSystem.readAsStringAsync(uri);
+      runImport(text);
+    } catch (e: any) {
+      Alert.alert('Pick failed', e?.message ?? 'Could not open file.');
+    }
   }, []);
 
-  const runImport = useCallback(async (parsed: ExportPayload) => {
-    try {
-      await importAll(parsed);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setImportVisible(false);
-    } catch (e: any) {
-      setImportError(e?.message ?? 'Import failed.');
-    }
-  }, [importAll]);
-
-  const confirmImport = useCallback(async () => {
+  const runImport = useCallback(async (jsonText: string) => {
     let parsed: ExportPayload;
     try {
-      parsed = JSON.parse(importText);
+      parsed = JSON.parse(jsonText);
     } catch {
-      setImportError('Not valid JSON.');
+      Alert.alert('Invalid backup', 'The file is not valid JSON.');
       return;
     }
     const message = 'This will overwrite your current profile, assets, expenses, and goals. This cannot be undone.';
-    // react-native-web's Alert is unreliable for multi-button prompts — use the
-    // browser-native confirm so the destructive callback actually fires.
     if (Platform.OS === 'web') {
       const confirmed = typeof window !== 'undefined' && window.confirm
         ? window.confirm(`Replace all data?\n\n${message}`)
         : true;
-      if (confirmed) await runImport(parsed);
+      if (!confirmed) return;
+      try {
+        await importAll(parsed);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (e: any) {
+        Alert.alert('Restore failed', e?.message ?? 'Import failed.');
+      }
       return;
     }
     Alert.alert(
@@ -190,10 +207,23 @@ export default function ProfileScreen() {
       message,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Replace', style: 'destructive', onPress: () => runImport(parsed) },
+        {
+          text: 'Replace', style: 'destructive',
+          onPress: async () => {
+            setImportLoading(true);
+            try {
+              await importAll(parsed);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch (e: any) {
+              Alert.alert('Restore failed', e?.message ?? 'Import failed.');
+            } finally {
+              setImportLoading(false);
+            }
+          },
+        },
       ],
     );
-  }, [importText, runImport]);
+  }, [importAll]);
 
   return (
     <ScrollView
@@ -328,13 +358,14 @@ export default function ProfileScreen() {
             <Text style={[styles.backupBtnText, { color: colors.primary }]}>Export</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.backupBtn, { borderColor: colors.primary }]}
+            style={[styles.backupBtn, { borderColor: colors.primary, opacity: importLoading ? 0.6 : 1 }]}
             onPress={openImport}
+            disabled={importLoading}
             accessibilityRole="button"
             accessibilityLabel="Import backup"
           >
             <Feather name="download" size={16} color={colors.primary} />
-            <Text style={[styles.backupBtnText, { color: colors.primary }]}>Import</Text>
+            <Text style={[styles.backupBtnText, { color: colors.primary }]}>{importLoading ? 'Restoring…' : 'Import'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -393,49 +424,6 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <Modal visible={importVisible} animationType="slide" transparent onRequestClose={() => setImportVisible(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Restore from backup</Text>
-            <Text style={styles.helpText}>Paste the contents of your backup JSON below.</Text>
-            <TextInput
-              style={[
-                styles.input,
-                styles.importInput,
-                {
-                  borderColor: importError ? '#C62828' : colors.border,
-                  color: colors.foreground,
-                  backgroundColor: colors.background,
-                },
-              ]}
-              value={importText}
-              onChangeText={setImportText}
-              placeholder='{"version":1, ...}'
-              placeholderTextColor={colors.mutedForeground}
-              multiline
-              autoCapitalize="none"
-              autoCorrect={false}
-              accessibilityLabel="Backup JSON"
-            />
-            {importError && <Text style={styles.errorText}>{importError}</Text>}
-            <View style={styles.modalRow}>
-              <TouchableOpacity
-                style={[styles.backupBtn, { borderColor: colors.border }]}
-                onPress={() => setImportVisible(false)}
-              >
-                <Text style={[styles.backupBtnText, { color: colors.foreground }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.backupBtn, { borderColor: colors.primary, backgroundColor: colors.primary }]}
-                onPress={confirmImport}
-                disabled={!importText.trim()}
-              >
-                <Text style={[styles.backupBtnText, { color: '#fff' }]}>Restore</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
 }

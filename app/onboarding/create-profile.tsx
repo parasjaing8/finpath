@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Switch } from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Switch, TouchableOpacity } from 'react-native';
 import { TextInput, Button, Text, SegmentedButtons, HelperText } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { createProfile, setBiometricEnabled } from '../../db/queries';
 import { useProfile } from '../../hooks/useProfile';
-import { useApp } from '../../context/AppContext';
+import { useApp, ExportPayload } from '../../context/AppContext';
 import type { Profile as EngineProfile } from '../../engine/types';
 import * as Crypto from 'expo-crypto';
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { DateInput } from '../../components/DateInput';
 
 export default function CreateProfile() {
   const router = useRouter();
   const { setCurrentProfileId, refreshProfiles } = useProfile();
-  const { setProfile: setAppProfile } = useApp();
+  const { setProfile: setAppProfile, importAll } = useApp();
 
   const [name, setName] = useState('');
   const [dob, setDob] = useState('2000-01-01');
@@ -26,6 +28,9 @@ export default function CreateProfile() {
   const [loading, setLoading] = useState(false);
   const [enableBiometric, setEnableBiometric] = useState(true);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
+  // Backup restore state
+  const [backupPayload, setBackupPayload] = useState<ExportPayload | null>(null);
+  const [backupPickLoading, setBackupPickLoading] = useState(false);
 
   useEffect(() => {
     async function checkBiometric() {
@@ -35,6 +40,70 @@ export default function CreateProfile() {
     }
     checkBiometric();
   }, []);
+  async function pickBackup() {
+    try {
+      setBackupPickLoading(true);
+      let jsonText: string;
+      if (Platform.OS === 'web') {
+        jsonText = await new Promise<string>((resolve, reject) => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = '.json,application/json';
+          input.onchange = async () => {
+            const file = input.files?.[0];
+            if (!file) { reject(new Error('No file selected')); return; }
+            resolve(await file.text());
+          };
+          input.oncancel = () => reject(new Error('cancelled'));
+          input.click();
+        });
+      } else {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: 'application/json',
+          copyToCacheDirectory: true,
+        });
+        if (result.canceled) return;
+        jsonText = await FileSystem.readAsStringAsync(result.assets[0].uri);
+      }
+      let parsed: ExportPayload;
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch {
+        Alert.alert('Invalid backup', 'The selected file is not valid JSON.');
+        return;
+      }
+      if (!parsed || typeof parsed.version !== 'number' || !parsed.profile) {
+        Alert.alert('Invalid backup', 'This does not look like a FinPath backup file.');
+        return;
+      }
+      // Pre-fill form from backup profile
+      const p = parsed.profile;
+      setName(p.name ?? '');
+      setDob(p.dob ?? '2000-01-01');
+      setMonthlyIncome(String(p.monthly_income ?? ''));
+      setCurrency(p.currency ?? 'INR');
+      setBackupPayload(parsed);
+      // Clear PIN so the user must consciously set a new one
+      setPin('');
+      setConfirmPin('');
+      setErrors({});
+    } catch (e: any) {
+      if (e?.message !== 'cancelled') {
+        Alert.alert('Pick failed', e?.message ?? 'Could not read backup file.');
+      }
+    } finally {
+      setBackupPickLoading(false);
+    }
+  }
+
+  function clearBackup() {
+    setBackupPayload(null);
+    setName('');
+    setDob('2000-01-01');
+    setMonthlyIncome('');
+    setCurrency('INR');
+    setErrors({});
+  }
 
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
@@ -73,12 +142,18 @@ export default function CreateProfile() {
       if (enableBiometric) await setBiometricEnabled(profileId, true);
       await setCurrentProfileId(profileId);
       await refreshProfiles();
-      try {
+      if (backupPayload) {
+        // Restore all data from backup, then fix the profile id to the new SQLite record
+        await importAll(backupPayload);
         await setAppProfile({ id: String(profileId), name: name.trim(), dob, currency, monthly_income: parseFloat(monthlyIncome) || 0 });
-      } catch {
-        // AppContext sync is non-critical; SQLite data is the source of truth
+      } else {
+        try {
+          await setAppProfile({ id: String(profileId), name: name.trim(), dob, currency, monthly_income: parseFloat(monthlyIncome) || 0 });
+        } catch {
+          // AppContext sync is non-critical; SQLite data is the source of truth
+        }
       }
-      router.replace('/(tabs)/assets');
+      router.replace(backupPayload ? '/(tabs)/dashboard' : '/(tabs)/assets');
     } catch (e) {
       if (__DEV__) console.error('Failed to create profile:', e);
       Alert.alert('Error', 'Could not create profile. Please try again.');
@@ -188,10 +263,41 @@ export default function CreateProfile() {
           disabled={loading}
           style={styles.button}
           contentStyle={styles.buttonContent}
-          accessibilityLabel="Create profile"
+          accessibilityLabel={backupPayload ? 'Set PIN and restore backup' : 'Create profile'}
         >
-          Create Profile
+          {backupPayload ? 'Set PIN & Restore' : 'Create Profile'}
         </Button>
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        {backupPayload ? (
+          <TouchableOpacity
+            style={styles.restoreBtn}
+            onPress={clearBackup}
+            accessibilityRole="button"
+            accessibilityLabel="Clear backup and start fresh"
+          >
+            <MaterialCommunityIcons name="close-circle-outline" size={18} color="#888" />
+            <Text style={styles.restoreBtnText}>Clear backup — start fresh instead</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.restoreBtn}
+            onPress={pickBackup}
+            disabled={backupPickLoading}
+            accessibilityRole="button"
+            accessibilityLabel="Restore from backup file"
+          >
+            <MaterialCommunityIcons name="restore" size={18} color="#1B5E20" />
+            <Text style={[styles.restoreBtnText, { color: '#1B5E20' }]}>
+              {backupPickLoading ? 'Opening\u2026' : 'Returning user? Restore from backup'}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Cause note */}
         <View style={styles.causeNote}>
@@ -222,4 +328,9 @@ const styles = StyleSheet.create({
   causeIcon: { fontSize: 15, marginTop: 1 },
   causeText: { flex: 1, fontSize: 12, color: '#5D4037', lineHeight: 18 },
   buttonContent: { paddingVertical: 8 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 8 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#DDD' },
+  dividerText: { fontSize: 12, color: '#999' },
+  restoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: '#CCC', backgroundColor: '#FFF' },
+  restoreBtnText: { fontSize: 14, color: '#888' },
 });
