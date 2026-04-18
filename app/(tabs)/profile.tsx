@@ -235,15 +235,20 @@ export default function ProfileScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.content, { paddingTop: 16 + webTop, paddingBottom: 40 + webBottom + insets.bottom }]}
     >
-      <View style={styles.avatarArea}>
-        <View style={[styles.avatar, { backgroundColor: colors.secondary }]}>
-          <Text style={[styles.avatarText, { color: colors.primary }]}>
+      <View style={styles.avatarRow}>
+        <View style={[styles.avatarSmall, { backgroundColor: colors.secondary }]}>
+          <Text style={[styles.avatarSmallText, { color: colors.primary }]}>
             {(form.name || 'U').charAt(0).toUpperCase()}
           </Text>
         </View>
-        {currentAge > 0 && (
-          <Text style={[styles.ageText, { color: colors.mutedForeground }]}>Age {currentAge}</Text>
-        )}
+        <View style={styles.avatarRowText}>
+          {form.name ? (
+            <Text style={[styles.avatarName, { color: colors.foreground }]} numberOfLines={1}>{form.name}</Text>
+          ) : null}
+          {currentAge > 0 ? (
+            <Text style={[styles.avatarAge, { color: colors.mutedForeground }]}>Age {currentAge}</Text>
+          ) : null}
+        </View>
       </View>
 
       <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -310,28 +315,6 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <View style={[styles.statsCard, { backgroundColor: colors.secondary }]}>
-        <Text style={[styles.sectionTitle, { color: colors.primary }]}>Quick Stats</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.primary }]}>{currentAge}</Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Current Age</Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.primary }]}>{form.currency}</Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Currency</Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.primary }]}>
-              {form.monthly_income > 0 ? `${(form.monthly_income / 1000).toFixed(0)}K` : '—'}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Monthly Income</Text>
-          </View>
-        </View>
-      </View>
-
       <TouchableOpacity
         style={[styles.saveBtn, { backgroundColor: saved ? '#2E7D32' : colors.primary }]}
         onPress={handleSave}
@@ -348,10 +331,6 @@ export default function ProfileScreen() {
       {/* Backup & Restore */}
       <View style={[styles.card, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Backup & Restore</Text>
-        <Text style={styles.helpText}>
-          Export your full plan as JSON, or restore from a previous backup. All data is stored
-          locally on this device.
-        </Text>
         <View style={styles.backupRow}>
           <TouchableOpacity
             style={[styles.backupBtn, { borderColor: colors.primary }]}
@@ -426,10 +405,12 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 16 },
-  avatarArea: { alignItems: 'center', marginBottom: 24 },
-  avatar: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  avatarText: { fontSize: 32, fontWeight: '800', fontFamily: 'Inter_700Bold' },
-  ageText: { fontSize: 14, fontFamily: 'Inter_400Regular' },
+  avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  avatarSmall: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  avatarSmallText: { fontSize: 18, fontWeight: '800', fontFamily: 'Inter_700Bold' },
+  avatarRowText: { flex: 1, justifyContent: 'center' },
+  avatarName: { fontSize: 16, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  avatarAge: { fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 2 },
   card: {
     borderRadius: 16, padding: 20, marginBottom: 16,
     ...shadow(2),
@@ -438,17 +419,10 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 6, marginTop: 12, fontFamily: 'Inter_600SemiBold' },
   input: { borderWidth: 1.5, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: 'Inter_400Regular' },
   errorText: { color: '#C62828', fontSize: 12, marginTop: 6, fontFamily: 'Inter_500Medium' },
-  helpText: { color: '#666', fontSize: 12, marginBottom: 12, lineHeight: 18, fontFamily: 'Inter_400Regular' },
   currencyRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
   currChip: { flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: 'center' },
   currSymbol: { fontSize: 22, fontWeight: '800', fontFamily: 'Inter_700Bold' },
   currLabel: { fontSize: 12, marginTop: 2, fontFamily: 'Inter_400Regular' },
-  statsCard: { borderRadius: 16, padding: 20, marginBottom: 16 },
-  statsRow: { flexDirection: 'row', alignItems: 'center' },
-  statItem: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 22, fontWeight: '800', fontFamily: 'Inter_700Bold' },
-  statLabel: { fontSize: 11, marginTop: 2, textAlign: 'center', fontFamily: 'Inter_400Regular' },
-  statDivider: { width: 1, height: 40 },
   saveBtn: {
     borderRadius: 16, padding: 18, alignItems: 'center', justifyContent: 'center',
     ...shadow(3),
