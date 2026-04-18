@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, ActivityIndicator } from 'react-native';
+import { Portal, Dialog } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { CustomSlider as Slider } from '@/components/CustomSlider';
 import { Feather } from '@expo/vector-icons';
@@ -227,15 +228,15 @@ export default function GoalsScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      <Modal visible={calculating} transparent animationType="fade" onRequestClose={() => {}}>
-        <View style={styles.calculatingOverlay}>
-          <View style={[styles.calculatingCard, { backgroundColor: colors.card }]}> 
+      <Portal>
+        <Dialog visible={calculating} dismissable={false} style={{ backgroundColor: colors.card, borderRadius: 20 }}>
+          <Dialog.Content style={{ alignItems: 'center', paddingVertical: 24 }}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.calculatingTitle, { color: colors.foreground }]}>Calculating your FIRE plan</Text>
+            <Text style={[styles.calculatingTitle, { color: colors.foreground, marginTop: 16 }]}>Calculating your FIRE plan</Text>
             <Text style={[styles.calculatingText, { color: colors.mutedForeground }]}>Refreshing the dashboard with your updated retirement assumptions.</Text>
-          </View>
-        </View>
-      </Modal>
+          </Dialog.Content>
+        </Dialog>
+      </Portal>
     </>
   );
 }
