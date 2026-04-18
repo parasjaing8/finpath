@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   kavWrapper: { flex: 1, justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20, paddingHorizontal: 24, maxHeight: '100%' },
+  sheet: { flex: 1, maxHeight: '85%', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20, paddingHorizontal: 24 },
   scrollContent: { paddingBottom: 4 },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   sheetTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Inter_700Bold' },
