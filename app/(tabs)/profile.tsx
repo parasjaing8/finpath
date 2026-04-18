@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Portal, Dialog, Button as PaperButton } from 'react-native-paper';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Share, Alert, Linking } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -65,6 +66,7 @@ export default function ProfileScreen() {
   });
 
   const [importLoading, setImportLoading] = useState(false);
+  const [showBackupInfo, setShowBackupInfo] = useState(false);
 
   useEffect(() => {
     if (profile) setForm(profile);
@@ -231,6 +233,7 @@ export default function ProfileScreen() {
   }, [importAll]);
 
   return (
+    <>
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.content, { paddingTop: 16 + webTop, paddingBottom: 40 + webBottom + insets.bottom }]}
@@ -330,7 +333,17 @@ export default function ProfileScreen() {
 
       {/* Backup & Restore */}
       <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Backup & Restore</Text>
+        <View style={styles.sectionTitleRow}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground, marginBottom: 0 }]}>Backup & Restore</Text>
+          <TouchableOpacity
+            onPress={() => setShowBackupInfo(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Learn about backup and restore"
+          >
+            <Feather name="info" size={16} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        </View>
         <View style={styles.backupRow}>
           <TouchableOpacity
             style={[styles.backupBtn, { borderColor: colors.primary }]}
@@ -399,6 +412,28 @@ export default function ProfileScreen() {
       </View>
 
     </ScrollView>
+
+    <Portal>
+      <Dialog visible={showBackupInfo} onDismiss={() => setShowBackupInfo(false)} style={{ backgroundColor: colors.card, borderRadius: 16 }}>
+        <Dialog.Title style={{ color: colors.foreground, fontWeight: '700' }}>Backup & Restore</Dialog.Title>
+        <Dialog.Content>
+          <Text style={{ color: colors.foreground, fontSize: 14, lineHeight: 22, marginBottom: 12 }}>
+            <Text style={{ fontWeight: '700' }}>Export</Text> saves your entire plan — profile, assets, expenses, and goals — as a{' '}
+            <Text style={{ fontFamily: 'Inter_500Medium' }}>.json</Text> file you can share or save anywhere.
+          </Text>
+          <Text style={{ color: colors.foreground, fontSize: 14, lineHeight: 22, marginBottom: 12 }}>
+            <Text style={{ fontWeight: '700' }}>Import</Text> restores a previously exported file. It replaces all current data.
+          </Text>
+          <Text style={{ color: colors.mutedForeground, fontSize: 13, lineHeight: 20 }}>
+            🔒 All your data lives only on this device. FinPath never sends anything to a server or cloud. The backup file stays wherever you save it — your phone, email, or cloud drive of your choice.
+          </Text>
+        </Dialog.Content>
+        <Dialog.Actions>
+          <PaperButton onPress={() => setShowBackupInfo(false)} textColor={colors.primary}>Got it</PaperButton>
+        </Dialog.Actions>
+      </Dialog>
+    </Portal>
+    </>
   );
 }
 
@@ -416,6 +451,7 @@ const styles = StyleSheet.create({
     ...shadow(2),
   },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 16, fontFamily: 'Inter_700Bold' },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 6, marginTop: 12, fontFamily: 'Inter_600SemiBold' },
   input: { borderWidth: 1.5, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: 'Inter_400Regular' },
   errorText: { color: '#C62828', fontSize: 12, marginTop: 6, fontFamily: 'Inter_500Medium' },
