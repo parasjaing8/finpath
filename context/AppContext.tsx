@@ -51,6 +51,8 @@ interface AppContextType {
   deleteExpense: (id: string) => Promise<void>;
   exportAll: () => ExportPayload;
   importAll: (payload: ExportPayload) => Promise<void>;
+  logout: () => Promise<void>;
+  deleteAllData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -236,6 +238,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateExpense = useCallback((e: Expense) => mutateExpenses(prev => prev.map(x => x.id === e.id ? e : x)), [mutateExpenses]);
   const deleteExpense = useCallback((id: string) => mutateExpenses(prev => prev.filter(x => x.id !== id)), [mutateExpenses]);
 
+  const logout = useCallback(async () => {
+    setProfileState(null);
+    setAssetsState([]);
+    setExpensesState([]);
+    setGoalsState(null);
+    setOnboarded(false);
+    // Keep storage intact so the user can log back in.
+  }, []);
+
+  const deleteAllData = useCallback(async () => {
+    setProfileState(null);
+    setAssetsState([]);
+    setExpensesState([]);
+    setGoalsState(null);
+    setOnboarded(false);
+    await Promise.all([
+      secureSetItem(STORAGE_KEYS.PROFILE, JSON.stringify(null)),
+      secureSetItem(STORAGE_KEYS.ASSETS, JSON.stringify([])),
+      secureSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify([])),
+      secureSetItem(STORAGE_KEYS.GOALS, JSON.stringify(null)),
+      AsyncStorage.removeItem(STORAGE_KEYS.ONBOARDED),
+      AsyncStorage.removeItem(SCHEMA_VERSION_KEY),
+    ]);
+  }, []);
+
   const exportAll = useCallback((): ExportPayload => ({
     version: CURRENT_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
@@ -293,6 +320,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addAsset, updateAsset, deleteAsset,
       addExpense, updateExpense, deleteExpense,
       exportAll, importAll,
+      logout, deleteAllData,
     }}>
       {children}
     </AppContext.Provider>

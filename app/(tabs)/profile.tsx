@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Modal, Share, Alert, Linking } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useApp, ExportPayload } from '@/context/AppContext';
@@ -46,7 +47,8 @@ function validateDob(dob: string): { ok: true; age: number } | { ok: false; erro
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { profile, setProfile, exportAll, importAll } = useApp();
+  const { profile, setProfile, exportAll, importAll, logout, deleteAllData } = useApp();
+  const router = useRouter();
   const [saved, setSaved] = useState(false);
 
   const webTop = Platform.OS === 'web' ? WEB_HEADER_OFFSET : 0;
@@ -82,6 +84,41 @@ export default function ProfileScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  function handleLogout() {
+    Alert.alert(
+      'Log out',
+      'You will be returned to the login screen. Your data will remain saved.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log out', style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/login' as any);
+          },
+        },
+      ],
+    );
+  }
+
+  function handleDeleteProfile() {
+    Alert.alert(
+      'Delete all data',
+      'This will permanently erase your profile, assets, expenses, and goals. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete everything', style: 'destructive',
+          onPress: async () => {
+            await deleteAllData();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            router.replace('/onboarding/create-profile' as any);
+          },
+        },
+      ],
+    );
   }
 
   const handleExport = useCallback(async () => {
@@ -331,6 +368,31 @@ export default function ProfileScreen() {
         Made with {'\u2764\uFE0F'} in {'\uD83C\uDDEE\uD83C\uDDF3'} for the world
       </Text>
 
+      {/* Danger Zone */}
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.destructive }]}>Account</Text>
+        <TouchableOpacity
+          style={[styles.dangerRow, { borderBottomColor: colors.border }]}
+          onPress={handleLogout}
+          accessibilityRole="button"
+          accessibilityLabel="Log out"
+        >
+          <Feather name="log-out" size={18} color={colors.warning} />
+          <Text style={[styles.dangerLabel, { color: colors.warning }]}>Log out</Text>
+          <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.dangerRow}
+          onPress={handleDeleteProfile}
+          accessibilityRole="button"
+          accessibilityLabel="Delete all data"
+        >
+          <Feather name="trash-2" size={18} color={colors.destructive} />
+          <Text style={[styles.dangerLabel, { color: colors.destructive }]}>Delete all data</Text>
+          <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+        </TouchableOpacity>
+      </View>
+
       <Modal visible={importVisible} animationType="slide" transparent onRequestClose={() => setImportVisible(false)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
@@ -440,4 +502,9 @@ const styles = StyleSheet.create({
   },
   importInput: { minHeight: 140, textAlignVertical: 'top', fontSize: 12, fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) },
   modalRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  dangerRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  dangerLabel: { flex: 1, fontSize: 15, fontFamily: 'Inter_500Medium' },
 });
