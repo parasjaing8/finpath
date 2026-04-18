@@ -15,6 +15,8 @@ import {
   createExpense as dbCreateExpense,
   updateExpense as dbUpdateExpense,
   deleteExpense as dbDeleteExpense,
+  getAllProfiles as dbGetAllProfiles,
+  deleteProfile as dbDeleteProfile,
 } from '../db/queries';
 
 const STORAGE_KEYS = {
@@ -376,6 +378,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const deleteAllData = useCallback(async () => {
+    // Delete all profiles from SQLite (CASCADE removes assets, expenses, goals)
+    try {
+      const profiles = await dbGetAllProfiles();
+      await Promise.all(profiles.map(p => dbDeleteProfile(p.id)));
+    } catch (e) {
+      if (__DEV__) console.warn('[deleteAllData] SQLite wipe failed', e);
+    }
     setProfileState(null);
     setAssetsState([]);
     setExpensesState([]);
