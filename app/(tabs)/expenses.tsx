@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/context/AppContext';
 import { Expense, Frequency, FrequencyInput, FREQUENCY_TO_MONTHS_PER_PAYMENT } from '@/engine/types';
-import { formatCurrency, getCurrencySymbol } from '@/engine/calculator';
+import { formatCurrency, getCurrencySymbol, calculateFutureGoalsCorpus } from '@/engine/calculator';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow, FAB_SIZE, FAB_RIGHT, FAB_BOTTOM_NATIVE, FAB_BOTTOM_WEB } from '@/constants/theme';
 import { formatDateMask } from '@/components/DateInput';
@@ -58,7 +58,7 @@ const EMPTY_FORM: ExpenseForm = {
 export default function ExpensesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { expenses, addExpense, deleteExpense, updateExpense, profile } = useApp();
+  const { expenses, addExpense, deleteExpense, updateExpense, profile, assets } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<ExpenseForm>(EMPTY_FORM);
@@ -70,6 +70,12 @@ export default function ExpensesScreen() {
 
   const currentRecurring = expenses.filter(e => e.expense_type === 'CURRENT_RECURRING');
   const futureExpenses = expenses.filter(e => e.expense_type !== 'CURRENT_RECURRING');
+
+  const { corpus: futureGoalsCorpus, discountRatePct } = calculateFutureGoalsCorpus(
+    profile ?? { id: '', name: '', dob: '1990-01-01', currency: currency, monthly_income: 0 },
+    expenses,
+    assets,
+  );
 
   const monthlyTotal = currentRecurring.reduce((s, e) => {
     const months = FREQUENCY_TO_MONTHS_PER_PAYMENT[(e.frequency ?? 'MONTHLY') as FrequencyInput] ?? 1;
@@ -177,6 +183,16 @@ export default function ExpensesScreen() {
           <Text style={[styles.summaryValue, { color: colors.warning }]}>{formatCurrency(monthlyTotal, currency)}</Text>
           <Text style={[styles.summarySub, { color: colors.warning }]}>Current recurring lifestyle costs</Text>
         </View>
+
+        {futureExpenses.length > 0 && (
+          <View style={[styles.summaryCard, { backgroundColor: colors.successLight }]}>
+            <Text style={[styles.summaryLabel, { color: colors.success }]}>FUTURE GOALS CORPUS</Text>
+            <Text style={[styles.summaryValue, { color: colors.success }]}>{formatCurrency(futureGoalsCorpus, currency)}</Text>
+            <Text style={[styles.summarySub, { color: colors.success }]}>
+              Lump sum needed today at {discountRatePct}% portfolio return to fund all planned goals
+            </Text>
+          </View>
+        )}
 
         {expenses.length === 0 && (
           <View style={styles.emptyState}>

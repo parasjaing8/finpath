@@ -604,6 +604,51 @@ const CURRENCY_META: Record<string, CurrencyMeta> = {
  * retirementAge. FUTURE_ONE_TIME and FUTURE_RECURRING expenses are excluded —
  * this is the "salary must cover" number used by the expenses screen banner.
  */
+/**
+ * Present value of all FUTURE_ONE_TIME and FUTURE_RECURRING expenses,
+ * discounted at the user's blended portfolio return rate.
+ * This is the lump sum needed today, invested at the portfolio return,
+ * to fund every planned future expense on its scheduled date.
+ */
+export function calculateFutureGoalsCorpus(
+  profile: Profile,
+  expenses: Expense[],
+  assets: Asset[],
+  fallbackRate: number = 8,
+): { corpus: number; discountRatePct: number } {
+  const futureExpenses = expenses.filter(e => e.expense_type !== 'CURRENT_RECURRING');
+  if (futureExpenses.length === 0) return { corpus: 0, discountRatePct: fallbackRate };
+
+  const discountRatePct = computeBlendedGrowthRate(assets, fallbackRate);
+  const discountRate = discountRatePct / 100;
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  // Find the furthest year any future expense has cash flows
+  let maxYear = currentYear;
+  for (const exp of futureExpenses) {
+    const endDate = exp.end_date ? new Date(exp.end_date) : null;
+    const startDate = exp.start_date ? new Date(exp.start_date) : null;
+    if (endDate) maxYear = Math.max(maxYear, endDate.getFullYear());
+    else if (startDate) maxYear = Math.max(maxYear, startDate.getFullYear());
+  }
+  // Safety cap: 80 years out
+  maxYear = Math.min(maxYear, currentYear + 80);
+
+  let pv = 0;
+  for (let year = currentYear; year <= maxYear; year++) {
+    const yearsFromNow = year - currentYear;
+    let annualAmt = 0;
+    for (const exp of futureExpenses)
+      annualAmt += calculateExpenseForYear(exp, year, currentYear, currentMonth);
+    if (annualAmt > 0)
+      pv += annualAmt / Math.pow(1 + discountRate, yearsFromNow);
+  }
+  return { corpus: Math.ceil(pv), discountRatePct: Math.round(discountRatePct * 10) / 10 };
+}
+
 export function calculatePresentValueOfExpenses(
   profile: Profile,
   expenses: Expense[],
