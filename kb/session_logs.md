@@ -132,3 +132,30 @@ Fix 2: FUTURE_ONE_TIME inflation uses fractionalYears = yearsFromNow + (startMon
 - peak dot label: bare value -> Peak <value>
 - All chatgpt.txt sections fully implemented
 - BUILD SUCCESSFUL in 23s; copied to Windows Dropbox
+
+## 2026-04-17 — V2 Replit merge + SVG chart redesign
+
+**Build:** app-release-v20.aab (versionCode 20, release-signed)
+**Branch:** replit-assited
+**Commits:** 13683d2 (chart + V2 components), d36ee4e (Inter fonts + Pro button)
+
+- ProjectionChart.tsx: full SVG rewrite matching Gemini reference image
+  - Three zones green/blue/red, gradient fill, peak dot+label, event emoji rings
+  - Range buttons 5Y/10Y/25Y/All + window slider; removed event chips row
+- dashboard.tsx: chart subtitle added
+- _layout.tsx: Inter fonts (400/500/600/700) + GestureHandlerRootView
+- profile.tsx: Pro upgrade card + ProPaywall wired
+- Added: CustomSlider, DepletionDialog, KeyboardAwareScrollViewCompat, theme.ts, engine/types.ts
+- BUILD SUCCESSFUL in 1m 26s; copied to C:\Dropbox\finpath\app-release-v20.aab
+
+## 2026-04-18 — goals flow restructure + delayed calculate handoff
+
+**Build:** none
+**Branch:** replit-assited
+**Commit:** e5f5bda
+
+- goals.tsx: Retirement Plan now appears first; old standalone FIRE Strategy card removed
+- goals.tsx: FIRE strategy moved into Withdrawal Target, `moderate` relabeled to `Moderate FIRE`
+- goals.tsx: Save button renamed to `Save Goals and Calculate`
+- goals.tsx: 5-second calculating modal added before navigating to dashboard
+- HeroCard.tsx: subtitle now hides only for the redundant plain on-track case, while preserving depletion / ahead-of-plan messaging
