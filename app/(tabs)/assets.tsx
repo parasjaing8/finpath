@@ -322,29 +322,27 @@ export default function AssetsScreen() {
           const cat = CATEGORIES.find(c => c.key === asset.category);
           const icon = CATEGORY_ICONS[asset.category] ?? 'box';
           return (
-            <View key={asset.id} style={[styles.assetCard, { backgroundColor: colors.card }]}>
-              <View style={[styles.iconBox, { backgroundColor: colors.secondary }]}>
+            <TouchableOpacity
+              key={asset.id}
+              style={[styles.assetCard, { backgroundColor: colors.card }]}
+              onPress={() => openEdit(asset)}
+              accessibilityRole="button"
+              accessibilityLabel={`Edit ${asset.name}`}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.iconBox, { backgroundColor: colors.secondary }]}> 
                 <Feather name={icon as any} size={20} color={colors.primary} />
               </View>
-              <View style={styles.assetInfo}>
+              <View style={styles.assetInfo}> 
                 <Text style={[styles.assetName, { color: colors.foreground }]}>{asset.name}</Text>
-                <Text style={[styles.assetMeta, { color: colors.mutedForeground }]}>
+                <Text style={[styles.assetMeta, { color: colors.mutedForeground }]}> 
                   {cat?.label ?? asset.category} · {asset.expected_roi}% p.a.
                   {asset.is_self_use ? ' · Self-use' : ''}
                 </Text>
               </View>
-              <Text style={[styles.assetValue, { color: colors.primary }]}>
+              <Text style={[styles.assetValue, { color: colors.primary }]}> 
                 {formatCurrency(asset.current_value, currency)}
               </Text>
-              <TouchableOpacity
-                onPress={() => openEdit(asset)}
-                style={styles.editBtn}
-                accessibilityRole="button"
-                accessibilityLabel={`Edit ${asset.name}`}
-                hitSlop={8}
-              >
-                <Feather name="edit-2" size={16} color={colors.mutedForeground} />
-              </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => handleDelete(asset.id)}
                 style={styles.editBtn}
@@ -354,7 +352,7 @@ export default function AssetsScreen() {
               >
                 <Feather name="trash-2" size={16} color={colors.destructive} />
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           );
         })}
       </ScrollView>
