@@ -32,7 +32,7 @@ export default function GoalsScreen() {
   const [form, setForm] = useState<Goals>({
     retirement_age: 50,
     sip_stop_age: 50,
-    pension_income: 100000,
+    pension_income: 10000,
     inflation_rate: 6,
     fire_type: 'moderate',
     fire_target_age: 100,
@@ -120,15 +120,21 @@ export default function GoalsScreen() {
           <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}> 
             Monthly withdrawal in today's money ({getCurrencySymbol(currency)})
           </Text>
+
           <TextInput
             style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
             value={String(form.pension_income ?? '')}
             onChangeText={t => setForm(f => ({ ...f, pension_income: parseFloat(t) || 0 }))}
             keyboardType="numeric"
-            placeholder="e.g., 100000"
+            placeholder="e.g., 10000"
             placeholderTextColor={colors.mutedForeground}
             accessibilityLabel="Desired monthly withdrawal in today's money"
           />
+          {form.pension_income > 0 && form.pension_income < 10000 && (
+            <Text style={{ color: colors.destructive, marginTop: 6, fontSize: 13 }}>
+              Warning: Monthly withdrawal below ₹10,000 may be unrealistic. Please check your plan.
+            </Text>
+          )}
 
           <Text style={[styles.subSectionTitle, { color: colors.foreground }]}>FIRE Strategy</Text>
           {FIRE_TYPES.map(t => (
