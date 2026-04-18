@@ -8,6 +8,14 @@ import {
   StoredBlobs,
   runMigrations,
 } from '../storage/migrations';
+import {
+  createAsset as dbCreateAsset,
+  updateAsset as dbUpdateAsset,
+  deleteAsset as dbDeleteAsset,
+  createExpense as dbCreateExpense,
+  updateExpense as dbUpdateExpense,
+  deleteExpense as dbDeleteExpense,
+} from '../db/queries';
 
 const STORAGE_KEYS = {
   PROFILE: '@fire_profile',
@@ -230,13 +238,133 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await secureSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(nextValue));
   }, []);
 
-  const addAsset = useCallback((a: Asset) => mutateAssets(prev => [...prev, a]), [mutateAssets]);
-  const updateAsset = useCallback((a: Asset) => mutateAssets(prev => prev.map(x => x.id === a.id ? a : x)), [mutateAssets]);
-  const deleteAsset = useCallback((id: string) => mutateAssets(prev => prev.filter(x => x.id !== id)), [mutateAssets]);
+  const addAsset = useCallback(async (a: Asset) => {
+    const profileId = profile ? parseInt(String(profile.id), 10) : NaN;
+    if (!isNaN(profileId)) {
+      try {
+        const sqliteId = await dbCreateAsset({
+          profile_id: profileId,
+          category: a.category,
+          name: a.name,
+          current_value: a.current_value,
+          currency: String((a as any).currency ?? profile?.currency ?? 'INR'),
+          expected_roi: a.expected_roi ?? 0,
+          is_recurring: a.is_recurring ? 1 : 0,
+          recurring_amount: (a.recurring_amount as number | null) ?? null,
+          recurring_frequency: (a.recurring_frequency as string | null) ?? null,
+          next_vesting_date: (a.next_vesting_date as string | null) ?? null,
+          vesting_end_date: (a.vesting_end_date as string | null) ?? null,
+          is_self_use: a.is_self_use ? 1 : 0,
+          gold_silver_unit: (a as any).gold_silver_unit ?? null,
+          gold_silver_quantity: (a as any).gold_silver_quantity ?? null,
+        });
+        return mutateAssets(prev => [...prev, { ...a, id: String(sqliteId) }]);
+      } catch (e) {
+        if (__DEV__) console.warn('[addAsset] SQLite write failed', e);
+      }
+    }
+    return mutateAssets(prev => [...prev, a]);
+  }, [mutateAssets, profile]);
 
-  const addExpense = useCallback((e: Expense) => mutateExpenses(prev => [...prev, e]), [mutateExpenses]);
-  const updateExpense = useCallback((e: Expense) => mutateExpenses(prev => prev.map(x => x.id === e.id ? e : x)), [mutateExpenses]);
-  const deleteExpense = useCallback((id: string) => mutateExpenses(prev => prev.filter(x => x.id !== id)), [mutateExpenses]);
+  const updateAsset = useCallback(async (a: Asset) => {
+    const numId = parseInt(String(a.id), 10);
+    if (!isNaN(numId)) {
+      try {
+        await dbUpdateAsset({
+          id: numId,
+          profile_id: profile ? parseInt(String(profile.id), 10) : 0,
+          category: a.category,
+          name: a.name,
+          current_value: a.current_value,
+          currency: String((a as any).currency ?? profile?.currency ?? 'INR'),
+          expected_roi: a.expected_roi ?? 0,
+          is_recurring: a.is_recurring ? 1 : 0,
+          recurring_amount: (a.recurring_amount as number | null) ?? null,
+          recurring_frequency: (a.recurring_frequency as string | null) ?? null,
+          next_vesting_date: (a.next_vesting_date as string | null) ?? null,
+          vesting_end_date: (a.vesting_end_date as string | null) ?? null,
+          is_self_use: a.is_self_use ? 1 : 0,
+          gold_silver_unit: (a as any).gold_silver_unit ?? null,
+          gold_silver_quantity: (a as any).gold_silver_quantity ?? null,
+        });
+      } catch (e) {
+        if (__DEV__) console.warn('[updateAsset] SQLite write failed', e);
+      }
+    }
+    return mutateAssets(prev => prev.map(x => x.id === a.id ? a : x));
+  }, [mutateAssets, profile]);
+
+  const deleteAsset = useCallback(async (id: string) => {
+    const numId = parseInt(id, 10);
+    if (!isNaN(numId)) {
+      try {
+        await dbDeleteAsset(numId);
+      } catch (e) {
+        if (__DEV__) console.warn('[deleteAsset] SQLite delete failed', e);
+      }
+    }
+    return mutateAssets(prev => prev.filter(x => x.id !== id));
+  }, [mutateAssets]);
+
+  const addExpense = useCallback(async (e: Expense) => {
+    const profileId = profile ? parseInt(String(profile.id), 10) : NaN;
+    if (!isNaN(profileId)) {
+      try {
+        const sqliteId = await dbCreateExpense({
+          profile_id: profileId,
+          name: e.name,
+          category: e.category,
+          amount: e.amount,
+          currency: String((e as any).currency ?? profile?.currency ?? 'INR'),
+          expense_type: e.expense_type,
+          frequency: (e.frequency as string | null) ?? null,
+          start_date: (e.start_date as string | null) ?? null,
+          end_date: (e.end_date as string | null) ?? null,
+          inflation_rate: e.inflation_rate ?? 6,
+        });
+        return mutateExpenses(prev => [...prev, { ...e, id: String(sqliteId) }]);
+      } catch (e2) {
+        if (__DEV__) console.warn('[addExpense] SQLite write failed', e2);
+      }
+    }
+    return mutateExpenses(prev => [...prev, e]);
+  }, [mutateExpenses, profile]);
+
+  const updateExpense = useCallback(async (e: Expense) => {
+    const numId = parseInt(String(e.id), 10);
+    if (!isNaN(numId)) {
+      try {
+        await dbUpdateExpense({
+          id: numId,
+          profile_id: profile ? parseInt(String(profile.id), 10) : 0,
+          name: e.name,
+          category: e.category,
+          amount: e.amount,
+          currency: String((e as any).currency ?? profile?.currency ?? 'INR'),
+          expense_type: e.expense_type,
+          frequency: (e.frequency as string | null) ?? null,
+          start_date: (e.start_date as string | null) ?? null,
+          end_date: (e.end_date as string | null) ?? null,
+          inflation_rate: e.inflation_rate ?? 6,
+        });
+      } catch (e2) {
+        if (__DEV__) console.warn('[updateExpense] SQLite write failed', e2);
+      }
+    }
+    return mutateExpenses(prev => prev.map(x => x.id === e.id ? e : x));
+  }, [mutateExpenses, profile]);
+
+  const deleteExpense = useCallback(async (id: string) => {
+    const numId = parseInt(id, 10);
+    if (!isNaN(numId)) {
+      try {
+        await dbDeleteExpense(numId);
+      } catch (e) {
+        if (__DEV__) console.warn('[deleteExpense] SQLite delete failed', e);
+      }
+    }
+    return mutateExpenses(prev => prev.filter(x => x.id !== id));
+  }, [mutateExpenses]);
 
   const logout = useCallback(async () => {
     setProfileState(null);
