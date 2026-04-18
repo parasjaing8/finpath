@@ -271,8 +271,8 @@ export default function AssetsScreen() {
                 style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
                 value={form.expected_roi}
                 onChangeText={t => setForm(f => ({ ...f, expected_roi: t }))}
-                keyboardType="numeric"
-                placeholder="e.g., 12"
+                keyboardType="decimal-pad"
+                placeholder="e.g., 7.5"
                 placeholderTextColor={colors.mutedForeground}
                 accessibilityLabel="Expected annual return in percent"
               />
