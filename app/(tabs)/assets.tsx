@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   modalSheet: { flex: 1, maxHeight: '85%', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20, paddingHorizontal: 24 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 6, marginTop: 12, fontFamily: 'Inter_600SemiBold' },
+  fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.mutedForeground, marginBottom: 6, marginTop: 12, fontFamily: 'Inter_600SemiBold' },
   input: {
     borderWidth: 1.5, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: 'Inter_400Regular',
   },
