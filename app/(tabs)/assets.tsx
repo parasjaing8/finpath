@@ -86,7 +86,7 @@ export default function AssetsScreen() {
 
   const currency = profile?.currency ?? 'INR';
   const totalNetWorth = assets.reduce((s, a) => s + a.current_value, 0);
-  const investable = assets.filter(a => !(a.category === 'REAL_ESTATE' && a.is_self_use));
+  const investable = assets.filter(a => !a.is_self_use);
   const investableNetWorth = investable.reduce((s, a) => s + a.current_value, 0);
 
   const webTop = Platform.OS === 'web' ? WEB_HEADER_OFFSET : 0;
@@ -294,7 +294,7 @@ export default function AssetsScreen() {
                 step={0.5}
               />
 
-              {form.category === 'REAL_ESTATE' && (
+              {['REAL_ESTATE', 'GOLD', 'OTHERS'].includes(form.category) && (
                 <TouchableOpacity
                   style={styles.checkRow}
                   onPress={() => setForm(f => ({ ...f, is_self_use: !f.is_self_use }))}
