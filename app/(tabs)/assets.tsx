@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Animated } from 'react-native';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform, FlatList } from 'react-native';
 import { Portal, Dialog } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -285,40 +285,24 @@ export default function AssetsScreen() {
           </View>
         </Animated.View>
       )}
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: 16 + webTop, paddingBottom: 40 + webBottom + insets.bottom }]}
-      >
-        {/* Summary */}
-        <View style={styles.summaryRow}>
-          <View style={[styles.summaryTile, { backgroundColor: colors.successLight }]}>
-            <Text style={[styles.summaryLabel, { color: colors.success }]}>TOTAL NET WORTH</Text>
-            <Text style={[styles.summaryValue, { color: colors.success }]}>{formatCurrency(totalNetWorth, currency)}</Text>
+      <FlatList
+        data={assets}
+        keyExtractor={item => item.id}
+        contentContainerStyle={[styles.content, { paddingTop: 0, paddingBottom: 40 + webBottom + insets.bottom }]}
+        ListHeaderComponent={
+          <View style={styles.summaryRow}>
+            <View style={[styles.summaryTile, { backgroundColor: colors.successLight }]}> 
+              <Text style={[styles.summaryLabel, { color: colors.success }]}>TOTAL NET WORTH</Text>
+              <Text style={[styles.summaryValue, { color: colors.success }]}>{formatCurrency(totalNetWorth, currency)}</Text>
+            </View>
+            <View style={[styles.summaryTile, { backgroundColor: colors.secondary }]}> 
+              <Text style={[styles.summaryLabel, { color: colors.primary }]}>INVESTABLE</Text>
+              <Text style={[styles.summaryValue, { color: colors.primary }]}>{formatCurrency(investableNetWorth, currency)}</Text>
+            </View>
           </View>
-          <View style={[styles.summaryTile, { backgroundColor: colors.secondary }]}>
-            <Text style={[styles.summaryLabel, { color: colors.primary }]}>INVESTABLE</Text>
-            <Text style={[styles.summaryValue, { color: colors.primary }]}>{formatCurrency(investableNetWorth, currency)}</Text>
-          </View>
-        </View>
-
-        {/* Asset list */}
-        {assets.length === 0 && (
-          <View style={styles.emptyState}>
-            <Feather name="trending-up" size={40} color={colors.mutedForeground} />
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No assets yet</Text>
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>Add your investments to get a complete picture</Text>
-            <TouchableOpacity
-              style={[styles.emptyCta, { backgroundColor: colors.primary }]}
-              onPress={openAdd}
-              accessibilityRole="button"
-              accessibilityLabel="Add your first asset"
-            >
-              <Feather name="plus" size={16} color="#fff" />
-              <Text style={styles.emptyCtaText}>Add your first asset</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {assets.map(asset => {
+        }
+        stickyHeaderIndices={[0]}
+        renderItem={({ item: asset }) => {
           const cat = CATEGORIES.find(c => c.key === asset.category);
           const icon = CATEGORY_ICONS[asset.category] ?? 'box';
           return (
@@ -354,8 +338,24 @@ export default function AssetsScreen() {
               </TouchableOpacity>
             </TouchableOpacity>
           );
-        })}
-      </ScrollView>
+        }}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Feather name="trending-up" size={40} color={colors.mutedForeground} />
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No assets yet</Text>
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>Add your investments to get a complete picture</Text>
+            <TouchableOpacity
+              style={[styles.emptyCta, { backgroundColor: colors.primary }]}
+              onPress={openAdd}
+              accessibilityRole="button"
+              accessibilityLabel="Add your first asset"
+            >
+              <Feather name="plus" size={16} color="#fff" />
+              <Text style={styles.emptyCtaText}>Add your first asset</Text>
+            </TouchableOpacity>
+          </View>
+        }
+      />
 
       {/* FAB */}
       <TouchableOpacity
