@@ -8,6 +8,8 @@ import { useApp } from '@/context/AppContext';
 import { Expense, Frequency, FrequencyInput, FREQUENCY_TO_MONTHS_PER_PAYMENT } from '@/engine/types';
 import { formatCurrency, getCurrencySymbol } from '@/engine/calculator';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
+import { DateInput } from '@/components/DateInput';
+import { EXPENSE_CATEGORIES } from '@/constants/categories';
 import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow, FAB_SIZE, FAB_RIGHT, FAB_BOTTOM_NATIVE, FAB_BOTTOM_WEB } from '@/constants/theme';
 
 const EXPENSE_TYPES = [
@@ -262,6 +264,22 @@ export default function ExpensesScreen() {
                 accessibilityLabel="Expense name"
               />
 
+              <Text style={styles.fieldLabel}>Category</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
+                {EXPENSE_CATEGORIES.map(c => (
+                  <TouchableOpacity
+                    key={c.key}
+                    style={[styles.catChip, { backgroundColor: form.category === c.key ? colors.warning : colors.secondary, borderColor: colors.border }]}
+                    onPress={() => setForm(f => ({ ...f, category: c.key, inflation_rate: String(c.defaultInflation) }))}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Category: ${c.label}`}
+                    accessibilityState={{ selected: form.category === c.key }}
+                  >
+                    <Text style={[styles.catChipText, { color: form.category === c.key ? '#fff' : colors.foreground }]}>{c.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
               <Text style={styles.fieldLabel}>Amount ({getCurrencySymbol(currency)})</Text>
               <TextInput
                 style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
@@ -306,28 +324,22 @@ export default function ExpensesScreen() {
 
               {form.expense_type !== 'CURRENT_RECURRING' && (
                 <>
-                  <Text style={styles.fieldLabel}>Start Date (YYYY-MM-DD)</Text>
-                  <TextInput
-                    style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+                  <DateInput
+                    label="Start Date"
                     value={form.start_date}
-                    onChangeText={t => setForm(f => ({ ...f, start_date: t }))}
-                    placeholder="e.g., 2030-06-01"
-                    placeholderTextColor={colors.mutedForeground}
-                    accessibilityLabel="Start date in year month day format"
+                    onChangeText={v => setForm(f => ({ ...f, start_date: v }))}
+                    minimumDate={new Date()}
                   />
                 </>
               )}
 
               {form.expense_type === 'FUTURE_RECURRING' && (
                 <>
-                  <Text style={styles.fieldLabel}>End Date (YYYY-MM-DD)</Text>
-                  <TextInput
-                    style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+                  <DateInput
+                    label="End Date"
                     value={form.end_date}
-                    onChangeText={t => setForm(f => ({ ...f, end_date: t }))}
-                    placeholder="e.g., 2035-12-31"
-                    placeholderTextColor={colors.mutedForeground}
-                    accessibilityLabel="End date in year month day format"
+                    onChangeText={v => setForm(f => ({ ...f, end_date: v }))}
+                    minimumDate={new Date()}
                   />
                 </>
               )}
@@ -402,6 +414,9 @@ const styles = StyleSheet.create({
   freqRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   freqChip: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
   freqText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  catScroll: { marginBottom: 4 },
+  catChip: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 1 },
+  catChipText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24, marginBottom: 32 },
   cancelBtn: { flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: 'center' },
   saveBtn: { flex: 1, borderRadius: 12, padding: 14, alignItems: 'center' },

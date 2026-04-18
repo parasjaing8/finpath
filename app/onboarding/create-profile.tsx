@@ -17,7 +17,7 @@ export default function CreateProfile() {
   const { setProfile: setAppProfile } = useApp();
 
   const [name, setName] = useState('');
-  const [dob, setDob] = useState('2000-01-01');
+  const [dob, setDob] = useState('1995-06-01');
   const [monthlyIncome, setMonthlyIncome] = useState('');
   const [currency, setCurrency] = useState('INR');
   const [pin, setPin] = useState('');

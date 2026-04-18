@@ -25,7 +25,7 @@ function parseDate(value: string): { year: number; month: number; day: number } 
     return { year: parts[0], month: parts[1], day: parts[2] };
   }
   const now = new Date();
-  return { year: 2000, month: 1, day: 1 };
+  return { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
 }
 
 function pad(n: number): string {
