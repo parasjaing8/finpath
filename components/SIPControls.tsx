@@ -56,7 +56,7 @@ export function SIPControls({
           value={sipAmountDisplay}
           onValueChange={(v: number[]) => onSipChange(Math.round(v[0] / 1000) * 1000)}
           onSlidingComplete={(v: number[]) => onSipCommit(Math.round(v[0] / 1000) * 1000)}
-          minimumValue={1000} maximumValue={500000} step={1000}
+          minimumValue={1000} maximumValue={2000000} step={1000}
           minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
         />
 

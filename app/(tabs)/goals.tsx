@@ -56,11 +56,9 @@ export default function GoalsScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSaved(true);
     setCalculating(true);
-    navigationTimeoutRef.current = setTimeout(() => {
-      setSaved(false);
-      setCalculating(false);
-      router.push('/(tabs)/dashboard');
-    }, 5000);
+    setSaved(false);
+    setCalculating(false);
+    router.push('/(tabs)/dashboard');
   }
 
   function InfoRow({ label, value, suffix = '' }: { label: string; value: string | number; suffix?: string }) {
