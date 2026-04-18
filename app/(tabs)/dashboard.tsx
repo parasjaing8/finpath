@@ -110,6 +110,34 @@ function Dashboard() {
     return <View style={styles.center}><Text>No profile selected</Text></View>;
   }
 
+
+  // Empty state for zero assets
+  if (assets.length === 0) {
+    return (
+      <View style={styles.center}>
+        <MaterialCommunityIcons name="wallet-outline" size={48} color={colors.primary} />
+        <Text variant="titleMedium" style={{ textAlign: 'center', color: colors.foreground, marginTop: 16, fontWeight: '700' }}>
+          No assets found
+        </Text>
+        <Text variant="bodyMedium" style={{ textAlign: 'center', color: colors.mutedForeground, marginTop: 8, marginHorizontal: 32, lineHeight: 22 }}>
+          To calculate your retirement plan, please add your assets (bank, property, gold, etc.).
+        </Text>
+        <Text variant="bodySmall" style={{ textAlign: 'center', color: colors.mutedForeground, marginTop: 8, marginHorizontal: 32, lineHeight: 18 }}>
+          Assets are the foundation for your projections. Without them, the app can’t estimate your future net worth or retirement readiness.
+        </Text>
+        <Button
+          mode="contained"
+          icon="plus"
+          onPress={() => router.push('/(tabs)/assets?add=1')}
+          style={{ marginTop: 24, borderRadius: 8 }}
+          contentStyle={{ paddingVertical: 6 }}
+        >
+          Add Asset
+        </Button>
+      </View>
+    );
+  }
+
   if (!goals) {
     return (
       <View style={styles.center}>
