@@ -324,7 +324,7 @@ export default function ProfileScreen() {
             accessibilityRole="button"
             accessibilityLabel="Export backup"
           >
-            <Feather name="download" size={16} color={colors.primary} />
+            <Feather name="upload" size={16} color={colors.primary} />
             <Text style={[styles.backupBtnText, { color: colors.primary }]}>Export</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -333,7 +333,7 @@ export default function ProfileScreen() {
             accessibilityRole="button"
             accessibilityLabel="Import backup"
           >
-            <Feather name="upload" size={16} color={colors.primary} />
+            <Feather name="download" size={16} color={colors.primary} />
             <Text style={[styles.backupBtnText, { color: colors.primary }]}>Import</Text>
           </TouchableOpacity>
         </View>
