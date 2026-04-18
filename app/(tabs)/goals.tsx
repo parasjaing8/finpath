@@ -32,7 +32,7 @@ export default function GoalsScreen() {
   const [form, setForm] = useState<Goals>({
     retirement_age: 50,
     sip_stop_age: 50,
-    pension_income: 10000,
+    pension_income: 100000,
     inflation_rate: 6,
     fire_type: 'moderate',
     fire_target_age: 100,
@@ -130,7 +130,7 @@ export default function GoalsScreen() {
             placeholderTextColor={colors.mutedForeground}
             accessibilityLabel="Desired monthly withdrawal in today's money"
           />
-          {form.pension_income > 0 && form.pension_income < 10000 && (
+          {(form.pension_income ?? 0) > 0 && (form.pension_income ?? 0) < 10000 && (
             <Text style={{ color: colors.destructive, marginTop: 6, fontSize: 13 }}>
               Warning: Monthly withdrawal below ₹10,000 may be unrealistic. Please check your plan.
             </Text>
