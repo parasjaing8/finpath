@@ -11,6 +11,13 @@ import {
 export const PENSION_INFLATION_RATE = 0.06;
 export const DEFAULT_DISCOUNT_RATE = 0.06;
 
+/** Standard fire_target_age values for each FIRE type. */
+export const FIRE_TARGET_AGES: Record<string, number> = {
+  slim: 85,
+  moderate: 100,
+  fat: 120,
+};
+
 export interface CalculationInput {
   profile: Profile;
   assets: Asset[];
@@ -592,6 +599,34 @@ const CURRENCY_META: Record<string, CurrencyMeta> = {
   SGD: { symbol: 'S$', locale: 'en-SG', shortScale: [{ divisor: 1e9, suffix: 'B' }, { divisor: 1e6, suffix: 'M' }, { divisor: 1e3, suffix: 'K' }] },
   AED: { symbol: 'د.إ', locale: 'ar-AE', shortScale: [{ divisor: 1e9, suffix: 'B' }, { divisor: 1e6, suffix: 'M' }, { divisor: 1e3, suffix: 'K' }] },
 };
+
+/**
+ * Compute the present value of CURRENT_RECURRING expenses from now until
+ * retirementAge. FUTURE_ONE_TIME and FUTURE_RECURRING expenses are excluded —
+ * this is the "salary must cover" number used by the expenses screen banner.
+ */
+export function calculatePresentValueOfExpenses(
+  profile: Profile,
+  expenses: Expense[],
+  retirementAge: number,
+  discountRate: number = DEFAULT_DISCOUNT_RATE,
+): number {
+  const currentAge = getAge(profile.dob);
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const currentExpenses = expenses.filter(e => e.expense_type === 'CURRENT_RECURRING');
+  let pv = 0;
+  for (let age = currentAge; age < retirementAge; age++) {
+    const year = currentYear + (age - currentAge);
+    let annualAmt = 0;
+    for (const exp of currentExpenses)
+      annualAmt += calculateExpenseForYear(exp, year, currentYear, currentMonth);
+    const yearsFromNow = age - currentAge;
+    pv += annualAmt / Math.pow(1 + discountRate, yearsFromNow);
+  }
+  return pv;
+}
 
 function getMeta(currency: string): CurrencyMeta {
   return CURRENCY_META[currency.toUpperCase()] ?? { symbol: currency + ' ', locale: 'en-US' };

@@ -61,7 +61,7 @@ export const DEFAULT_GROWTH_RATES: Record<string, number> = {
 };
 
 export interface Profile {
-  id: string;
+  id: string | number;
   name: string;
   dob: string;
   currency: string;
@@ -69,36 +69,37 @@ export interface Profile {
 }
 
 export interface Asset {
-  id: string;
+  id: string | number;
   name: string;
   category: string;
   current_value: number;
   expected_roi: number;
-  is_self_use?: boolean;
-  is_recurring?: boolean;
-  recurring_amount?: number;
-  recurring_frequency?: string;
-  next_vesting_date?: string;
-  vesting_end_date?: string;
+  currency?: string;
+  is_self_use?: boolean | number;
+  is_recurring?: boolean | number;
+  recurring_amount?: number | null;
+  recurring_frequency?: string | null;
+  next_vesting_date?: string | null;
+  vesting_end_date?: string | null;
 }
 
 export interface Expense {
-  id: string;
+  id: string | number;
   name: string;
   category: string;
-  expense_type: 'CURRENT_RECURRING' | 'FUTURE_ONE_TIME' | 'FUTURE_RECURRING';
+  expense_type: string;
   amount: number;
-  frequency?: string;
+  frequency?: string | null;
   inflation_rate: number;
-  start_date?: string;
-  end_date?: string;
+  start_date?: string | null;
+  end_date?: string | null;
 }
 
 export interface Goals {
   retirement_age: number;
   sip_stop_age: number;
-  pension_income?: number;
-  inflation_rate?: number;
+  pension_income?: number | null;
+  inflation_rate?: number | null;
   fire_type?: string;
   fire_target_age?: number;
   withdrawal_rate?: number;

@@ -82,7 +82,7 @@ export default function ExpensesScreen() {
   }
 
   function openEdit(e: Expense) {
-    setEditId(e.id);
+    setEditId(String(e.id));
     setForm({
       name: e.name,
       category: e.category,
@@ -155,7 +155,7 @@ export default function ExpensesScreen() {
           <Feather name="edit-2" size={15} color={colors.mutedForeground} />
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => handleDelete(e.id)}
+          onPress={() => handleDelete(String(e.id))}
           style={styles.actionBtn}
           accessibilityRole="button"
           accessibilityLabel={`Delete ${e.name}`}

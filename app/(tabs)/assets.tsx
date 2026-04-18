@@ -83,13 +83,13 @@ export default function AssetsScreen() {
   }
 
   function openEdit(a: Asset) {
-    setEditId(a.id);
+    setEditId(String(a.id));
     setForm({
       name: a.name,
       category: a.category,
       current_value: String(a.current_value),
       expected_roi: String(a.expected_roi),
-      is_self_use: a.is_self_use ?? false,
+      is_self_use: !!(a.is_self_use ?? false),
     });
     setShowModal(true);
   }
@@ -185,7 +185,7 @@ export default function AssetsScreen() {
                 <Feather name="edit-2" size={16} color={colors.mutedForeground} />
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => handleDelete(asset.id)}
+                onPress={() => handleDelete(String(asset.id))}
                 style={styles.editBtn}
                 accessibilityRole="button"
                 accessibilityLabel={`Delete ${asset.name}`}
