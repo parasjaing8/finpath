@@ -12,6 +12,8 @@ import { useApp, ExportPayload } from '@/context/AppContext';
 import { Profile } from '@/engine/types';
 import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow } from '@/constants/theme';
 import { formatDateMask } from '@/components/DateInput';
+import * as Crypto from 'expo-crypto';
+import { getProfilePin, saveProfilePin } from '@/db/queries';
 
 const CURRENCIES = [
   { key: 'INR', symbol: '₹', label: 'Indian Rupee' },
@@ -67,6 +69,10 @@ export default function ProfileScreen() {
 
   const [importLoading, setImportLoading] = useState(false);
   const [showBackupInfo, setShowBackupInfo] = useState(false);
+  const [showPinChange, setShowPinChange] = useState(false);
+  const [pinFields, setPinFields] = useState({ current: '', next: '', confirm: '' });
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [pinChanging, setPinChanging] = useState(false);
 
   useEffect(() => {
     if (profile) setForm(profile);
@@ -86,6 +92,48 @@ export default function ProfileScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  async function handleChangePin() {
+    const { current, next, confirm } = pinFields;
+    if (current.length !== 6 || !/^\d{6}$/.test(current)) { setPinError('Current PIN must be 6 digits'); return; }
+    if (next.length !== 6 || !/^\d{6}$/.test(next)) { setPinError('New PIN must be 6 digits'); return; }
+    if (next !== confirm) { setPinError('New PINs do not match'); return; }
+    setPinChanging(true);
+    setPinError(null);
+    try {
+      const profileId = parseInt(String(profile!.id), 10);
+      const stored = await getProfilePin(profileId);
+      let valid = false;
+      if (stored) {
+        if (stored.includes('$')) {
+          const [salt, expectedHash] = stored.split('$');
+          const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, salt + current);
+          valid = hash === expectedHash;
+        } else {
+          const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, current);
+          valid = hash === stored;
+        }
+      }
+      if (!valid) { setPinError('Current PIN is incorrect'); return; }
+      const saltBytes = Crypto.getRandomValues(new Uint8Array(16));
+      const salt = Array.from(saltBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, salt + next);
+      await saveProfilePin(profileId, `${salt}$${hash}`);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowPinChange(false);
+      setPinFields({ current: '', next: '', confirm: '' });
+    } catch (e: any) {
+      setPinError(e?.message ?? 'Failed to change PIN');
+    } finally {
+      setPinChanging(false);
+    }
+  }
+
+  function openPinChange() {
+    setPinFields({ current: '', next: '', confirm: '' });
+    setPinError(null);
+    setShowPinChange(true);
   }
 
   function handleLogout() {
@@ -368,28 +416,20 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* About — subtle footer links */}
-      <View style={styles.footerLinks}>
-        <TouchableOpacity
-          onPress={() => Linking.openURL('https://aihomecloud.com/finpath/')}
-          accessibilityRole="link"
-          accessibilityLabel="About us"
-        >
-          <Text style={[styles.footerLink, { color: colors.mutedForeground }]}>About Us</Text>
-        </TouchableOpacity>
-        <Text style={[styles.footerDot, { color: colors.mutedForeground }]}>·</Text>
-        <TouchableOpacity
-          onPress={() => Linking.openURL('https://aihomecloud.com/finpath/privacy')}
-          accessibilityRole="link"
-          accessibilityLabel="Privacy policy"
-        >
-          <Text style={[styles.footerLink, { color: colors.mutedForeground }]}>Privacy Policy</Text>
-        </TouchableOpacity>
-      </View>
-
+      {/* About — subtle footer links, moved above Account */}
       {/* Danger Zone */}
       <View style={[styles.card, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.destructive }]}>Account</Text>
+        <TouchableOpacity
+          style={[styles.dangerRow, { borderBottomColor: colors.border }]}
+          onPress={openPinChange}
+          accessibilityRole="button"
+          accessibilityLabel="Change PIN"
+        >
+          <Feather name="lock" size={18} color={colors.foreground} />
+          <Text style={[styles.dangerLabel, { color: colors.foreground }]}>Change PIN</Text>
+          <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.dangerRow, { borderBottomColor: colors.border }]}
           onPress={handleLogout}
@@ -412,6 +452,26 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Credit + footer links at very bottom */}
+      <Text style={[styles.credit, { color: colors.mutedForeground }]}>Made with ❤️ from 🇮🇳 for the world</Text>
+      <View style={styles.footerLinks}>
+        <TouchableOpacity
+          onPress={() => Linking.openURL('https://aihomecloud.com/finpath/')}
+          accessibilityRole="link"
+          accessibilityLabel="About us"
+        >
+          <Text style={[styles.footerLink, { color: colors.mutedForeground }]}>About Us</Text>
+        </TouchableOpacity>
+        <Text style={[styles.footerDot, { color: colors.mutedForeground }]}>·</Text>
+        <TouchableOpacity
+          onPress={() => Linking.openURL('https://aihomecloud.com/finpath/privacy')}
+          accessibilityRole="link"
+          accessibilityLabel="Privacy policy"
+        >
+          <Text style={[styles.footerLink, { color: colors.mutedForeground }]}>Privacy Policy</Text>
+        </TouchableOpacity>
+      </View>
+
     </ScrollView>
 
     <Portal>
@@ -431,6 +491,55 @@ export default function ProfileScreen() {
         </Dialog.Content>
         <Dialog.Actions>
           <PaperButton onPress={() => setShowBackupInfo(false)} textColor={colors.primary}>Got it</PaperButton>
+        </Dialog.Actions>
+      </Dialog>
+    </Portal>
+
+    <Portal>
+      <Dialog visible={showPinChange} onDismiss={() => setShowPinChange(false)} style={{ backgroundColor: colors.card, borderRadius: 16 }}>
+        <Dialog.Title style={{ color: colors.foreground, fontWeight: '700' }}>Change PIN</Dialog.Title>
+        <Dialog.Content>
+          <Text style={{ color: colors.mutedForeground, fontSize: 12, marginBottom: 12, fontFamily: 'Inter_400Regular' }}>Enter your current PIN, then choose a new 6-digit PIN.</Text>
+          <TextInput
+            style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background, marginBottom: 10 }]}
+            placeholder="Current PIN"
+            placeholderTextColor={colors.mutedForeground}
+            value={pinFields.current}
+            onChangeText={t => setPinFields(f => ({ ...f, current: t.replace(/\D/g, '').slice(0, 6) }))}
+            keyboardType="number-pad"
+            maxLength={6}
+            secureTextEntry
+            accessibilityLabel="Current PIN"
+          />
+          <TextInput
+            style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background, marginBottom: 10 }]}
+            placeholder="New PIN"
+            placeholderTextColor={colors.mutedForeground}
+            value={pinFields.next}
+            onChangeText={t => setPinFields(f => ({ ...f, next: t.replace(/\D/g, '').slice(0, 6) }))}
+            keyboardType="number-pad"
+            maxLength={6}
+            secureTextEntry
+            accessibilityLabel="New PIN"
+          />
+          <TextInput
+            style={[styles.input, { borderColor: pinError ? '#C62828' : colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+            placeholder="Confirm new PIN"
+            placeholderTextColor={colors.mutedForeground}
+            value={pinFields.confirm}
+            onChangeText={t => setPinFields(f => ({ ...f, confirm: t.replace(/\D/g, '').slice(0, 6) }))}
+            keyboardType="number-pad"
+            maxLength={6}
+            secureTextEntry
+            accessibilityLabel="Confirm new PIN"
+          />
+          {pinError ? <Text style={{ color: '#C62828', fontSize: 12, marginTop: 8, fontFamily: 'Inter_500Medium' }}>{pinError}</Text> : null}
+        </Dialog.Content>
+        <Dialog.Actions>
+          <PaperButton onPress={() => setShowPinChange(false)} textColor={colors.mutedForeground}>Cancel</PaperButton>
+          <PaperButton onPress={handleChangePin} textColor={colors.primary} disabled={pinChanging}>
+            {pinChanging ? 'Saving…' : 'Change PIN'}
+          </PaperButton>
         </Dialog.Actions>
       </Dialog>
     </Portal>
@@ -477,6 +586,7 @@ const styles = StyleSheet.create({
   },
   dangerLabel: { flex: 1, fontSize: 15, fontFamily: 'Inter_500Medium' },
   footerLinks: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginBottom: 12, marginTop: 4 },
+  credit: { textAlign: 'center', fontSize: 12, marginTop: 8, marginBottom: 4, fontFamily: 'Inter_400Regular' },
   footerLink: { fontSize: 12, textDecorationLine: 'underline', fontFamily: 'Inter_400Regular' },
   footerDot: { fontSize: 12, fontFamily: 'Inter_400Regular' },
 });
