@@ -6,6 +6,24 @@
 
 ---
 
+## 2026-04-19 -- Deep audit: dual storage is the #1 risk
+
+**Finding:** App has two storage layers (AsyncStorage encrypted blobs + SQLite normalized rows) that are NOT synchronized atomically. Mutations write to both but if one fails, data diverges permanently. On login, SQLite overwrites AppContext, which could lose AsyncStorage-only data.
+
+**Decision:** Must resolve before next major feature. Recommended approach: make SQLite the single source of truth. Remove dual-write complexity from AppContext mutations.
+
+**Full audit:** `kb/deepAudit.md` — 5 critical bugs, 6 high bugs, 50+ hardcoded colors, missing test coverage for `calculateFutureGoalsCorpus`, input validation gaps across all forms.
+
+---
+
+## 2026-04-19 -- totalNetExpenses formula is wrong
+
+**Bug:** `calculator.ts:579` adds pension income to planned expenses post-retirement. Pension is income, not expense. Field shows inflated values in projections. Display-only (core FIRE math unaffected) but dashboard/table numbers are misleading.
+
+**Fix needed:** Change to `plannedExpenses - pensionIncome` (net corpus withdrawal).
+
+---
+
 ## 2026-04-06 -- Pension model clarification
 
 **Decision:** Pension is a systematic corpus withdrawal, not external income.

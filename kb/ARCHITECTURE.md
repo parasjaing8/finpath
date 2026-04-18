@@ -207,11 +207,25 @@ Key exports:
 
 ---
 
+## ⚠️ Dual Storage Warning (Identified 2026-04-19 Audit)
+
+**CRITICAL:** The app has two storage layers that are NOT synchronized:
+- **AsyncStorage (encrypted):** Stores Profile, Assets[], Expenses[], Goals as JSON blobs. AppContext reads from here on launch.
+- **SQLite:** Stores normalized rows. Login reads from here via `syncToAppContext`. Mutations attempt to write to both.
+
+These can diverge if one write fails (SQLite success + AsyncStorage fail, or vice versa). No atomic transaction wraps both writes. **Data loss is possible.** See `kb/deepAudit.md` §1 for full analysis and recommended fix.
+
+---
+
 ## Known Issues
 
+- **Dual storage data sync risk** — see §Dual Storage Warning above
 - withReleaseSigning.js step-3 regex fails to patch buildTypes.release signingConfig. Manual sed needed after clean prebuild.
 - Sentry DSN not configured (no .env). Crash reporting inactive.
 - R8 minification disabled. APK ~54MB.
 - SYSTEM_ALERT_WINDOW + READ/WRITE_EXTERNAL_STORAGE still in AndroidManifest (should be removed for Play Store).
 - Hardcoded IAP price in ProPaywall (should fetch from Play Store billing).
 - gold_silver_quantity and gold_silver_unit columns are legacy/unused (value-only mode).
+- `totalNetExpenses` field in projections is wrong post-retirement (adds pension to expenses instead of subtracting).
+- `calculateFutureGoalsCorpus` has zero test coverage.
+- 50+ hardcoded color instances instead of using theme system.
