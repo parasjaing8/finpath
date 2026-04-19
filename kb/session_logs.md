@@ -249,3 +249,13 @@ Start with Phase 1 fixes: C4 (UTC dates), C5 (profile rollback), C3 (dashboard e
 
 - login.tsx: autoSelectedRef replaces !selectedProfile stale closure in loadProfiles
 - 70/70 tests pass
+
+---
+
+## 2026-04-20 — Fix H3: slim→lean FIRE type rename (commits b483d10, 7178ef0, 81f860f)
+
+- calculator.ts: FIRE_TARGET_AGES slim→lean
+- schema.ts: migration v9 normalizes stored slim→lean
+- queries.ts: FireType union updated
+- calculator.test.ts: all slim refs updated to lean
+- 70/70 tests pass
