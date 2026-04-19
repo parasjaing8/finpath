@@ -227,3 +227,10 @@ Start with Phase 1 fixes: C4 (UTC dates), C5 (profile rollback), C3 (dashboard e
 - dashboard.tsx: replaced inline age calc with getAge(); added to import
 - create-profile.tsx: DOB validation now uses new Date(y, m-1, day)
 - 70/70 tests pass
+
+---
+
+## 2026-04-20 — Fix C5: orphaned profile rollback (commit 5290d88)
+
+- db/queries.ts createProfile(): try/catch around saveProfilePin; DELETE profile row on failure, rethrow
+- 70/70 tests pass
