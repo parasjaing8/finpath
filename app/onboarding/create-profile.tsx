@@ -144,7 +144,7 @@ export default function CreateProfile() {
       await refreshProfiles();
       if (backupPayload) {
         // Restore all data from backup, then fix the profile id to the new SQLite record
-        await importAll(backupPayload);
+        await importAll(backupPayload, profileId);
         await setAppProfile({ id: String(profileId), name: name.trim(), dob, currency, monthly_income: parseFloat(monthlyIncome) || 0 });
       } else {
         try {

@@ -24,19 +24,42 @@ const MAX_FREE_ATTEMPTS = 5; // lockout kicks in after this many failures
 export default function LoginScreen() {
   const router = useRouter();
   const { setCurrentProfileId, refreshProfiles } = useProfile();
-  const { setProfile, setAssets, setExpenses, setGoals } = useApp();
+  const { profile: currentProfile, setProfile, setAssets, setExpenses, setGoals } = useApp();
 
-  /** Hydrate AppContext from SQLite so V2 screens have live data after login. */
+  /**
+   * Hydrate AppContext from SQLite so V2 screens have live data after login.
+   *
+   * IMPORTANT: When the same profile is already loaded (from encrypted
+   * AsyncStorage via loadData), we only refresh the profile metadata and
+   * skip overwriting assets/expenses/goals.  Encrypted AsyncStorage is the
+   * canonical store — it may contain data (e.g. from importAll) that SQLite
+   * doesn't have.  Blindly overwriting it from SQLite was the root cause of
+   * the "data lost after restart" bug.
+   *
+   * We DO perform a full SQLite sync when switching to a different profile.
+   */
   async function syncToAppContext(p: Profile) {
+    const selectedId = String(p.id);
+    const engineProfile: EngineProfile = {
+      id: selectedId, name: p.name, dob: p.dob,
+      currency: p.currency, monthly_income: p.monthly_income,
+    };
+
+    // Always update profile metadata (name, income, etc.)
+    await setProfile(engineProfile);
+
+    // If loadData already populated the correct profile's data, don't
+    // overwrite assets/expenses/goals from SQLite.
+    if (currentProfile?.id === selectedId) {
+      return;
+    }
+
+    // Different profile selected — hydrate from SQLite
     const [sqlAssets, sqlExpenses, sqlGoals] = await Promise.all([
       getAssets(p.id),
       getExpenses(p.id),
       getGoals(p.id),
     ]);
-    const engineProfile: EngineProfile = {
-      id: String(p.id), name: p.name, dob: p.dob,
-      currency: p.currency, monthly_income: p.monthly_income,
-    };
     const engineAssets: EngineAsset[] = sqlAssets.map(a => ({
       id: String(a.id), name: a.name, category: a.category,
       current_value: a.current_value, expected_roi: a.expected_roi,
@@ -54,7 +77,6 @@ export default function LoginScreen() {
       start_date: e.start_date ?? undefined,
       end_date: e.end_date ?? undefined,
     }));
-    await setProfile(engineProfile);
     await setAssets(engineAssets);
     await setExpenses(engineExpenses);
     if (sqlGoals) {

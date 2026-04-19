@@ -249,7 +249,7 @@ export default function ProfileScreen() {
         : true;
       if (!confirmed) return;
       try {
-        await importAll(parsed);
+        await importAll(parsed, profile ? parseInt(String(profile.id), 10) : undefined);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (e: any) {
         Alert.alert('Restore failed', e?.message ?? 'Import failed.');
@@ -266,7 +266,7 @@ export default function ProfileScreen() {
           onPress: async () => {
             setImportLoading(true);
             try {
-              await importAll(parsed);
+              await importAll(parsed, profile ? parseInt(String(profile.id), 10) : undefined);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } catch (e: any) {
               Alert.alert('Restore failed', e?.message ?? 'Import failed.');

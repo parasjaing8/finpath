@@ -17,6 +17,7 @@ import {
   deleteExpense as dbDeleteExpense,
   getAllProfiles as dbGetAllProfiles,
   deleteProfile as dbDeleteProfile,
+  saveGoals as dbSaveGoals,
 } from '../db/queries';
 
 const STORAGE_KEYS = {
@@ -60,7 +61,7 @@ interface AppContextType {
   updateExpense: (e: Expense) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
   exportAll: () => ExportPayload;
-  importAll: (payload: ExportPayload) => Promise<void>;
+  importAll: (payload: ExportPayload, sqliteProfileId?: number) => Promise<void>;
   logout: () => Promise<void>;
   deleteAllData: () => Promise<void>;
 }
@@ -100,6 +101,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [goals, setGoalsState] = useState<Goals | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [onboarded, setOnboarded] = useState(false);
+
+  // Refs mirror state so mutate helpers can compute the next value
+  // synchronously — React's functional-setState callback runs during the
+  // render phase (after the current call stack), so we can't rely on it
+  // to populate nextValue before secureSetItem is called.
+  const assetsRef = React.useRef<Asset[]>([]);
+  const expensesRef = React.useRef<Expense[]>([]);
 
   useEffect(() => {
     loadData();
@@ -161,6 +169,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const nextExpenses = anyExisting ? migrated.expenses : [];
       const nextGoals = migrated.goals ?? (isFirstLaunch ? null : DEFAULT_GOALS);
 
+      assetsRef.current = nextAssets;
+      expensesRef.current = nextExpenses;
       setProfileState(nextProfile);
       setAssetsState(nextAssets);
       setExpensesState(nextExpenses);
@@ -206,11 +216,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setAssets = useCallback(async (a: Asset[]) => {
+    assetsRef.current = a;
     setAssetsState(a);
     await secureSetItem(STORAGE_KEYS.ASSETS, JSON.stringify(a));
   }, []);
 
   const setExpenses = useCallback(async (e: Expense[]) => {
+    expensesRef.current = e;
     setExpensesState(e);
     await secureSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(e));
   }, []);
@@ -220,23 +232,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await secureSetItem(STORAGE_KEYS.GOALS, JSON.stringify(g));
   }, []);
 
-  // Functional updates: read-modify-write through the latest state via the
-  // updater function, then persist using the resolved next value.
+  // Functional updates: compute the next value eagerly from the ref so we
+  // persist the correct data before React has a chance to render.
   const mutateAssets = useCallback(async (updater: (prev: Asset[]) => Asset[]) => {
-    let nextValue: Asset[] = [];
-    setAssetsState(prev => {
-      nextValue = updater(prev);
-      return nextValue;
-    });
+    const nextValue = updater(assetsRef.current);
+    assetsRef.current = nextValue;
+    setAssetsState(nextValue);
     await secureSetItem(STORAGE_KEYS.ASSETS, JSON.stringify(nextValue));
   }, []);
 
   const mutateExpenses = useCallback(async (updater: (prev: Expense[]) => Expense[]) => {
-    let nextValue: Expense[] = [];
-    setExpensesState(prev => {
-      nextValue = updater(prev);
-      return nextValue;
-    });
+    const nextValue = updater(expensesRef.current);
+    expensesRef.current = nextValue;
+    setExpensesState(nextValue);
     await secureSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(nextValue));
   }, []);
 
@@ -369,6 +377,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [mutateExpenses]);
 
   const logout = useCallback(async () => {
+    assetsRef.current = [];
+    expensesRef.current = [];
     setProfileState(null);
     setAssetsState([]);
     setExpensesState([]);
@@ -385,6 +395,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       if (__DEV__) console.warn('[deleteAllData] SQLite wipe failed', e);
     }
+    assetsRef.current = [];
+    expensesRef.current = [];
     setProfileState(null);
     setAssetsState([]);
     setExpensesState([]);
@@ -409,7 +421,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     goals,
   }), [profile, assets, expenses, goals]);
 
-  const importAll = useCallback(async (payload: ExportPayload) => {
+  const importAll = useCallback(async (payload: ExportPayload, sqliteProfileId?: number) => {
     if (!payload || typeof payload !== 'object' || typeof payload.version !== 'number') {
       throw new Error('Unsupported or invalid backup format.');
     }
@@ -435,15 +447,80 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const finalProfile = migrated.profile ?? DEFAULT_PROFILE;
     const finalGoals = migrated.goals ?? DEFAULT_GOALS;
 
+    // If a SQLite profile ID is provided, also sync imported data to SQLite
+    // so that both stores stay consistent. Re-map asset/expense IDs to the
+    // SQLite auto-increment IDs to keep the two stores in sync.
+    let finalAssets = migrated.assets;
+    let finalExpenses = migrated.expenses;
+
+    if (sqliteProfileId != null) {
+      try {
+        const assetPromises = migrated.assets.map(async (a) => {
+          const sqlId = await dbCreateAsset({
+            profile_id: sqliteProfileId,
+            category: a.category,
+            name: a.name,
+            current_value: a.current_value,
+            currency: String((a as any).currency ?? 'INR'),
+            expected_roi: a.expected_roi ?? 0,
+            is_recurring: a.is_recurring ? 1 : 0,
+            recurring_amount: (a.recurring_amount as number | null) ?? null,
+            recurring_frequency: (a.recurring_frequency as string | null) ?? null,
+            next_vesting_date: (a.next_vesting_date as string | null) ?? null,
+            vesting_end_date: (a.vesting_end_date as string | null) ?? null,
+            is_self_use: a.is_self_use ? 1 : 0,
+            gold_silver_unit: (a as any).gold_silver_unit ?? null,
+            gold_silver_quantity: (a as any).gold_silver_quantity ?? null,
+          });
+          return { ...a, id: String(sqlId) };
+        });
+        finalAssets = await Promise.all(assetPromises);
+
+        const expensePromises = migrated.expenses.map(async (e) => {
+          const sqlId = await dbCreateExpense({
+            profile_id: sqliteProfileId,
+            name: e.name,
+            category: e.category,
+            amount: e.amount,
+            currency: String((e as any).currency ?? 'INR'),
+            expense_type: e.expense_type,
+            frequency: (e.frequency as string | null) ?? null,
+            start_date: (e.start_date as string | null) ?? null,
+            end_date: (e.end_date as string | null) ?? null,
+            inflation_rate: e.inflation_rate ?? 6,
+          });
+          return { ...e, id: String(sqlId) };
+        });
+        finalExpenses = await Promise.all(expensePromises);
+
+        if (finalGoals) {
+          await dbSaveGoals(
+            sqliteProfileId,
+            finalGoals.retirement_age,
+            finalGoals.sip_stop_age,
+            finalGoals.pension_income ?? undefined,
+            (finalGoals as any).fire_type ?? 'moderate',
+            (finalGoals as any).fire_target_age ?? 100,
+            (finalGoals as any).withdrawal_rate ?? 5,
+            finalGoals.inflation_rate ?? 6,
+          );
+        }
+      } catch (e) {
+        if (__DEV__) console.warn('[importAll] SQLite sync failed, AsyncStorage is primary:', e);
+      }
+    }
+
+    assetsRef.current = finalAssets;
+    expensesRef.current = finalExpenses;
     setProfileState(finalProfile);
-    setAssetsState(migrated.assets);
-    setExpensesState(migrated.expenses);
+    setAssetsState(finalAssets);
+    setExpensesState(finalExpenses);
     setGoalsState(finalGoals);
     setOnboarded(true);
     await Promise.all([
       secureSetItem(STORAGE_KEYS.PROFILE, JSON.stringify(finalProfile)),
-      secureSetItem(STORAGE_KEYS.ASSETS, JSON.stringify(migrated.assets)),
-      secureSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(migrated.expenses)),
+      secureSetItem(STORAGE_KEYS.ASSETS, JSON.stringify(finalAssets)),
+      secureSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(finalExpenses)),
       secureSetItem(STORAGE_KEYS.GOALS, JSON.stringify(finalGoals)),
       AsyncStorage.setItem(SCHEMA_VERSION_KEY, String(CURRENT_SCHEMA_VERSION)),
       AsyncStorage.setItem(STORAGE_KEYS.ONBOARDED, '1'),

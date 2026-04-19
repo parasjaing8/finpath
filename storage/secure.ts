@@ -132,10 +132,10 @@ async function writeMasterKey(value: string): Promise<void> {
 // ────────────────────────── crypto primitives ──────────────────────────
 
 async function sha256(bytes: Uint8Array): Promise<Uint8Array> {
-  // Crypto.digest accepts a BufferSource. Cast through an ArrayBuffer view to
-  // satisfy the type for both web and native.
-  const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-  const digest = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, ab as ArrayBuffer);
+  // Crypto.digest accepts a BufferSource (TypedArray or ArrayBuffer).
+  // Pass Uint8Array directly – the Android native module cannot marshal
+  // a raw ArrayBuffer across the Kotlin bridge.
+  const digest = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, bytes);
   return new Uint8Array(digest);
 }
 
