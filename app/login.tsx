@@ -100,11 +100,15 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [lockoutSeconds, setLockoutSeconds] = useState(0);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const autoSelectedRef = useRef(false);
   const loadProfiles = useCallback(async () => {
     const all = await getAllProfiles();
     setProfiles(all);
-    // Auto-select single profile for Groww-like experience
-    if (all.length === 1 && !selectedProfile) {
+    // Auto-select single profile for Groww-like experience.
+    // Use a ref instead of selectedProfile to avoid stale closure —
+    // the empty dep array would capture selectedProfile as null forever.
+    if (all.length === 1 && !autoSelectedRef.current) {
+      autoSelectedRef.current = true;
       selectProfile(all[0]);
     }
   }, []);
