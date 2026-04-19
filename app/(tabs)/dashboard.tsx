@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Text, Card, Button, Portal, Dialog } from 'react-native-paper';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../../context/AppContext';
 import { calculateProjections, CalculationOutput, formatCurrency, formatCurrencyFull, getAge } from '../../engine/calculator';
 import { exportToCSV } from '../../utils/export';
@@ -35,6 +36,7 @@ export default function DashboardScreen() {
   const { isPro } = usePro();
   const [showCorpusInfo, setShowCorpusInfo] = useState(false);
   const [showDepletionInfo, setShowDepletionInfo] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
 
   // Track the goals snapshot that was used for the last SIP auto-set.
   // Auto-set only fires again when goals actually change, not on every tab focus.
@@ -44,6 +46,12 @@ export default function DashboardScreen() {
   useEffect(() => {
     navigation.setOptions({ headerRight: undefined });
   }, [navigation]);
+
+  useEffect(() => {
+    AsyncStorage.getItem('@finpath_disclaimer_ack').then(val => {
+      if (!val) setShowDisclaimer(true);
+    });
+  }, []);
 
   const result: CalculationOutput | null = useMemo(() => {
     if (!currentProfile || !goals || !isLoaded) return null;
@@ -297,6 +305,40 @@ export default function DashboardScreen() {
         </Card.Content>
       </Card>
 
+
+      {/* One-time financial disclaimer — shown once per device, persisted in AsyncStorage */}
+      <Portal>
+        <Dialog
+          visible={showDisclaimer}
+          dismissable={false}
+          style={{ backgroundColor: '#FFF', borderRadius: 16, marginHorizontal: 16 }}
+        >
+          <Dialog.Title style={{ color: '#1B5E20', fontWeight: '700' }}>
+            FinPath is a planning tool
+          </Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ lineHeight: 22, color: '#333', marginBottom: 12 }}>
+              Projections are <Text style={{ fontWeight: '700' }}>estimates</Text> based on your inputs and assumed growth rates. Returns are not guaranteed and actual results will vary.
+            </Text>
+            <Text variant="bodyMedium" style={{ lineHeight: 22, color: '#555' }}>
+              FinPath is not a SEBI-registered investment advisor. Consult a licensed financial advisor before making major investment decisions.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              mode="contained"
+              onPress={() => {
+                AsyncStorage.setItem('@finpath_disclaimer_ack', '1');
+                setShowDisclaimer(false);
+              }}
+              style={{ borderRadius: 8, paddingHorizontal: 8 }}
+              textColor="#fff"
+            >
+              Got it
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
       {/* Depletion info dialog — tapped from warning pill in hero card */}
       <Portal>
