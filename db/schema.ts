@@ -103,6 +103,7 @@ export async function initializeDatabase(): Promise<void> {
     { version: 6, sql: 'ALTER TABLE assets ADD COLUMN vesting_end_date TEXT' },
     { version: 7, sql: 'ALTER TABLE goals ADD COLUMN withdrawal_rate REAL DEFAULT 5.0' },
     { version: 8, sql: 'ALTER TABLE goals ADD COLUMN inflation_rate REAL DEFAULT 6.0' },
+    { version: 9, sql: "UPDATE goals SET fire_type = 'lean' WHERE fire_type = 'slim'" },
   ];
 
   for (const migration of MIGRATIONS) {

@@ -21,7 +21,7 @@ export const DEFAULT_DISCOUNT_RATE = 0.06;
 
 /** Standard fire_target_age values for each FIRE type. */
 export const FIRE_TARGET_AGES: Record<string, number> = {
-  slim: 85,
+  lean: 85,
   moderate: 100,
   fat: 120,
 };
