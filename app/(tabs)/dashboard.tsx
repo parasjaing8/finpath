@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Text, Card, Button, Portal, Dialog } from 'react-native-paper';
 import { useApp } from '../../context/AppContext';
 import { calculateProjections, CalculationOutput, formatCurrency, formatCurrencyFull, getAge } from '../../engine/calculator';
@@ -128,7 +128,33 @@ export default function DashboardScreen() {
   }
 
   if (!result) {
-    return <View style={styles.center}><Text>Calculating...</Text></View>;
+    if (!isLoaded) {
+      return (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#1B5E20" />
+        </View>
+      );
+    }
+    return (
+      <View style={styles.center}>
+        <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#C62828" />
+        <Text variant="titleMedium" style={{ textAlign: 'center', color: '#333', marginTop: 16, fontWeight: '700' }}>
+          Calculation error
+        </Text>
+        <Text variant="bodyMedium" style={{ textAlign: 'center', color: '#666', marginTop: 8, marginHorizontal: 32, lineHeight: 22 }}>
+          Something went wrong with your projection. Try reviewing your goals or assets.
+        </Text>
+        <Button
+          mode="outlined"
+          icon="flag-outline"
+          onPress={() => router.push('/(tabs)/goals')}
+          style={{ marginTop: 24, borderRadius: 8 }}
+          contentStyle={{ paddingVertical: 6 }}
+        >
+          Review Plan
+        </Button>
+      </View>
+    );
   }
 
   const currency = currentProfile.currency;
