@@ -218,3 +218,12 @@ Full audit: ~/finpath/kb/AUDIT_BEYONDV33.md (also at C:\dropbox\finpath\AUDIT_BE
 
 ### Next session
 Start with Phase 1 fixes: C4 (UTC dates), C5 (profile rollback), C3 (dashboard error state), H1 (login stale closure)
+
+---
+
+## 2026-04-20 — Fix C4: UTC date bug (commit af126ce)
+
+- Added parseDateStr() helper in calculator.ts; replaced all 7 new Date(dateString) calls
+- dashboard.tsx: replaced inline age calc with getAge(); added to import
+- create-profile.tsx: DOB validation now uses new Date(y, m-1, day)
+- 70/70 tests pass
