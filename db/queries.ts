@@ -168,7 +168,12 @@ export async function createProfile(
     [name, dob, monthly_income, currency]
   );
   const profileId = result.lastInsertRowId;
-  await saveProfilePin(profileId, pin);
+  try {
+    await saveProfilePin(profileId, pin);
+  } catch (e) {
+    await db.runAsync("DELETE FROM profiles WHERE id = ?", [profileId]);
+    throw e;
+  }
   return profileId;
 }
 
