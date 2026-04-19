@@ -56,7 +56,7 @@
 | ID | File | Issue | Impact | Fix Direction |
 |----|------|--------|--------|---------------|
 | **M1** | `app/(tabs)/dashboard.tsx:~130` | `currentAge` computed inline with duplicated DOB logic instead of calling `getAge()` from calculator. Same UTC date bug (C4). Two sources of truth for age. | **Drift risk** | Replace with `getAge(currentProfile.dob)` |
-| **M2** | `app/login.tsx:privacyLink` | Links to `https://aihomecloud.com/finpath/privacy` — this URL may not be live. Master prompt says canonical URL is `https://parasjaing8.github.io/finpath/PRIVACY_POLICY`. Mismatch. | **404 on Privacy Policy tap** | Align URL; verify it resolves |
+| ~~**M2**~~ | `app/login.tsx:privacyLink` | ~~URL mismatch with master prompt~~ | ✅ **Not a bug** — `https://aihomecloud.com/finpath/privacy` is live, used consistently in Play Store listing and Profile screen. Master prompt had wrong reference URL. | — |
 | **M3** | `app/(tabs)/dashboard.tsx` | `sipAmount` seeded at hardcoded `10000`. Auto-set fires when `result` first computes, but there's a visible flash of `₹10,000/month` before the correct SIP value appears. | **UX flash** | Seed to 0 or use `null` sentinel; show skeleton until result ready |
 | **M4** | `app/(tabs)/_layout.tsx` | Tab label is `'Goal'` (singular). All other screens use plural or full noun. Should be `'Goals'`. | **Typo/UX** | Change to `'Goals'` |
 | **M5** | `engine/calculator.ts:computeBlendedGrowthRate` | `expected_roi = 0` is treated as "not set" and falls back to category default. User cannot explicitly set 0% ROI (e.g., cash pile). The comment in code even acknowledges this contradiction ("0 means not set — fall back"). | **Cannot model zero-return assets** | Use `null`/`undefined` to mean "not set"; treat `0` as explicit zero |
@@ -110,7 +110,7 @@
 4. **H1** — Login `loadProfiles` stale closure. Add `selectedProfile` to deps or use ref.
 5. **H3** — Rename `slim` → `lean` in `FIRE_TARGET_AGES`; add goals normalization migration.
 6. **M4** — Tab label "Goal" → "Goals".
-7. **M2** — Fix privacy policy URL.
+7. ~~**M2**~~ — Privacy URL is correct and live (closed).
 8. **M6** — Add financial disclaimer on Dashboard and Goals.
 
 ### Phase 2 — Stability (before v1.1)
