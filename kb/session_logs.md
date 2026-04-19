@@ -242,3 +242,10 @@ Start with Phase 1 fixes: C4 (UTC dates), C5 (profile rollback), C3 (dashboard e
 - dashboard.tsx: split !result into spinner (!isLoaded) vs error card (calc threw)
 - Added ActivityIndicator import; error card has "Review Plan" button → goals
 - 70/70 tests pass
+
+---
+
+## 2026-04-20 — Fix H1: login stale closure (commit e574dff)
+
+- login.tsx: autoSelectedRef replaces !selectedProfile stale closure in loadProfiles
+- 70/70 tests pass
