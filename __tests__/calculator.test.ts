@@ -692,10 +692,10 @@ describe('sipBurdenWarning — income adequacy checks', () => {
 
 // ── 13. Slim / Moderate / Fat FIRE ordering ──────────────────────────────────
 
-describe('FIRE type ordering — slim < moderate < fat corpus', () => {
-  test('fireCorpus follows fat > moderate > slim ordering for same pension', () => {
-    const slim = calculateProjections(baseInput({
-      goals: makeGoals({ fire_type: 'slim',     fire_target_age: FIRE_TARGET_AGES.slim }),
+describe('FIRE type ordering — lean < moderate < fat corpus', () => {
+  test('fireCorpus follows fat > moderate > lean ordering for same pension', () => {
+    const lean = calculateProjections(baseInput({
+      goals: makeGoals({ fire_type: 'lean',     fire_target_age: FIRE_TARGET_AGES.lean }),
     }));
     const moderate = calculateProjections(baseInput({
       goals: makeGoals({ fire_type: 'moderate', fire_target_age: FIRE_TARGET_AGES.moderate }),
@@ -704,19 +704,19 @@ describe('FIRE type ordering — slim < moderate < fat corpus', () => {
       goals: makeGoals({ fire_type: 'fat',      fire_target_age: FIRE_TARGET_AGES.fat }),
     }));
     expect(fat.fireCorpus).toBeGreaterThan(moderate.fireCorpus);
-    expect(moderate.fireCorpus).toBeGreaterThan(slim.fireCorpus);
+    expect(moderate.fireCorpus).toBeGreaterThan(lean.fireCorpus);
   });
 
-  test('slim FIRE requires lower monthly SIP than fat FIRE for same profile', () => {
-    const slim = calculateProjections(baseInput({
-      goals: makeGoals({ fire_type: 'slim',     fire_target_age: FIRE_TARGET_AGES.slim }),
+  test('lean FIRE requires lower monthly SIP than fat FIRE for same profile', () => {
+    const lean = calculateProjections(baseInput({
+      goals: makeGoals({ fire_type: 'lean',     fire_target_age: FIRE_TARGET_AGES.lean }),
       sipAmount: 0,
     }));
     const fat = calculateProjections(baseInput({
       goals: makeGoals({ fire_type: 'fat',      fire_target_age: FIRE_TARGET_AGES.fat }),
       sipAmount: 0,
     }));
-    expect(slim.requiredMonthlySIP).toBeLessThanOrEqual(fat.requiredMonthlySIP);
+    expect(lean.requiredMonthlySIP).toBeLessThanOrEqual(fat.requiredMonthlySIP);
   });
 });
 
