@@ -259,3 +259,10 @@ Start with Phase 1 fixes: C4 (UTC dates), C5 (profile rollback), C3 (dashboard e
 - queries.ts: FireType union updated
 - calculator.test.ts: all slim refs updated to lean
 - 70/70 tests pass
+
+---
+
+## 2026-04-20 — Fix M4: tab label Goal→Goals (commit 6999658)
+
+- app/(tabs)/_layout.tsx: title "Goal" → "Goals"
+- 70/70 tests pass
