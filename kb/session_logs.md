@@ -234,3 +234,11 @@ Start with Phase 1 fixes: C4 (UTC dates), C5 (profile rollback), C3 (dashboard e
 
 - db/queries.ts createProfile(): try/catch around saveProfilePin; DELETE profile row on failure, rethrow
 - 70/70 tests pass
+
+---
+
+## 2026-04-20 — Fix C3: dashboard error state (commit 8896e42)
+
+- dashboard.tsx: split !result into spinner (!isLoaded) vs error card (calc threw)
+- Added ActivityIndicator import; error card has "Review Plan" button → goals
+- 70/70 tests pass
