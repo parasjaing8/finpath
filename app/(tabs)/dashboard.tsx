@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Card, Button, Portal, Dialog } from 'react-native-paper';
 import { useApp } from '../../context/AppContext';
-import { calculateProjections, CalculationOutput, formatCurrency, formatCurrencyFull } from '../../engine/calculator';
+import { calculateProjections, CalculationOutput, formatCurrency, formatCurrencyFull, getAge } from '../../engine/calculator';
 import { exportToCSV } from '../../utils/export';
 import { useNavigation, useRouter } from 'expo-router';
 import { usePro } from '../../hooks/usePro';
@@ -137,12 +137,7 @@ export default function DashboardScreen() {
   // Plain variables — must NOT be hooks (useMemo) here because they are after early returns,
   // which would violate React's Rules of Hooks and crash on first load.
   const retirementAge = goals.retirement_age;
-  const currentAge = (() => {
-    const b = new Date(currentProfile.dob), n = new Date();
-    let a = n.getFullYear() - b.getFullYear();
-    if (n.getMonth() - b.getMonth() < 0 || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--;
-    return a;
-  })();
+  const currentAge = getAge(currentProfile.dob);
   const firstFireYear = projections.find(p => p.isFireAchieved)?.year ?? -1;
 
   // Plan status: 5-state decision engine for hero card

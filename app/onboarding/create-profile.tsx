@@ -110,7 +110,8 @@ export default function CreateProfile() {
     if (!name.trim()) newErrors.name = 'Name is required';
     if (!dob.match(/^\d{4}-\d{2}-\d{2}$/)) newErrors.dob = 'Enter date as YYYY-MM-DD';
     else {
-      const d = new Date(dob);
+      const [y, m, day] = dob.split('-').map(Number);
+      const d = new Date(y, m - 1, day);
       if (isNaN(d.getTime()) || d > new Date()) newErrors.dob = 'Enter a valid past date';
     }
     if (!monthlyIncome || parseFloat(monthlyIncome) < 0) newErrors.income = 'Enter a valid income';

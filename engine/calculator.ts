@@ -8,6 +8,14 @@ import {
   DEFAULT_GROWTH_RATES,
 } from './types';
 
+
+/** Parse a YYYY-MM-DD string as a LOCAL-time Date to avoid UTC-midnight off-by-one
+ *  in timezones behind UTC. new Date("YYYY-MM-DD") is UTC; this is local. */
+function parseDateStr(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 export const PENSION_INFLATION_RATE = 0.06;
 export const DEFAULT_DISCOUNT_RATE = 0.06;
 
@@ -65,7 +73,7 @@ export interface CalculationOutput {
  * duplicating their own date arithmetic.
  */
 export function getAge(dob: string, onDate: Date = new Date()): number {
-  const birth = new Date(dob);
+  const birth = parseDateStr(dob);
   let age = onDate.getFullYear() - birth.getFullYear();
   const m = onDate.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && onDate.getDate() < birth.getDate())) age--;
@@ -93,7 +101,7 @@ function calculateExpenseForYear(
 
   if (expense.expense_type === 'CURRENT_RECURRING') {
     const multiplier = getFrequencyMultiplier(expense.frequency ?? null);
-    const endDate = expense.end_date ? new Date(expense.end_date) : null;
+    const endDate = expense.end_date ? parseDateStr(expense.end_date) : null;
     const endYear = endDate ? endDate.getFullYear() : Infinity;
     if (targetYear > endYear) return 0;
     const firstMonth = (targetYear === currentYear) ? currentMonth : 0;
@@ -105,7 +113,7 @@ function calculateExpenseForYear(
 
   if (expense.expense_type === 'FUTURE_ONE_TIME') {
     if (!expense.start_date) return 0;
-    const startDate = new Date(expense.start_date);
+    const startDate = parseDateStr(expense.start_date);
     const startYear = startDate.getFullYear();
     if (targetYear === startYear) {
       const startMonth = startDate.getMonth();
@@ -117,9 +125,9 @@ function calculateExpenseForYear(
 
   if (expense.expense_type === 'FUTURE_RECURRING') {
     if (!expense.start_date) return 0;
-    const start = new Date(expense.start_date);
+    const start = parseDateStr(expense.start_date);
     const startYear = start.getFullYear();
-    const end = expense.end_date ? new Date(expense.end_date) : null;
+    const end = expense.end_date ? parseDateStr(expense.end_date) : null;
     const endYear = end ? end.getFullYear() : 9999;
     if (targetYear < startYear || targetYear > endYear) return 0;
     const multiplier = getFrequencyMultiplier(expense.frequency ?? null);
@@ -141,10 +149,10 @@ function calculateVestingForYear(assets: Asset[], targetYear: number): number {
   for (const asset of assets) {
     if (asset.category !== 'ESOP_RSU') continue;
     if (!asset.is_recurring || !asset.recurring_amount || !asset.next_vesting_date) continue;
-    const vestingStart = new Date(asset.next_vesting_date);
+    const vestingStart = parseDateStr(asset.next_vesting_date);
     const vestingStartYear = vestingStart.getFullYear();
     if (targetYear < vestingStartYear) continue;
-    const vestingEnd = asset.vesting_end_date ? new Date(asset.vesting_end_date) : null;
+    const vestingEnd = asset.vesting_end_date ? parseDateStr(asset.vesting_end_date) : null;
     const vestingEndYear = vestingEnd ? vestingEnd.getFullYear() : null;
     if (vestingEndYear != null && targetYear > vestingEndYear) continue;
     const timesPerYear = getFrequencyMultiplier(asset.recurring_frequency ?? null);
