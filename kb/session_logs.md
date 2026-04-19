@@ -266,3 +266,11 @@ Start with Phase 1 fixes: C4 (UTC dates), C5 (profile rollback), C3 (dashboard e
 
 - app/(tabs)/_layout.tsx: title "Goal" → "Goals"
 - 70/70 tests pass
+
+---
+
+## 2026-04-20 — Fix M6: one-time financial disclaimer modal (commit 2455a20)
+
+- dashboard.tsx: Dialog on first load, checks @finpath_disclaimer_ack in AsyncStorage
+- dismissable=false, Got it sets flag permanently
+- 70/70 tests pass
