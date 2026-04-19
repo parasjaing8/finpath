@@ -50,7 +50,7 @@ export interface Expense {
   inflation_rate: number;
 }
 
-export type FireType = 'slim' | 'moderate' | 'fat' | 'custom';
+export type FireType = 'lean' | 'moderate' | 'fat' | 'custom';
 
 export interface Goals {
   id: number;
