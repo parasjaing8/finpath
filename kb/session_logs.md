@@ -168,3 +168,27 @@ Fix 2: FUTURE_ONE_TIME inflation uses fractionalYears = yearsFromNow + (startMon
 
 **Verified:** 0 TypeScript errors after all changes
 **Commit:** d8880f9 | Branch: verified24 | No APK built
+
+---
+
+## 2026-04-19 — fix: data persistence across sessions + crypto digest fix (v33)
+
+**Build:** app-release-v33.aab (versionCode 33, release-signed)
+**Commit:** d7bd1a0 | Branch: audit19April
+
+### Bug: Assets/expenses/goals lost across sessions
+
+**Root causes (3 bugs):**
+1. `login.tsx` `syncToAppContext()` — unconditionally overwrites AsyncStorage from SQLite on every login. If SQLite empty, good data destroyed.
+2. `AppContext.tsx` `importAll()` — wrote only to AsyncStorage, not SQLite. Next login → empty SQLite overwrites → data lost.
+3. `storage/secure.ts` `sha256()` — passed `ArrayBuffer` to `Crypto.digest()`, but Android Kotlin bridge can only marshal `TypedArray`. Caused crypto crash on import.
+
+**Fixes:**
+- `syncToAppContext`: skip SQLite overwrite when same profile already loaded (`currentProfile?.id === selectedId`)
+- `importAll`: accepts `sqliteProfileId`, writes assets/expenses/goals to SQLite with ID remapping
+- `sha256`: pass `Uint8Array` directly instead of `ArrayBuffer`
+- Updated callers: `create-profile.tsx`, `profile.tsx`
+
+**Verified on emulator:** Import backup → force-stop → restart → login → assets+expenses persisted ✓
+**Tests:** 70/70 pass
+**Detailed log:** `kb/v33logs.md`
