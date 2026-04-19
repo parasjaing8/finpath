@@ -192,3 +192,29 @@ Fix 2: FUTURE_ONE_TIME inflation uses fractionalYears = yearsFromNow + (startMon
 **Verified on emulator:** Import backup → force-stop → restart → login → assets+expenses persisted ✓
 **Tests:** 70/70 pass
 **Detailed log:** `kb/v33logs.md`
+
+---
+
+## 2026-04-19 — Fresh deep audit of beyondv33 branch
+
+**Build:** None (read-only audit session)
+**Branch:** beyondv33 | Commit: ef622ae | versionCode: 33
+
+### Confirmed fixed
+- syncToAppContext same-profile guard, importAll SQLite ID remapping, sha256 Uint8Array fix
+- Dead code cleanup (auth.ts, currency.ts, CorpusPrimer.tsx, etc.)
+- Dashboard Goals=null empty state, deleteAllData PIN cascade, totalNetExpenses formula correct
+
+### Active critical issues
+- C1: index.tsx routes on SQLite only → data loss on reinstall
+- C2: genId() alphanumeric IDs → silent SQLite update failures
+- C3: Dashboard "Calculating..." forever on calculateProjections error
+- C4: UTC date bug in getAge() → wrong age near birthdays in IST
+- C5: Orphaned profile if SecureStore fails after SQLite INSERT in createProfile
+- C6: Dual-store architecture (AsyncStorage + SQLite) still present
+
+### Audit output
+Full audit: ~/finpath/kb/AUDIT_BEYONDV33.md (also at C:\dropbox\finpath\AUDIT_BEYONDV33.md)
+
+### Next session
+Start with Phase 1 fixes: C4 (UTC dates), C5 (profile rollback), C3 (dashboard error state), H1 (login stale closure)
