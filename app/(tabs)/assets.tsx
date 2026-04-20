@@ -40,9 +40,6 @@ const CATEGORY_ICONS: Record<string, string> = {
   OTHERS: 'box',
 };
 
-function genId() {
-  return Date.now().toString() + Math.random().toString(36).substr(2, 6);
-}
 
 interface AssetForm {
   name: string;
@@ -102,7 +99,7 @@ export default function AssetsScreen() {
       return;
     }
     const asset: Asset = {
-      id: editId ?? genId(),
+      id: editId ?? '',
       name: form.name.trim(),
       category: form.category,
       current_value: value,

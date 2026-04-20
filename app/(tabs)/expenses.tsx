@@ -29,9 +29,6 @@ const TYPE_ICONS: Record<string, string> = {
   FUTURE_RECURRING: 'refresh-cw',
 };
 
-function genId() {
-  return Date.now().toString() + Math.random().toString(36).substr(2, 6);
-}
 
 interface ExpenseForm {
   name: string;
@@ -111,7 +108,7 @@ export default function ExpensesScreen() {
       return;
     }
     const exp: Expense = {
-      id: editId ?? genId(),
+      id: editId ?? '',
       name: form.name.trim(),
       category: form.category as any,
       expense_type: form.expense_type as any,
