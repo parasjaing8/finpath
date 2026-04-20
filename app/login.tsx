@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   View,
@@ -14,84 +14,23 @@ import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Crypto from 'expo-crypto';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { getAllProfiles, getAssets, getExpenses, getGoals, Profile, recordFailedAttempt, resetFailedAttempts, getProfilePin, getBiometricEnabled } from '../db/queries';
+import { getAllProfiles, Profile, recordFailedAttempt, resetFailedAttempts, getProfilePin, getBiometricEnabled } from '../db/queries';
 import { useProfile } from '../hooks/useProfile';
 import { useApp } from '../context/AppContext';
-import type { Profile as EngineProfile, Asset as EngineAsset, Expense as EngineExpense, Goals as EngineGoals } from '../engine/types';
+import { runLegacyMigration } from '../storage/legacyMigration';
 
 const MAX_FREE_ATTEMPTS = 5; // lockout kicks in after this many failures
 
 export default function LoginScreen() {
   const router = useRouter();
   const { setCurrentProfileId, refreshProfiles } = useProfile();
-  const { profile: currentProfile, setProfile, setAssets, setExpenses, setGoals } = useApp();
+  const { loadProfile } = useApp();
 
-  /**
-   * Hydrate AppContext from SQLite so V2 screens have live data after login.
-   *
-   * IMPORTANT: When the same profile is already loaded (from encrypted
-   * AsyncStorage via loadData), we only refresh the profile metadata and
-   * skip overwriting assets/expenses/goals.  Encrypted AsyncStorage is the
-   * canonical store — it may contain data (e.g. from importAll) that SQLite
-   * doesn't have.  Blindly overwriting it from SQLite was the root cause of
-   * the "data lost after restart" bug.
-   *
-   * We DO perform a full SQLite sync when switching to a different profile.
-   */
-  async function syncToAppContext(p: Profile) {
-    const selectedId = String(p.id);
-    const engineProfile: EngineProfile = {
-      id: selectedId, name: p.name, dob: p.dob,
-      currency: p.currency, monthly_income: p.monthly_income,
-    };
-
-    // Always update profile metadata (name, income, etc.)
-    await setProfile(engineProfile);
-
-    // If loadData already populated the correct profile's data, don't
-    // overwrite assets/expenses/goals from SQLite.
-    if (currentProfile?.id === selectedId) {
-      return;
-    }
-
-    // Different profile selected — hydrate from SQLite
-    const [sqlAssets, sqlExpenses, sqlGoals] = await Promise.all([
-      getAssets(p.id),
-      getExpenses(p.id),
-      getGoals(p.id),
-    ]);
-    const engineAssets: EngineAsset[] = sqlAssets.map(a => ({
-      id: String(a.id), name: a.name, category: a.category,
-      current_value: a.current_value, expected_roi: a.expected_roi,
-      is_self_use: !!a.is_self_use, is_recurring: !!a.is_recurring,
-      recurring_amount: a.recurring_amount ?? undefined,
-      recurring_frequency: a.recurring_frequency ?? undefined,
-      next_vesting_date: a.next_vesting_date ?? undefined,
-      vesting_end_date: a.vesting_end_date ?? undefined,
-    }));
-    const engineExpenses: EngineExpense[] = sqlExpenses.map(e => ({
-      id: String(e.id), name: e.name, category: e.category,
-      expense_type: e.expense_type as EngineExpense['expense_type'],
-      amount: e.amount, frequency: e.frequency ?? undefined,
-      inflation_rate: e.inflation_rate,
-      start_date: e.start_date ?? undefined,
-      end_date: e.end_date ?? undefined,
-    }));
-    await setAssets(engineAssets);
-    await setExpenses(engineExpenses);
-    if (sqlGoals) {
-      const engineGoals: EngineGoals = {
-        retirement_age: sqlGoals.retirement_age,
-        sip_stop_age: sqlGoals.sip_stop_age,
-        pension_income: sqlGoals.pension_income ?? undefined,
-        fire_type: sqlGoals.fire_type,
-        fire_target_age: sqlGoals.fire_target_age,
-        withdrawal_rate: sqlGoals.withdrawal_rate,
-        inflation_rate: sqlGoals.inflation_rate,
-      };
-      await setGoals(engineGoals);
-    }
-  }
+  // Run the one-time AsyncStorage→SQLite migration on mount.
+  // Idempotent — returns immediately if sentinel is already set.
+  useEffect(() => {
+    runLegacyMigration().catch(() => {});
+  }, []);
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
@@ -101,6 +40,7 @@ export default function LoginScreen() {
   const [lockoutSeconds, setLockoutSeconds] = useState(0);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const autoSelectedRef = useRef(false);
+
   const loadProfiles = useCallback(async () => {
     const all = await getAllProfiles();
     setProfiles(all);
@@ -146,7 +86,7 @@ export default function LoginScreen() {
       await resetFailedAttempts(profile.id);
       await setCurrentProfileId(profile.id);
       await refreshProfiles();
-      try { await syncToAppContext(profile); } catch { /* non-critical */ }
+      try { await loadProfile(profile.id); } catch { /* non-critical */ }
       router.replace('/(tabs)/assets');
     }
   }
@@ -192,7 +132,7 @@ export default function LoginScreen() {
         await resetFailedAttempts(selectedProfile.id);
         await setCurrentProfileId(selectedProfile.id);
         await refreshProfiles();
-        try { await syncToAppContext(selectedProfile); } catch { /* non-critical */ }
+        try { await loadProfile(selectedProfile.id); } catch { /* non-critical */ }
         router.replace('/(tabs)/assets');
       } else {
         const { lockoutUntil } = await recordFailedAttempt(selectedProfile.id);
