@@ -1,13 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Profile, Asset, Expense, Goals } from '../engine/types';
-import { secureGetItem, SecureReadResult, secureSetItem } from '../storage/secure';
-import {
-  CURRENT_SCHEMA_VERSION,
-  SCHEMA_VERSION_KEY,
-  StoredBlobs,
-  runMigrations,
-} from '../storage/migrations';
+import { CURRENT_SCHEMA_VERSION, runMigrations } from '../storage/migrations';
 import {
   createAsset as dbCreateAsset,
   updateAsset as dbUpdateAsset,
@@ -18,15 +12,15 @@ import {
   getAllProfiles as dbGetAllProfiles,
   deleteProfile as dbDeleteProfile,
   saveGoals as dbSaveGoals,
+  getAssets as dbGetAssets,
+  getExpenses as dbGetExpenses,
+  getGoals as dbGetGoals,
+  getProfile as dbGetProfile,
 } from '../db/queries';
+import type { Profile as DBProfile } from '../db/queries';
 
-const STORAGE_KEYS = {
-  PROFILE: '@fire_profile',
-  ASSETS: '@fire_assets',
-  EXPENSES: '@fire_expenses',
-  GOALS: '@fire_goals',
-  ONBOARDED: '@fire_onboarded',
-};
+// Cleared on deleteAllData so the legacy migration re-gates on next fresh install.
+const LEGACY_MIGRATION_SENTINEL = '@finpath_sqlite_migrated_v1';
 
 export interface ExportPayload {
   /**
@@ -48,11 +42,15 @@ interface AppContextType {
   expenses: Expense[];
   goals: Goals | null;
   isLoaded: boolean;
-  /** True once the user has completed the onboarding flow at least once. */
-  onboarded: boolean;
-  setProfile: (p: Profile) => Promise<void>;
-  setAssets: (a: Asset[]) => Promise<void>;
-  setExpenses: (e: Expense[]) => Promise<void>;
+  /** Load all data for a profile from SQLite into in-memory state. */
+  loadProfile: (profileId: number) => Promise<void>;
+  /** In-memory update only — profile row is persisted by callers via db/queries directly. */
+  setProfile: (p: Profile) => void;
+  /** In-memory update only — used by login.tsx syncToAppContext until Batch 3. */
+  setAssets: (a: Asset[]) => void;
+  /** In-memory update only — used by login.tsx syncToAppContext until Batch 3. */
+  setExpenses: (e: Expense[]) => void;
+  /** Persists to SQLite and updates in-memory state. */
   setGoals: (g: Goals) => Promise<void>;
   addAsset: (a: Asset) => Promise<void>;
   updateAsset: (a: Asset) => Promise<void>;
@@ -62,19 +60,11 @@ interface AppContextType {
   deleteExpense: (id: string) => Promise<void>;
   exportAll: () => ExportPayload;
   importAll: (payload: ExportPayload, sqliteProfileId?: number) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => void;
   deleteAllData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
-
-const DEFAULT_PROFILE: Profile = {
-  id: '1',
-  name: 'My Profile',
-  dob: '1995-01-01',
-  currency: 'INR',
-  monthly_income: 150000,
-};
 
 const DEFAULT_GOALS: Goals = {
   retirement_age: 50,
@@ -85,13 +75,14 @@ const DEFAULT_GOALS: Goals = {
   fire_target_age: 100,
 };
 
-function safeParse<T>(raw: string | null, fallback: T): T {
-  if (!raw) return fallback;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
+function dbProfileToEngine(p: DBProfile): Profile {
+  return {
+    id: String(p.id),
+    name: p.name,
+    dob: p.dob,
+    currency: p.currency,
+    monthly_income: p.monthly_income,
+  };
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -100,316 +91,284 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [expenses, setExpensesState] = useState<Expense[]>([]);
   const [goals, setGoalsState] = useState<Goals | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [onboarded, setOnboarded] = useState(false);
 
-  // Refs mirror state so mutate helpers can compute the next value
-  // synchronously — React's functional-setState callback runs during the
-  // render phase (after the current call stack), so we can't rely on it
-  // to populate nextValue before secureSetItem is called.
+  // Refs mirror state so mutation helpers can compute next values synchronously.
   const assetsRef = React.useRef<Asset[]>([]);
   const expensesRef = React.useRef<Expense[]>([]);
+  // profileRef used in setGoals to avoid stale closure over profile state.
+  const profileRef = React.useRef<Profile | null>(null);
 
   useEffect(() => {
-    loadData();
+    // Data loading now happens in loadProfile() after successful login.
+    // This just unblocks rendering for screens that gate on isLoaded.
+    setIsLoaded(true);
   }, []);
 
   /**
-   * Load all persisted blobs through the encrypted storage layer, applying
-   * any pending schema migrations and re-saving the upgraded shape so future
-   * loads are fast and stay encrypted at rest.
+   * Load all data for a profile from SQLite into in-memory state.
+   * Called by login.tsx after successful authentication (Batch 3).
+   * Also available for use in syncToAppContext until login.tsx is updated.
    */
-  async function loadData() {
-    try {
-      const [profileRes, assetsRes, expensesRes, goalsRes, versionStr, onboardedStr] = await Promise.all([
-        secureGetItem(STORAGE_KEYS.PROFILE),
-        secureGetItem(STORAGE_KEYS.ASSETS),
-        secureGetItem(STORAGE_KEYS.EXPENSES),
-        secureGetItem(STORAGE_KEYS.GOALS),
-        AsyncStorage.getItem(SCHEMA_VERSION_KEY),
-        AsyncStorage.getItem(STORAGE_KEYS.ONBOARDED),
-      ]);
+  const loadProfile = useCallback(async (profileId: number) => {
+    const [dbProf, sqlAssets, sqlExpenses, sqlGoals] = await Promise.all([
+      dbGetProfile(profileId),
+      dbGetAssets(profileId),
+      dbGetExpenses(profileId),
+      dbGetGoals(profileId),
+    ]);
 
-      const all: SecureReadResult[] = [profileRes, assetsRes, expensesRes, goalsRes];
-      const anyExisting = all.some(r => r.source !== 'missing');
-      const anyLegacyPlaintext = all.some(r => r.source === 'legacy-plaintext');
+    if (!dbProf) throw new Error(`Profile ${profileId} not found in SQLite`);
 
-      const initial: StoredBlobs = {
-        profile: safeParse<Profile | null>(profileRes.value, null),
-        assets: safeParse<Asset[]>(assetsRes.value, []),
-        expenses: safeParse<Expense[]>(expensesRes.value, []),
-        goals: safeParse<Goals | null>(goalsRes.value, null),
-      };
+    const engineProfile = dbProfileToEngine(dbProf);
 
-      // Treat a missing version key as v1 (the original unversioned schema).
-      const storedVersion = versionStr ? parseInt(versionStr, 10) || 1 : 1;
+    const engineAssets: Asset[] = sqlAssets.map(a => ({
+      id: String(a.id),
+      name: a.name,
+      category: a.category,
+      current_value: a.current_value,
+      expected_roi: a.expected_roi,
+      is_self_use: !!a.is_self_use,
+      is_recurring: !!a.is_recurring,
+      recurring_amount: a.recurring_amount ?? undefined,
+      recurring_frequency: a.recurring_frequency ?? undefined,
+      next_vesting_date: a.next_vesting_date ?? undefined,
+      vesting_end_date: a.vesting_end_date ?? undefined,
+    }));
 
-      let migration;
-      let migrationFailed = false;
-      try {
-        migration = runMigrations(storedVersion, initial);
-      } catch (err) {
-        // If migration throws we keep the raw data in memory so the user can
-        // still see/export it, but we DO NOT bump the schema version on disk
-        // and we MUST NOT rewrite the blobs (writing them encrypted at the new
-        // version would mask the failure on the next launch).
-        // eslint-disable-next-line no-console
-        console.error('[storage] migration failed; loading raw data without rewrite.', err);
-        migration = { blobs: initial, didMigrate: false, wasDowngrade: false };
-        migrationFailed = true;
-      }
-      const migrated = migration.blobs;
+    const engineExpenses: Expense[] = sqlExpenses.map(e => ({
+      id: String(e.id),
+      name: e.name,
+      category: e.category,
+      expense_type: e.expense_type as Expense['expense_type'],
+      amount: e.amount,
+      frequency: e.frequency ?? undefined,
+      inflation_rate: e.inflation_rate,
+      start_date: e.start_date ?? undefined,
+      end_date: e.end_date ?? undefined,
+    }));
 
-      // True first-launch detection: no stored data AND no onboarded flag.
-      // We DO NOT seed DEFAULT_PROFILE here — index.tsx will redirect to the
-      // onboarding screen instead so the user picks their own values.
-      const isFirstLaunch = !anyExisting && onboardedStr !== '1';
+    const engineGoals: Goals | null = sqlGoals
+      ? {
+          retirement_age: sqlGoals.retirement_age,
+          sip_stop_age: sqlGoals.sip_stop_age,
+          pension_income: sqlGoals.pension_income ?? undefined,
+          fire_type: sqlGoals.fire_type,
+          fire_target_age: sqlGoals.fire_target_age,
+          withdrawal_rate: sqlGoals.withdrawal_rate,
+          inflation_rate: sqlGoals.inflation_rate,
+        }
+      : null;
 
-      const nextProfile = migrated.profile;
-      const nextAssets = anyExisting ? migrated.assets : [];
-      const nextExpenses = anyExisting ? migrated.expenses : [];
-      const nextGoals = migrated.goals ?? (isFirstLaunch ? null : DEFAULT_GOALS);
-
-      assetsRef.current = nextAssets;
-      expensesRef.current = nextExpenses;
-      setProfileState(nextProfile);
-      setAssetsState(nextAssets);
-      setExpensesState(nextExpenses);
-      setGoalsState(nextGoals);
-      setOnboarded(!isFirstLaunch && nextProfile !== null);
-
-      // Rewrite only when something actually changed AND the data is in a
-      // known-good state: legacy plaintext present, a migration step ran, or
-      // the schema-version stamp is stale. Skip rewrite on a downgrade (data
-      // written by a newer build) or on migration failure (would mask the
-      // problem and stamp the new version over unmigrated data).
-      const versionStale = storedVersion !== CURRENT_SCHEMA_VERSION;
-      const needsRewrite =
-        !migrationFailed
-        && !migration.wasDowngrade
-        && (anyLegacyPlaintext || migration.didMigrate || versionStale);
-
-      if (needsRewrite) {
-        await Promise.all([
-          secureSetItem(STORAGE_KEYS.PROFILE, JSON.stringify(nextProfile)),
-          secureSetItem(STORAGE_KEYS.ASSETS, JSON.stringify(nextAssets)),
-          secureSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(nextExpenses)),
-          secureSetItem(STORAGE_KEYS.GOALS, JSON.stringify(nextGoals)),
-          AsyncStorage.setItem(SCHEMA_VERSION_KEY, String(CURRENT_SCHEMA_VERSION)),
-        ]);
-      }
-    } catch {
-      // On a hard storage failure, leave everything null so the user is sent
-      // through onboarding rather than handed bogus defaults silently.
-      setProfileState(null);
-      setAssetsState([]);
-      setExpensesState([]);
-      setGoalsState(null);
-      setOnboarded(false);
-    } finally {
-      setIsLoaded(true);
-    }
-  }
-
-  const setProfile = useCallback(async (p: Profile) => {
-    setProfileState(p);
-    await secureSetItem(STORAGE_KEYS.PROFILE, JSON.stringify(p));
+    profileRef.current = engineProfile;
+    assetsRef.current = engineAssets;
+    expensesRef.current = engineExpenses;
+    setProfileState(engineProfile);
+    setAssetsState(engineAssets);
+    setExpensesState(engineExpenses);
+    setGoalsState(engineGoals);
+    setIsLoaded(true);
   }, []);
 
-  const setAssets = useCallback(async (a: Asset[]) => {
+  /** In-memory only — callers persist profile changes via db/queries directly. */
+  const setProfile = useCallback((p: Profile) => {
+    profileRef.current = p;
+    setProfileState(p);
+  }, []);
+
+  /** In-memory only — keeps login.tsx syncToAppContext working until Batch 3. */
+  const setAssets = useCallback((a: Asset[]) => {
     assetsRef.current = a;
     setAssetsState(a);
-    await secureSetItem(STORAGE_KEYS.ASSETS, JSON.stringify(a));
   }, []);
 
-  const setExpenses = useCallback(async (e: Expense[]) => {
+  /** In-memory only — keeps login.tsx syncToAppContext working until Batch 3. */
+  const setExpenses = useCallback((e: Expense[]) => {
     expensesRef.current = e;
     setExpensesState(e);
-    await secureSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(e));
   }, []);
 
+  /** Persists to SQLite then updates in-memory state. */
   const setGoals = useCallback(async (g: Goals) => {
+    const pid = profileRef.current ? parseInt(String(profileRef.current.id), 10) : NaN;
+    if (!isNaN(pid)) {
+      await dbSaveGoals(
+        pid,
+        g.retirement_age,
+        g.sip_stop_age,
+        g.pension_income ?? undefined,
+        (g as any).fire_type ?? 'moderate',
+        (g as any).fire_target_age ?? 100,
+        (g as any).withdrawal_rate ?? 5,
+        g.inflation_rate ?? 6,
+      );
+    }
     setGoalsState(g);
-    await secureSetItem(STORAGE_KEYS.GOALS, JSON.stringify(g));
   }, []);
 
-  // Functional updates: compute the next value eagerly from the ref so we
-  // persist the correct data before React has a chance to render.
-  const mutateAssets = useCallback(async (updater: (prev: Asset[]) => Asset[]) => {
-    const nextValue = updater(assetsRef.current);
-    assetsRef.current = nextValue;
-    setAssetsState(nextValue);
-    await secureSetItem(STORAGE_KEYS.ASSETS, JSON.stringify(nextValue));
+  // Functional state updaters — use refs so the next value is computed
+  // synchronously before React re-renders.
+  const mutateAssets = useCallback((updater: (prev: Asset[]) => Asset[]) => {
+    const next = updater(assetsRef.current);
+    assetsRef.current = next;
+    setAssetsState(next);
   }, []);
 
-  const mutateExpenses = useCallback(async (updater: (prev: Expense[]) => Expense[]) => {
-    const nextValue = updater(expensesRef.current);
-    expensesRef.current = nextValue;
-    setExpensesState(nextValue);
-    await secureSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(nextValue));
+  const mutateExpenses = useCallback((updater: (prev: Expense[]) => Expense[]) => {
+    const next = updater(expensesRef.current);
+    expensesRef.current = next;
+    setExpensesState(next);
   }, []);
 
   const addAsset = useCallback(async (a: Asset) => {
     const profileId = profile ? parseInt(String(profile.id), 10) : NaN;
-    if (!isNaN(profileId)) {
-      try {
-        const sqliteId = await dbCreateAsset({
-          profile_id: profileId,
-          category: a.category,
-          name: a.name,
-          current_value: a.current_value,
-          currency: String((a as any).currency ?? profile?.currency ?? 'INR'),
-          expected_roi: a.expected_roi ?? 0,
-          is_recurring: a.is_recurring ? 1 : 0,
-          recurring_amount: (a.recurring_amount as number | null) ?? null,
-          recurring_frequency: (a.recurring_frequency as string | null) ?? null,
-          next_vesting_date: (a.next_vesting_date as string | null) ?? null,
-          vesting_end_date: (a.vesting_end_date as string | null) ?? null,
-          is_self_use: a.is_self_use ? 1 : 0,
-          gold_silver_unit: (a as any).gold_silver_unit ?? null,
-          gold_silver_quantity: (a as any).gold_silver_quantity ?? null,
-        });
-        return mutateAssets(prev => [...prev, { ...a, id: String(sqliteId) }]);
-      } catch (e) {
-        if (__DEV__) console.warn('[addAsset] SQLite write failed', e);
-      }
+    if (isNaN(profileId)) return;
+    try {
+      const sqliteId = await dbCreateAsset({
+        profile_id: profileId,
+        category: a.category,
+        name: a.name,
+        current_value: a.current_value,
+        currency: String((a as any).currency ?? profile?.currency ?? 'INR'),
+        expected_roi: a.expected_roi ?? 0,
+        is_recurring: a.is_recurring ? 1 : 0,
+        recurring_amount: (a.recurring_amount as number | null) ?? null,
+        recurring_frequency: (a.recurring_frequency as string | null) ?? null,
+        next_vesting_date: (a.next_vesting_date as string | null) ?? null,
+        vesting_end_date: (a.vesting_end_date as string | null) ?? null,
+        is_self_use: a.is_self_use ? 1 : 0,
+        gold_silver_unit: (a as any).gold_silver_unit ?? null,
+        gold_silver_quantity: (a as any).gold_silver_quantity ?? null,
+      });
+      // Only update in-memory state after SQLite succeeds, using the canonical numeric ID.
+      mutateAssets(prev => [...prev, { ...a, id: String(sqliteId) }]);
+    } catch (e) {
+      if (__DEV__) console.warn('[addAsset] SQLite write failed', e);
+      // No in-memory fallback — prevents orphaned assets with alphanumeric IDs.
     }
-    return mutateAssets(prev => [...prev, a]);
   }, [mutateAssets, profile]);
 
   const updateAsset = useCallback(async (a: Asset) => {
     const numId = parseInt(String(a.id), 10);
-    if (!isNaN(numId)) {
-      try {
-        await dbUpdateAsset({
-          id: numId,
-          profile_id: profile ? parseInt(String(profile.id), 10) : 0,
-          category: a.category,
-          name: a.name,
-          current_value: a.current_value,
-          currency: String((a as any).currency ?? profile?.currency ?? 'INR'),
-          expected_roi: a.expected_roi ?? 0,
-          is_recurring: a.is_recurring ? 1 : 0,
-          recurring_amount: (a.recurring_amount as number | null) ?? null,
-          recurring_frequency: (a.recurring_frequency as string | null) ?? null,
-          next_vesting_date: (a.next_vesting_date as string | null) ?? null,
-          vesting_end_date: (a.vesting_end_date as string | null) ?? null,
-          is_self_use: a.is_self_use ? 1 : 0,
-          gold_silver_unit: (a as any).gold_silver_unit ?? null,
-          gold_silver_quantity: (a as any).gold_silver_quantity ?? null,
-        });
-      } catch (e) {
-        if (__DEV__) console.warn('[updateAsset] SQLite write failed', e);
-      }
+    if (isNaN(numId)) return;
+    try {
+      await dbUpdateAsset({
+        id: numId,
+        profile_id: profile ? parseInt(String(profile.id), 10) : 0,
+        category: a.category,
+        name: a.name,
+        current_value: a.current_value,
+        currency: String((a as any).currency ?? profile?.currency ?? 'INR'),
+        expected_roi: a.expected_roi ?? 0,
+        is_recurring: a.is_recurring ? 1 : 0,
+        recurring_amount: (a.recurring_amount as number | null) ?? null,
+        recurring_frequency: (a.recurring_frequency as string | null) ?? null,
+        next_vesting_date: (a.next_vesting_date as string | null) ?? null,
+        vesting_end_date: (a.vesting_end_date as string | null) ?? null,
+        is_self_use: a.is_self_use ? 1 : 0,
+        gold_silver_unit: (a as any).gold_silver_unit ?? null,
+        gold_silver_quantity: (a as any).gold_silver_quantity ?? null,
+      });
+      mutateAssets(prev => prev.map(x => x.id === a.id ? a : x));
+    } catch (e) {
+      if (__DEV__) console.warn('[updateAsset] SQLite write failed', e);
     }
-    return mutateAssets(prev => prev.map(x => x.id === a.id ? a : x));
   }, [mutateAssets, profile]);
 
   const deleteAsset = useCallback(async (id: string) => {
     const numId = parseInt(id, 10);
-    if (!isNaN(numId)) {
-      try {
-        await dbDeleteAsset(numId);
-      } catch (e) {
-        if (__DEV__) console.warn('[deleteAsset] SQLite delete failed', e);
-      }
+    if (isNaN(numId)) return;
+    try {
+      await dbDeleteAsset(numId);
+      mutateAssets(prev => prev.filter(x => x.id !== id));
+    } catch (e) {
+      if (__DEV__) console.warn('[deleteAsset] SQLite delete failed', e);
     }
-    return mutateAssets(prev => prev.filter(x => x.id !== id));
   }, [mutateAssets]);
 
   const addExpense = useCallback(async (e: Expense) => {
     const profileId = profile ? parseInt(String(profile.id), 10) : NaN;
-    if (!isNaN(profileId)) {
-      try {
-        const sqliteId = await dbCreateExpense({
-          profile_id: profileId,
-          name: e.name,
-          category: e.category,
-          amount: e.amount,
-          currency: String((e as any).currency ?? profile?.currency ?? 'INR'),
-          expense_type: e.expense_type,
-          frequency: (e.frequency as string | null) ?? null,
-          start_date: (e.start_date as string | null) ?? null,
-          end_date: (e.end_date as string | null) ?? null,
-          inflation_rate: e.inflation_rate ?? 6,
-        });
-        return mutateExpenses(prev => [...prev, { ...e, id: String(sqliteId) }]);
-      } catch (e2) {
-        if (__DEV__) console.warn('[addExpense] SQLite write failed', e2);
-      }
+    if (isNaN(profileId)) return;
+    try {
+      const sqliteId = await dbCreateExpense({
+        profile_id: profileId,
+        name: e.name,
+        category: e.category,
+        amount: e.amount,
+        currency: String((e as any).currency ?? profile?.currency ?? 'INR'),
+        expense_type: e.expense_type,
+        frequency: (e.frequency as string | null) ?? null,
+        start_date: (e.start_date as string | null) ?? null,
+        end_date: (e.end_date as string | null) ?? null,
+        inflation_rate: e.inflation_rate ?? 6,
+      });
+      mutateExpenses(prev => [...prev, { ...e, id: String(sqliteId) }]);
+    } catch (e2) {
+      if (__DEV__) console.warn('[addExpense] SQLite write failed', e2);
     }
-    return mutateExpenses(prev => [...prev, e]);
   }, [mutateExpenses, profile]);
 
   const updateExpense = useCallback(async (e: Expense) => {
     const numId = parseInt(String(e.id), 10);
-    if (!isNaN(numId)) {
-      try {
-        await dbUpdateExpense({
-          id: numId,
-          profile_id: profile ? parseInt(String(profile.id), 10) : 0,
-          name: e.name,
-          category: e.category,
-          amount: e.amount,
-          currency: String((e as any).currency ?? profile?.currency ?? 'INR'),
-          expense_type: e.expense_type,
-          frequency: (e.frequency as string | null) ?? null,
-          start_date: (e.start_date as string | null) ?? null,
-          end_date: (e.end_date as string | null) ?? null,
-          inflation_rate: e.inflation_rate ?? 6,
-        });
-      } catch (e2) {
-        if (__DEV__) console.warn('[updateExpense] SQLite write failed', e2);
-      }
+    if (isNaN(numId)) return;
+    try {
+      await dbUpdateExpense({
+        id: numId,
+        profile_id: profile ? parseInt(String(profile.id), 10) : 0,
+        name: e.name,
+        category: e.category,
+        amount: e.amount,
+        currency: String((e as any).currency ?? profile?.currency ?? 'INR'),
+        expense_type: e.expense_type,
+        frequency: (e.frequency as string | null) ?? null,
+        start_date: (e.start_date as string | null) ?? null,
+        end_date: (e.end_date as string | null) ?? null,
+        inflation_rate: e.inflation_rate ?? 6,
+      });
+      mutateExpenses(prev => prev.map(x => x.id === e.id ? e : x));
+    } catch (e2) {
+      if (__DEV__) console.warn('[updateExpense] SQLite write failed', e2);
     }
-    return mutateExpenses(prev => prev.map(x => x.id === e.id ? e : x));
   }, [mutateExpenses, profile]);
 
   const deleteExpense = useCallback(async (id: string) => {
     const numId = parseInt(id, 10);
-    if (!isNaN(numId)) {
-      try {
-        await dbDeleteExpense(numId);
-      } catch (e) {
-        if (__DEV__) console.warn('[deleteExpense] SQLite delete failed', e);
-      }
+    if (isNaN(numId)) return;
+    try {
+      await dbDeleteExpense(numId);
+      mutateExpenses(prev => prev.filter(x => x.id !== id));
+    } catch (e) {
+      if (__DEV__) console.warn('[deleteExpense] SQLite delete failed', e);
     }
-    return mutateExpenses(prev => prev.filter(x => x.id !== id));
   }, [mutateExpenses]);
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(() => {
+    profileRef.current = null;
     assetsRef.current = [];
     expensesRef.current = [];
     setProfileState(null);
     setAssetsState([]);
     setExpensesState([]);
     setGoalsState(null);
-    setOnboarded(false);
     // Keep storage intact so the user can log back in.
   }, []);
 
   const deleteAllData = useCallback(async () => {
-    // Delete all profiles from SQLite (CASCADE removes assets, expenses, goals)
+    // SQLite CASCADE handles assets, expenses, goals rows automatically.
     try {
       const profiles = await dbGetAllProfiles();
       await Promise.all(profiles.map(p => dbDeleteProfile(p.id)));
     } catch (e) {
       if (__DEV__) console.warn('[deleteAllData] SQLite wipe failed', e);
     }
+    // Clear legacy migration sentinel so it re-gates on next fresh install.
+    await AsyncStorage.removeItem(LEGACY_MIGRATION_SENTINEL);
+    profileRef.current = null;
     assetsRef.current = [];
     expensesRef.current = [];
     setProfileState(null);
     setAssetsState([]);
     setExpensesState([]);
     setGoalsState(null);
-    setOnboarded(false);
-    await Promise.all([
-      secureSetItem(STORAGE_KEYS.PROFILE, JSON.stringify(null)),
-      secureSetItem(STORAGE_KEYS.ASSETS, JSON.stringify([])),
-      secureSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify([])),
-      secureSetItem(STORAGE_KEYS.GOALS, JSON.stringify(null)),
-      AsyncStorage.removeItem(STORAGE_KEYS.ONBOARDED),
-      AsyncStorage.removeItem(SCHEMA_VERSION_KEY),
-    ]);
   }, []);
 
   const exportAll = useCallback((): ExportPayload => ({
@@ -430,13 +389,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
         `Backup is from a newer app version (v${payload.version}). Please update the app to import it.`,
       );
     }
+    if (sqliteProfileId == null) {
+      throw new Error('Cannot import: no profile loaded. Log in first.');
+    }
+
+    const DEFAULT_PROFILE: Profile = {
+      id: String(sqliteProfileId),
+      name: 'My Profile',
+      dob: '1995-01-01',
+      currency: 'INR',
+      monthly_income: 150000,
+    };
+
     const nextProfile = payload.profile ?? DEFAULT_PROFILE;
     const nextAssets = Array.isArray(payload.assets) ? payload.assets : [];
     const nextExpenses = Array.isArray(payload.expenses) ? payload.expenses : [];
     const nextGoals = payload.goals ?? DEFAULT_GOALS;
 
-    // Run imports through the migration pipeline so older backup files keep
-    // working even after the schema moves forward.
+    // Run the backup through the migration pipeline so older files stay importable.
     const { blobs: migrated } = runMigrations(payload.version, {
       profile: nextProfile,
       assets: nextAssets,
@@ -447,89 +417,71 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const finalProfile = migrated.profile ?? DEFAULT_PROFILE;
     const finalGoals = migrated.goals ?? DEFAULT_GOALS;
 
-    // If a SQLite profile ID is provided, also sync imported data to SQLite
-    // so that both stores stay consistent. Re-map asset/expense IDs to the
-    // SQLite auto-increment IDs to keep the two stores in sync.
-    let finalAssets = migrated.assets;
-    let finalExpenses = migrated.expenses;
+    // Write assets to SQLite, capturing the new canonical IDs.
+    const assetPromises = migrated.assets.map(async (a) => {
+      const sqlId = await dbCreateAsset({
+        profile_id: sqliteProfileId,
+        category: a.category,
+        name: a.name,
+        current_value: a.current_value,
+        currency: String((a as any).currency ?? 'INR'),
+        expected_roi: a.expected_roi ?? 0,
+        is_recurring: a.is_recurring ? 1 : 0,
+        recurring_amount: (a.recurring_amount as number | null) ?? null,
+        recurring_frequency: (a.recurring_frequency as string | null) ?? null,
+        next_vesting_date: (a.next_vesting_date as string | null) ?? null,
+        vesting_end_date: (a.vesting_end_date as string | null) ?? null,
+        is_self_use: a.is_self_use ? 1 : 0,
+        gold_silver_unit: (a as any).gold_silver_unit ?? null,
+        gold_silver_quantity: (a as any).gold_silver_quantity ?? null,
+      });
+      return { ...a, id: String(sqlId) };
+    });
+    const finalAssets = await Promise.all(assetPromises);
 
-    if (sqliteProfileId != null) {
-      try {
-        const assetPromises = migrated.assets.map(async (a) => {
-          const sqlId = await dbCreateAsset({
-            profile_id: sqliteProfileId,
-            category: a.category,
-            name: a.name,
-            current_value: a.current_value,
-            currency: String((a as any).currency ?? 'INR'),
-            expected_roi: a.expected_roi ?? 0,
-            is_recurring: a.is_recurring ? 1 : 0,
-            recurring_amount: (a.recurring_amount as number | null) ?? null,
-            recurring_frequency: (a.recurring_frequency as string | null) ?? null,
-            next_vesting_date: (a.next_vesting_date as string | null) ?? null,
-            vesting_end_date: (a.vesting_end_date as string | null) ?? null,
-            is_self_use: a.is_self_use ? 1 : 0,
-            gold_silver_unit: (a as any).gold_silver_unit ?? null,
-            gold_silver_quantity: (a as any).gold_silver_quantity ?? null,
-          });
-          return { ...a, id: String(sqlId) };
-        });
-        finalAssets = await Promise.all(assetPromises);
+    const expensePromises = migrated.expenses.map(async (e) => {
+      const sqlId = await dbCreateExpense({
+        profile_id: sqliteProfileId,
+        name: e.name,
+        category: e.category,
+        amount: e.amount,
+        currency: String((e as any).currency ?? 'INR'),
+        expense_type: e.expense_type,
+        frequency: (e.frequency as string | null) ?? null,
+        start_date: (e.start_date as string | null) ?? null,
+        end_date: (e.end_date as string | null) ?? null,
+        inflation_rate: e.inflation_rate ?? 6,
+      });
+      return { ...e, id: String(sqlId) };
+    });
+    const finalExpenses = await Promise.all(expensePromises);
 
-        const expensePromises = migrated.expenses.map(async (e) => {
-          const sqlId = await dbCreateExpense({
-            profile_id: sqliteProfileId,
-            name: e.name,
-            category: e.category,
-            amount: e.amount,
-            currency: String((e as any).currency ?? 'INR'),
-            expense_type: e.expense_type,
-            frequency: (e.frequency as string | null) ?? null,
-            start_date: (e.start_date as string | null) ?? null,
-            end_date: (e.end_date as string | null) ?? null,
-            inflation_rate: e.inflation_rate ?? 6,
-          });
-          return { ...e, id: String(sqlId) };
-        });
-        finalExpenses = await Promise.all(expensePromises);
-
-        if (finalGoals) {
-          await dbSaveGoals(
-            sqliteProfileId,
-            finalGoals.retirement_age,
-            finalGoals.sip_stop_age,
-            finalGoals.pension_income ?? undefined,
-            (finalGoals as any).fire_type ?? 'moderate',
-            (finalGoals as any).fire_target_age ?? 100,
-            (finalGoals as any).withdrawal_rate ?? 5,
-            finalGoals.inflation_rate ?? 6,
-          );
-        }
-      } catch (e) {
-        if (__DEV__) console.warn('[importAll] SQLite sync failed, AsyncStorage is primary:', e);
-      }
+    if (finalGoals) {
+      await dbSaveGoals(
+        sqliteProfileId,
+        finalGoals.retirement_age,
+        finalGoals.sip_stop_age,
+        finalGoals.pension_income ?? undefined,
+        (finalGoals as any).fire_type ?? 'moderate',
+        (finalGoals as any).fire_target_age ?? 100,
+        (finalGoals as any).withdrawal_rate ?? 5,
+        finalGoals.inflation_rate ?? 6,
+      );
     }
 
+    profileRef.current = finalProfile;
     assetsRef.current = finalAssets;
     expensesRef.current = finalExpenses;
     setProfileState(finalProfile);
     setAssetsState(finalAssets);
     setExpensesState(finalExpenses);
     setGoalsState(finalGoals);
-    setOnboarded(true);
-    await Promise.all([
-      secureSetItem(STORAGE_KEYS.PROFILE, JSON.stringify(finalProfile)),
-      secureSetItem(STORAGE_KEYS.ASSETS, JSON.stringify(finalAssets)),
-      secureSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(finalExpenses)),
-      secureSetItem(STORAGE_KEYS.GOALS, JSON.stringify(finalGoals)),
-      AsyncStorage.setItem(SCHEMA_VERSION_KEY, String(CURRENT_SCHEMA_VERSION)),
-      AsyncStorage.setItem(STORAGE_KEYS.ONBOARDED, '1'),
-    ]);
   }, []);
 
   return (
     <AppContext.Provider value={{
-      profile, assets, expenses, goals, isLoaded, onboarded,
+      profile, assets, expenses, goals, isLoaded,
+      loadProfile,
       setProfile, setAssets, setExpenses, setGoals,
       addAsset, updateAsset, deleteAsset,
       addExpense, updateExpense, deleteExpense,
