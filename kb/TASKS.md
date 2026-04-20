@@ -1,5 +1,5 @@
 # FinPath — Remaining Tasks
-**Branch:** `beyondv33` | **Last updated:** 2026-04-20 | **Latest commit:** `eaa2754`
+**Branch:** `beyondv33` | **Last updated:** 2026-04-20 | **Latest commit:** `9d23585`
 
 > Source of truth for what is done and what is pending. Based on `AUDIT_BEYONDV33.md`.
 > All code lives on Mac Mini at `~/finpath/`. Edit via SSH: `parasjain@192.168.0.130`.
@@ -22,64 +22,14 @@ Full 4-batch migration:
 - **Batch 3** (`582101d`): `app/login.tsx` — replaced `syncToAppContext` with `loadProfile`; wired `runLegacyMigration()` on mount
 - **Batch 4** (`9f6e198`): `app/(tabs)/profile.tsx` — fixed `importAll` null guard and profileId extraction
 
-### ❌ C1 — index.tsx routes to onboarding when SQLite=0 even after reinstall
-**File:** `app/index.tsx:14`
-**Problem:** `getAllProfiles()` returns 0 rows on fresh install / after SQLite wipe → routes to `/onboarding/create-profile`. `legacyMigration` runs in `login.tsx` but user never reaches login. AsyncStorage data is lost on reinstall without ever being migrated.
-**Fix:** In `index.tsx`, after `getAllProfiles()` returns 0, check `AsyncStorage.getItem('@fire_onboarded')`. If it returns `'1'`, route to `/login` (legacyMigration will run there). Only route to `/onboarding/create-profile` if both SQLite=0 AND `@fire_onboarded` is not `'1'`.
-```typescript
-// app/index.tsx — inside the useEffect async block
-const profiles = await getAllProfiles();
-if (profiles.length > 0) {
-  setTarget('/login');
-} else {
-  const onboarded = await AsyncStorage.getItem('@fire_onboarded');
-  setTarget(onboarded === '1' ? '/login' : '/onboarding/create-profile');
-}
-```
-Add `import AsyncStorage from '@react-native-async-storage/async-storage';` to imports.
+### ✅ C1 — index.tsx routes to onboarding when SQLite=0 even after reinstall (commit `ba2455a`)
+Added `AsyncStorage.getItem('@fire_onboarded')` check after `getAllProfiles()` returns 0. Routes to `/login` if sentinel is `'1'` (legacyMigration runs there); routes to `/onboarding/create-profile` otherwise.
 
-### ❌ C3 — Dashboard stuck on "Calculating..." when calculateProjections throws
-**File:** `app/(tabs)/dashboard.tsx`
-**Problem:** `result` is `null` when `calculateProjections` throws inside `useMemo`. UI shows `"Calculating..."` forever — no error state, no retry button.
-**Fix:** Add a second state `const [calcError, setCalcError] = useState(false)`. In the `useMemo`, catch errors and set `calcError(true)`. Render an error card with a "Retry" button that calls `setCalcError(false)` (triggering re-compute) when `calcError` is true and `isLoaded` is true.
-```typescript
-// Replace the useMemo result check section in dashboard.tsx
-const [calcError, setCalcError] = useState(false);
-const result = useMemo(() => {
-  try {
-    setCalcError(false);
-    // ... existing calculation
-  } catch (e) {
-    setCalcError(true);
-    return null;
-  }
-}, [...]);
+### ✅ C3 — Dashboard stuck on "Calculating..." when calculateProjections throws (commit `4886c33`)
+Added `retryKey` state (incremented on Retry tap) to `useMemo` dep array. Error card shown when `result === null && isLoaded && goals !== null`. "Retry" + "Review Plan" buttons visible.
 
-// In JSX, before the "Calculating..." check:
-if (calcError) return (
-  <View style={styles.center}>
-    <Text>Something went wrong calculating your projections.</Text>
-    <Button onPress={() => setCalcError(false)}>Retry</Button>
-  </View>
-);
-```
-
-### ❌ C5 — Orphaned profile on SecureStore failure in createProfile
-**File:** `db/queries.ts:createProfile()`
-**Problem:** Profile row is inserted into SQLite first. If `SecureStore.setItemAsync(pinKey, hashedPin)` throws afterward, profile exists in SQLite without a PIN. User sees it in the list but can never log in. No rollback.
-**Fix:** Wrap both operations; on SecureStore failure, delete the just-inserted profile row.
-```typescript
-// db/queries.ts — createProfile function
-const profileId = /* insert result */;
-try {
-  await SecureStore.setItemAsync(pinKey, hashedPin);
-} catch (e) {
-  // Rollback: delete the just-inserted profile
-  await db.runAsync('DELETE FROM profiles WHERE id = ?', [profileId]);
-  throw new Error('Failed to save PIN — profile creation rolled back');
-}
-return profileId;
-```
+### ✅ C5 — Orphaned profile on SecureStore failure in createProfile (already correct in code)
+`db/queries.ts:createProfile()` already wraps `saveProfilePin()` in try/catch; on failure, deletes the just-inserted profile row and re-throws. No action needed.
 
 ---
 
@@ -94,34 +44,14 @@ return profileId;
 ### ✅ H5 + H6 — withdrawal_rate dead field removed (commit `b041567`)
 Removed from `engine/types.ts`, `db/queries.ts`, `context/AppContext.tsx`, `storage/legacyMigration.ts`, `app/(tabs)/dashboard.tsx`, `__tests__/__mocks__/queries.ts`, `__tests__/calculator.test.ts`. Schema migration v7 column left as harmless dead data (SQLite cannot DROP COLUMN).
 
-### ❌ H1 — Login loadProfiles stale closure
-**File:** `app/login.tsx:44`
-**Problem:** `useCallback(async () => { ... }, [])` — empty dependency array captures `selectedProfile` as `null` forever. On 1-profile devices, `selectProfile()` re-triggers on every `useFocusEffect` (every tab return). Resets PIN field, re-prompts biometric.
-**Fix:** Add `selectedProfile` to the `useCallback` dependency array, or use a `useRef` flag `autoSelectedRef` to guard the auto-select.
-```typescript
-// Option A — add dep:
-const loadProfiles = useCallback(async () => { ... }, [selectedProfile]);
+### ✅ H1 — Login loadProfiles stale closure (already correct in code)
+`app/login.tsx:43` already uses `autoSelectedRef = useRef(false)` to guard the auto-select. Empty dep array is correct. No action needed.
 
-// Option B — ref guard (preferred, avoids re-creating callback):
-const autoSelectedRef = useRef(false);
-const loadProfiles = useCallback(async () => {
-  // ...fetch profiles...
-  if (!autoSelectedRef.current && profiles.length === 1) {
-    autoSelectedRef.current = true;
-    selectProfile(profiles[0]);
-  }
-}, []); // ref doesn't need to be a dep
-```
+### ✅ H2 — loadProfile errors silently swallowed on login (commit `11d3cf0`)
+Both `triggerBiometric` and `handleLogin` now show `Alert.alert('Load failed', ...)` on catch and do not navigate.
 
-### ❌ H2 — loadProfile errors silently swallowed on login
-**File:** `app/login.tsx:89, 135`
-**Problem:** `try { await loadProfile(profile.id); } catch { /* non-critical */ }` — if SQLite read fails, user navigates to assets/dashboard with all state empty and no error shown.
-**Fix:** Show a toast or Alert on catch. Minimum: `Alert.alert('Load failed', 'Could not load profile data. Please try again.')` and do not navigate.
-
-### ❌ H7 — addAsset / addExpense errors silently swallowed
-**File:** `context/AppContext.tsx:243, 304`
-**Problem:** If `dbCreateAsset` / `dbCreateExpense` throws, error is `console.warn`'d but swallowed. User sees no feedback; the asset/expense is never added to state (correct), but the user doesn't know.
-**Fix:** Re-throw or surface to UI. At minimum, return a boolean success/fail from `addAsset`/`addExpense` and have callers show an Alert on failure.
+### ✅ H7 — addAsset / addExpense errors silently swallowed (commit `11d3cf0`)
+`addAsset`/`addExpense` return `Promise<boolean>`. Callers in `assets.tsx` and `expenses.tsx` show `Alert.alert('Save failed', ...)` on false and skip haptic/modal-close.
 
 ---
 
@@ -139,26 +69,17 @@ Both `useState(10000)` instances changed to `useState(0)`. Auto-set fires when r
 ### ✅ M6 — Financial disclaimer missing (commit `2455a20`)
 One-time disclaimer modal added to Dashboard on first load.
 
-### ❌ M5 — expected_roi = 0 treated as "not set" in asset growth calc
-**File:** `engine/calculator.ts:computeBlendedGrowthRate`
-**Problem:** `if (asset.expected_roi === 0)` falls back to category default. User cannot model a zero-return asset (e.g. cash pile, non-earning real estate).
-**Fix:** Change the sentinel from `0` to `null`/`undefined`. Asset type: `expected_roi?: number | null`. In `computeBlendedGrowthRate`, check `asset.expected_roi == null` to mean "not set". `0` becomes valid and is used as-is. Also update the DB layer: `queries.ts` already stores `NULL` for missing values, so reads are fine; writes should pass `null` instead of `0` when user clears the field.
-**Note:** Run full 70-test suite after this change — several tests use `expected_roi: 0`.
+### ✅ M5 — expected_roi = 0 treated as "not set" in asset growth calc (commit `e996989`)
+Sentinel changed from `0` to `null`. `expected_roi?: number | null` in types. `computeBlendedGrowthRate` checks `== null`. DB writes pass `null` instead of `?? 0`. All 70 tests pass.
 
-### ❌ M7 — Hardcoded paddingTop: 60 in login.tsx (no safe area insets)
-**File:** `app/login.tsx`
-**Problem:** `paddingTop: 60` hardcoded. On devices with dynamic island or tall notch, content may be clipped.
-**Fix:** `import { useSafeAreaInsets } from 'react-native-safe-area-context'` and replace `paddingTop: 60` with `paddingTop: insets.top + 16`.
+### ✅ M7 — Hardcoded paddingTop: 60 in login.tsx (commit `9d23585`)
+Replaced `paddingTop: 60` with `insets.top + 16` via `useSafeAreaInsets`. Style moved to inline on ScrollView.
 
-### ❌ M8 — Only INR/USD in currency selector despite engine supporting more
-**File:** `app/onboarding/create-profile.tsx` (and `edit-profile.tsx`)
-**Problem:** Selector only shows INR and USD. `calculator.ts:CURRENCY_META` already supports EUR, GBP, AUD, CAD, SGD, AED.
-**Fix:** Either expose all currencies from `CURRENCY_META` in the selector, or add a comment documenting "INR/USD only — by design" and close as won't-fix.
+### ✅ M8 — Only INR/USD in currency selector (commit `9d23585`)
+Replaced `SegmentedButtons` with TouchableOpacity chip row in both `create-profile.tsx` and `edit-profile.tsx`. All 8 currencies exposed: INR, USD, EUR, GBP, AUD, CAD, SGD, AED. Income affix symbol now uses chip lookup.
 
-### ❌ M9 — No PIN recovery flow
-**File:** `app/login.tsx`
-**Problem:** Forgotten PIN = permanent lockout for that profile. No escape hatch.
-**Fix:** Add a "Forgot PIN?" link on the login screen that shows an Alert warning: "This will delete all data for this profile. Continue?" → calls `deleteProfile(profile.id)`.
+### ✅ M9 — No PIN recovery flow (commit `9d23585`)
+Added "Forgot PIN?" link below biometric button in `login.tsx`. Tapping shows a destructive Alert warning about data deletion, then calls `deleteProfile(profile.id)` and resets login state.
 
 ---
 
@@ -176,9 +97,8 @@ Created and seeded but never used. Same SQLite caveat — cannot drop table with
 **File:** `db/schema.ts`
 Dead column. Same as L1.
 
-### ❌ L4 — `FREQUENCY_TO_MONTHS_PER_PAYMENT` exported but never imported
-**File:** `engine/types.ts`
-Safe to delete. No external consumers found in codebase.
+### ✅ L4 — `FREQUENCY_TO_MONTHS_PER_PAYMENT` exported but never imported (false positive)
+Actually IS imported and used in `app/(tabs)/expenses.tsx:8,78`. Audit was stale. No action needed.
 
 ### ❌ L5 — `useColors` always returns light theme
 **File:** `hooks/useColors.ts`
@@ -199,9 +119,8 @@ Workaround documented in `CLAUDE.md`. Fix the regex so `expo prebuild --clean` a
 **File:** `android/app/build.gradle`
 Must be manually patched after every `expo prebuild --clean`. Low priority.
 
-### ❌ L10 — `FIRE_TARGET_AGES` exported but no external consumer
-**File:** `engine/calculator.ts`
-Safe to un-export (make internal) or delete if never consumed externally.
+### ✅ L10 — `FIRE_TARGET_AGES` exported but no external consumer (false positive)
+Actually IS used in `__tests__/calculator.test.ts` (lines 339, 340, 697, 700, 703, 711, 715). Audit was stale. No action needed.
 
 ---
 
@@ -224,10 +143,10 @@ Safe to un-export (make internal) or delete if never consumed externally.
 
 | Category | Done | Todo |
 |----------|------|------|
-| Critical | C2, C4, C6 | C1, C3, C5 |
-| High | H3, H4, H5, H6 | H1, H2, H7 |
-| Medium | M1, M3, M4, M6 | M5, M7, M8, M9 |
-| Low | — | L1–L10 |
+| Critical | C1, C2, C3, C4, C5, C6 | — |
+| High | H1, H2, H3, H4, H5, H6, H7 | — |
+| Medium | M1, M3, M4, M5, M6, M7, M8, M9 | — |
+| Low | L4, L10 | L1, L2, L3, L5, L6, L7, L8, L9 |
 | Play Store | P5 | P1–P4, P6–P8 |
 
 **Recommended fix order for next session:**
