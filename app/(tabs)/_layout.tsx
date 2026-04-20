@@ -44,7 +44,7 @@ export default function TabLayout() {
         options={{
           title: 'Goals',
           tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="flag-outline" size={size} color={color} />,
-          tabBarAccessibilityLabel: 'Goal tab',
+          tabBarAccessibilityLabel: 'Goals tab',
         }}
       />
       <Tabs.Screen
