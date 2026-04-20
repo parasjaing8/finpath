@@ -52,10 +52,10 @@ interface AppContextType {
   setExpenses: (e: Expense[]) => void;
   /** Persists to SQLite and updates in-memory state. */
   setGoals: (g: Goals) => Promise<void>;
-  addAsset: (a: Asset) => Promise<void>;
+  addAsset: (a: Asset) => Promise<boolean>;
   updateAsset: (a: Asset) => Promise<void>;
   deleteAsset: (id: string) => Promise<void>;
-  addExpense: (e: Expense) => Promise<void>;
+  addExpense: (e: Expense) => Promise<boolean>;
   updateExpense: (e: Expense) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
   exportAll: () => ExportPayload;
@@ -217,9 +217,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setExpensesState(next);
   }, []);
 
-  const addAsset = useCallback(async (a: Asset) => {
+  const addAsset = useCallback(async (a: Asset): Promise<boolean> => {
     const profileId = profile ? parseInt(String(profile.id), 10) : NaN;
-    if (isNaN(profileId)) return;
+    if (isNaN(profileId)) return false;
     try {
       const sqliteId = await dbCreateAsset({
         profile_id: profileId,
@@ -239,9 +239,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
       // Only update in-memory state after SQLite succeeds, using the canonical numeric ID.
       mutateAssets(prev => [...prev, { ...a, id: String(sqliteId) }]);
+      return true;
     } catch (e) {
       if (__DEV__) console.warn('[addAsset] SQLite write failed', e);
       // No in-memory fallback — prevents orphaned assets with alphanumeric IDs.
+      return false;
     }
   }, [mutateAssets, profile]);
 
@@ -283,9 +285,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [mutateAssets]);
 
-  const addExpense = useCallback(async (e: Expense) => {
+  const addExpense = useCallback(async (e: Expense): Promise<boolean> => {
     const profileId = profile ? parseInt(String(profile.id), 10) : NaN;
-    if (isNaN(profileId)) return;
+    if (isNaN(profileId)) return false;
     try {
       const sqliteId = await dbCreateExpense({
         profile_id: profileId,
@@ -300,8 +302,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         inflation_rate: e.inflation_rate ?? 6,
       });
       mutateExpenses(prev => [...prev, { ...e, id: String(sqliteId) }]);
+      return true;
     } catch (e2) {
       if (__DEV__) console.warn('[addExpense] SQLite write failed', e2);
+      return false;
     }
   }, [mutateExpenses, profile]);
 

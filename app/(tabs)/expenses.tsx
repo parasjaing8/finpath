@@ -100,7 +100,7 @@ export default function ExpensesScreen() {
     setShowModal(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
     const amount = parseFloat(form.amount);
     const inflation = parseFloat(form.inflation_rate);
     if (!form.name.trim() || isNaN(amount) || amount <= 0) {
@@ -119,7 +119,13 @@ export default function ExpensesScreen() {
       end_date: form.end_date || undefined,
     };
     if (editId) updateExpense(exp);
-    else addExpense(exp);
+    else {
+      const ok = await addExpense(exp);
+      if (!ok) {
+        Alert.alert('Save failed', 'Could not save expense. Please try again.');
+        return;
+      }
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setShowModal(false);
   }

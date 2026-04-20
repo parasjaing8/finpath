@@ -91,7 +91,7 @@ export default function AssetsScreen() {
     setShowModal(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
     const value = parseFloat(form.current_value);
     const roi = parseFloat(form.expected_roi);
     if (!form.name.trim() || isNaN(value) || value <= 0) {
@@ -107,7 +107,13 @@ export default function AssetsScreen() {
       is_self_use: form.is_self_use,
     };
     if (editId) updateAsset(asset);
-    else addAsset(asset);
+    else {
+      const ok = await addAsset(asset);
+      if (!ok) {
+        Alert.alert('Save failed', 'Could not save asset. Please try again.');
+        return;
+      }
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setShowModal(false);
   }

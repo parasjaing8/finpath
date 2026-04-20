@@ -8,6 +8,7 @@ import {
   Platform,
   ScrollView,
   Linking,
+  Alert,
 } from 'react-native';
 import { Text, TextInput, Button } from 'react-native-paper';
 import { useRouter } from 'expo-router';
@@ -86,8 +87,12 @@ export default function LoginScreen() {
       await resetFailedAttempts(profile.id);
       await setCurrentProfileId(profile.id);
       await refreshProfiles();
-      try { await loadProfile(profile.id); } catch { /* non-critical */ }
-      router.replace('/(tabs)/assets');
+      try {
+        await loadProfile(profile.id);
+        router.replace('/(tabs)/assets');
+      } catch {
+        Alert.alert('Load failed', 'Could not load profile data. Please try again.');
+      }
     }
   }
 
@@ -132,8 +137,12 @@ export default function LoginScreen() {
         await resetFailedAttempts(selectedProfile.id);
         await setCurrentProfileId(selectedProfile.id);
         await refreshProfiles();
-        try { await loadProfile(selectedProfile.id); } catch { /* non-critical */ }
-        router.replace('/(tabs)/assets');
+        try {
+          await loadProfile(selectedProfile.id);
+          router.replace('/(tabs)/assets');
+        } catch {
+          Alert.alert('Load failed', 'Could not load profile data. Please try again.');
+        }
       } else {
         const { lockoutUntil } = await recordFailedAttempt(selectedProfile.id);
         const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
