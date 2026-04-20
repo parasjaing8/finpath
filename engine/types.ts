@@ -99,5 +99,4 @@ export interface Goals {
   inflation_rate?: number | null;
   fire_type?: string;
   fire_target_age?: number;
-  withdrawal_rate?: number;
 }

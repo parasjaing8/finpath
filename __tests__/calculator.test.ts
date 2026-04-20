@@ -61,7 +61,6 @@ function makeGoals(overrides: Partial<Goals> = {}): Goals {
     pension_income: 50_000,
     fire_type: 'moderate',
     fire_target_age: 100,
-    withdrawal_rate: 5,
     inflation_rate: 6,
     ...overrides,
   };

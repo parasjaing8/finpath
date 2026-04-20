@@ -154,8 +154,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           pension_income: sqlGoals.pension_income ?? undefined,
           fire_type: sqlGoals.fire_type,
           fire_target_age: sqlGoals.fire_target_age,
-          withdrawal_rate: sqlGoals.withdrawal_rate,
-          inflation_rate: sqlGoals.inflation_rate,
+              inflation_rate: sqlGoals.inflation_rate,
         }
       : null;
 
@@ -198,7 +197,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         g.pension_income ?? undefined,
         (g as any).fire_type ?? 'moderate',
         (g as any).fire_target_age ?? 100,
-        (g as any).withdrawal_rate ?? 5,
         g.inflation_rate ?? 6,
       );
     }
@@ -464,7 +462,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         finalGoals.pension_income ?? undefined,
         (finalGoals as any).fire_type ?? 'moderate',
         (finalGoals as any).fire_target_age ?? 100,
-        (finalGoals as any).withdrawal_rate ?? 5,
         finalGoals.inflation_rate ?? 6,
       );
     }

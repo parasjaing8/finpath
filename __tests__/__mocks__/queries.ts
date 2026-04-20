@@ -59,6 +59,5 @@ export interface Goals {
   pension_income: number | null;
   fire_type: FireType;
   fire_target_age: number;
-  withdrawal_rate: number;
   inflation_rate: number;
 }

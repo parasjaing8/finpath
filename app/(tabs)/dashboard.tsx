@@ -100,7 +100,7 @@ export default function DashboardScreen() {
   // Auto-set SIP when goals change (not on every tab focus)
   useEffect(() => {
     if (!goals || !result || result.requiredMonthlySIP <= 0) return;
-    const goalsKey = `${goals.retirement_age}-${goals.fire_type}-${goals.pension_income}-${goals.withdrawal_rate}`;
+    const goalsKey = `${goals.retirement_age}-${goals.fire_type}-${goals.pension_income}`;
     if (lastAutoSetGoalsKey.current === goalsKey) return;
     lastAutoSetGoalsKey.current = goalsKey;
     const rounded = Math.ceil(result.requiredMonthlySIP / 1000) * 1000;

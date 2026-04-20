@@ -145,15 +145,14 @@ export async function runLegacyMigration(): Promise<void> {
         const g = blobs.goals;
         await db.runAsync(
           `INSERT INTO goals (profile_id, retirement_age, sip_stop_age, pension_income,
-           fire_type, fire_target_age, withdrawal_rate, inflation_rate)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           fire_type, fire_target_age, inflation_rate)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(profile_id) DO UPDATE SET
              retirement_age   = excluded.retirement_age,
              sip_stop_age     = excluded.sip_stop_age,
              pension_income   = excluded.pension_income,
              fire_type        = excluded.fire_type,
              fire_target_age  = excluded.fire_target_age,
-             withdrawal_rate  = excluded.withdrawal_rate,
              inflation_rate   = excluded.inflation_rate`,
           [
             match.id,
@@ -162,7 +161,6 @@ export async function runLegacyMigration(): Promise<void> {
             g.pension_income ?? 0,
             (g as any).fire_type ?? 'moderate',
             (g as any).fire_target_age ?? 100,
-            (g as any).withdrawal_rate ?? 5,
             g.inflation_rate ?? 6,
           ],
         );

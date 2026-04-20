@@ -60,7 +60,6 @@ export interface Goals {
   pension_income: number | null;
   fire_type: FireType;
   fire_target_age: number;
-  withdrawal_rate: number;
   inflation_rate: number;
 }
 
@@ -313,21 +312,19 @@ export async function saveGoals(
   pensionIncome?: number,
   fireType: FireType = 'moderate',
   fireTargetAge: number = 100,
-  withdrawalRate: number = 5.0,
   inflationRate: number = 6.0,
 ): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `INSERT INTO goals (profile_id, retirement_age, sip_stop_age, pension_income, fire_type, fire_target_age, withdrawal_rate, inflation_rate)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO goals (profile_id, retirement_age, sip_stop_age, pension_income, fire_type, fire_target_age, inflation_rate)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(profile_id) DO UPDATE SET
      retirement_age = excluded.retirement_age,
      sip_stop_age = excluded.sip_stop_age,
      pension_income = excluded.pension_income,
      fire_type = excluded.fire_type,
      fire_target_age = excluded.fire_target_age,
-     withdrawal_rate = excluded.withdrawal_rate,
      inflation_rate = excluded.inflation_rate`,
-    [profileId, retirementAge, sipStopAge, pensionIncome ?? 0, fireType, fireTargetAge, withdrawalRate, inflationRate]
+    [profileId, retirementAge, sipStopAge, pensionIncome ?? 0, fireType, fireTargetAge, inflationRate]
   );
 }
