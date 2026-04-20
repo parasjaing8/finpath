@@ -6,11 +6,11 @@
  *
  * Strategy:
  *   - Find the SQLite profile matching the AsyncStorage profile by name.
- *   - Only insert assets/expenses/goals if SQLite has 0 assets for that profile
- *     (i.e. data never reached SQLite). If SQLite already has data, it wins.
- *   - Wrap all inserts in a single transaction — sentinel is set only after COMMIT.
- *   - Clear the AsyncStorage blobs after sentinel is set.
- *   - On any failure, do NOT set sentinel → retries on next boot (non-fatal).
+ *   - Assets + expenses: only inserted if SQLite has 0 assets (non-destructive).
+ *   - Goals: always upserted (ON CONFLICT DO UPDATE is safe).
+ *   - All inserts wrapped in a single transaction — sentinel set only after COMMIT.
+ *   - AsyncStorage blobs cleared after sentinel is set.
+ *   - On any failure, sentinel is NOT set → retries on next boot (non-fatal).
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -65,6 +65,14 @@ export async function runLegacyMigration(): Promise<void> {
       return;
     }
 
+    // No data in AsyncStorage to migrate — mark done and exit
+    const hasAnyLegacyData =
+      blobs.assets.length > 0 || blobs.expenses.length > 0 || blobs.goals !== null;
+    if (!hasAnyLegacyData) {
+      await AsyncStorage.setItem(SENTINEL_KEY, '1');
+      return;
+    }
+
     const sqliteProfiles = await getAllProfiles();
     const legacyName = (blobs.profile.name ?? '').trim().toLowerCase();
     const match =
@@ -77,9 +85,13 @@ export async function runLegacyMigration(): Promise<void> {
     }
 
     const existingAssets = await getAssets(match.id);
-    if (existingAssets.length === 0 && blobs.assets.length > 0) {
-      const db = await getDatabase();
-      await db.withTransactionAsync(async () => {
+    const sqliteHasData = existingAssets.length > 0;
+
+    const db = await getDatabase();
+    await db.withTransactionAsync(async () => {
+      // Assets + expenses: non-destructive — only insert if SQLite has no assets.
+      // If SQLite already has assets (from prior syncToAppContext), it wins.
+      if (!sqliteHasData) {
         for (const a of blobs.assets) {
           await db.runAsync(
             `INSERT INTO assets (profile_id, category, name, current_value, currency,
@@ -125,35 +137,37 @@ export async function runLegacyMigration(): Promise<void> {
             ],
           );
         }
+      }
 
-        if (blobs.goals) {
-          const g = blobs.goals;
-          await db.runAsync(
-            `INSERT INTO goals (profile_id, retirement_age, sip_stop_age, pension_income,
-             fire_type, fire_target_age, withdrawal_rate, inflation_rate)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(profile_id) DO UPDATE SET
-               retirement_age   = excluded.retirement_age,
-               sip_stop_age     = excluded.sip_stop_age,
-               pension_income   = excluded.pension_income,
-               fire_type        = excluded.fire_type,
-               fire_target_age  = excluded.fire_target_age,
-               withdrawal_rate  = excluded.withdrawal_rate,
-               inflation_rate   = excluded.inflation_rate`,
-            [
-              match.id,
-              g.retirement_age,
-              g.sip_stop_age,
-              g.pension_income ?? 0,
-              (g as any).fire_type ?? 'moderate',
-              (g as any).fire_target_age ?? 100,
-              (g as any).withdrawal_rate ?? 5,
-              g.inflation_rate ?? 6,
-            ],
-          );
-        }
-      });
-    }
+      // Goals: always upsert regardless of SQLite asset state.
+      // ON CONFLICT DO UPDATE is safe — won't overwrite if SQLite already has correct data.
+      if (blobs.goals) {
+        const g = blobs.goals;
+        await db.runAsync(
+          `INSERT INTO goals (profile_id, retirement_age, sip_stop_age, pension_income,
+           fire_type, fire_target_age, withdrawal_rate, inflation_rate)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(profile_id) DO UPDATE SET
+             retirement_age   = excluded.retirement_age,
+             sip_stop_age     = excluded.sip_stop_age,
+             pension_income   = excluded.pension_income,
+             fire_type        = excluded.fire_type,
+             fire_target_age  = excluded.fire_target_age,
+             withdrawal_rate  = excluded.withdrawal_rate,
+             inflation_rate   = excluded.inflation_rate`,
+          [
+            match.id,
+            g.retirement_age,
+            g.sip_stop_age,
+            g.pension_income ?? 0,
+            (g as any).fire_type ?? 'moderate',
+            (g as any).fire_target_age ?? 100,
+            (g as any).withdrawal_rate ?? 5,
+            g.inflation_rate ?? 6,
+          ],
+        );
+      }
+    });
 
     // Sentinel first — if blob clear fails, we won't re-migrate on next boot
     await AsyncStorage.setItem(SENTINEL_KEY, '1');
