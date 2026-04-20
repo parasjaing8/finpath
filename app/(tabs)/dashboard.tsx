@@ -37,6 +37,7 @@ export default function DashboardScreen() {
   const [showCorpusInfo, setShowCorpusInfo] = useState(false);
   const [showDepletionInfo, setShowDepletionInfo] = useState(false);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   // Track the goals snapshot that was used for the last SIP auto-set.
   // Auto-set only fires again when goals actually change, not on every tab focus.
@@ -70,7 +71,7 @@ export default function DashboardScreen() {
       if (__DEV__) console.error('calculateProjections error:', e);
       return null;
     }
-  }, [currentProfile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpEnabled, stepUpRate, isLoaded]);
+  }, [currentProfile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpEnabled, stepUpRate, isLoaded, retryKey]);
 
   // Insights: peak, depletion, affordability
   const insights = useMemo(() => {
@@ -153,10 +154,19 @@ export default function DashboardScreen() {
           Something went wrong with your projection. Try reviewing your goals or assets.
         </Text>
         <Button
+          mode="contained"
+          icon="refresh"
+          onPress={() => setRetryKey(k => k + 1)}
+          style={{ marginTop: 24, borderRadius: 8 }}
+          contentStyle={{ paddingVertical: 6 }}
+        >
+          Retry
+        </Button>
+        <Button
           mode="outlined"
           icon="flag-outline"
           onPress={() => router.push('/(tabs)/goals')}
-          style={{ marginTop: 24, borderRadius: 8 }}
+          style={{ marginTop: 12, borderRadius: 8 }}
           contentStyle={{ paddingVertical: 6 }}
         >
           Review Plan
