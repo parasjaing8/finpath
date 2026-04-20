@@ -2,7 +2,7 @@
   "expo": {
     "name": "FinPath",
     "slug": "finpath",
-    "version": "1.0.2",
+    "version": "1.0.1",
     "scheme": "finpath",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,7 +21,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "versionCode": 33,
+      "versionCode": 35,
       "package": "com.aihomecloud.finpath",
       "privacyPolicyUrl": "https://parasjaing8.github.io/finpath/privacy-policy.html"
     },
