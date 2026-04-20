@@ -235,6 +235,11 @@ export default function ProfileScreen() {
   }, []);
 
   const runImport = useCallback(async (jsonText: string) => {
+    if (!profile) {
+      Alert.alert("Not logged in", "Log in before importing a backup.");
+      return;
+    }
+    const profileId = parseInt(String(profile.id), 10);
     let parsed: ExportPayload;
     try {
       parsed = JSON.parse(jsonText);
@@ -249,7 +254,7 @@ export default function ProfileScreen() {
         : true;
       if (!confirmed) return;
       try {
-        await importAll(parsed, profile ? parseInt(String(profile.id), 10) : undefined);
+        await importAll(parsed, profileId);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (e: any) {
         Alert.alert('Restore failed', e?.message ?? 'Import failed.');
@@ -266,7 +271,7 @@ export default function ProfileScreen() {
           onPress: async () => {
             setImportLoading(true);
             try {
-              await importAll(parsed, profile ? parseInt(String(profile.id), 10) : undefined);
+              await importAll(parsed, profileId);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } catch (e: any) {
               Alert.alert('Restore failed', e?.message ?? 'Import failed.');
@@ -277,7 +282,7 @@ export default function ProfileScreen() {
         },
       ],
     );
-  }, [importAll]);
+  }, [importAll, profile]);
 
   return (
     <>
