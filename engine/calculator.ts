@@ -167,12 +167,9 @@ function computeBlendedGrowthRate(assets: Asset[], fallbackRate: number): number
   if (totalValue === 0) return fallbackRate;
   const weighted = investable.reduce((s, a) => {
     // Honor a user-set ROI even when it is exactly 0 (e.g. cash sitting idle).
-    // Only fall back to the category default when the value is truly missing
-    // or non-finite.
+    // Only fall back to the category default when expected_roi is null/undefined (not set).
     const userRoi = a.expected_roi;
-    // expected_roi of 0 means "not set" — fall back to the category default.
-    // Only honour a user-supplied rate when it is explicitly positive.
-    const roi = userRoi > 0
+    const roi = userRoi != null
       ? userRoi
       : (DEFAULT_GROWTH_RATES[a.category] ?? fallbackRate);
     return s + a.current_value * roi;

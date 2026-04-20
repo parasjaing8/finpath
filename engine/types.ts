@@ -70,7 +70,7 @@ export interface Asset {
   name: string;
   category: string;
   current_value: number;
-  expected_roi: number;
+  expected_roi?: number | null;
   currency?: string;
   is_self_use?: boolean | number;
   is_recurring?: boolean | number;

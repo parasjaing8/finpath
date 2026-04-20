@@ -74,7 +74,7 @@ function makeMFAsset(currentValue: number, id = 1): Asset {
     name: 'Nifty 50 Index',
     current_value: currentValue,
     currency: 'INR',
-    expected_roi: 0,          // 0 → falls back to DEFAULT_GROWTH_RATES (12%)
+    expected_roi: null,        // null → falls back to DEFAULT_GROWTH_RATES (12%)
     is_recurring: 0,
     recurring_amount: null,
     recurring_frequency: null,
@@ -118,7 +118,7 @@ function makeEsopAsset(params: {
     name: 'Company RSUs',
     current_value: params.currentValue,
     currency: 'INR',
-    expected_roi: 0,
+    expected_roi: null,
     is_recurring: 1,
     recurring_amount: params.recurringAmount,
     recurring_frequency: params.frequency,

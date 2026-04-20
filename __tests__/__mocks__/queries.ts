@@ -24,7 +24,7 @@ export interface Asset {
   name: string;
   current_value: number;
   currency: string;
-  expected_roi: number;
+  expected_roi: number | null;
   is_recurring: number;
   recurring_amount: number | null;
   recurring_frequency: string | null;
