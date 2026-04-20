@@ -78,7 +78,7 @@ export function HeroCard({
         <View style={styles.progressSection}>
           <View style={styles.progressRow}>
             <Text style={styles.progressLabel}>CORPUS TARGET</Text>
-            <Text style={styles.progressLabel}>{formatCurrency(fireCorpus, currency)} · {progressPct}% built</Text>
+            <Text style={styles.progressLabel}>{formatCurrencyFull(fireCorpus, currency)} · {progressPct}% built</Text>
           </View>
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${Math.max(2, progressPct)}%` as any }]} />
