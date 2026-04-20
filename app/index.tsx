@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeDatabase } from '../db/schema';
 import { getAllProfiles } from '../db/queries';
 
@@ -15,7 +16,8 @@ export default function Index() {
         if (profiles.length > 0) {
           setTarget('/login');
         } else {
-          setTarget('/onboarding/create-profile');
+          const onboarded = await AsyncStorage.getItem('@fire_onboarded');
+          setTarget(onboarded === '1' ? '/login' : '/onboarding/create-profile');
         }
       } catch (e) {
         if (__DEV__) console.error('Init error:', e);
