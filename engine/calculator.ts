@@ -637,8 +637,8 @@ export function calculateFutureGoalsCorpus(
   // Find the furthest year any future expense has cash flows
   let maxYear = currentYear;
   for (const exp of futureExpenses) {
-    const endDate = exp.end_date ? new Date(exp.end_date) : null;
-    const startDate = exp.start_date ? new Date(exp.start_date) : null;
+    const endDate = exp.end_date ? parseDateStr(exp.end_date) : null;
+    const startDate = exp.start_date ? parseDateStr(exp.start_date) : null;
     if (endDate) maxYear = Math.max(maxYear, endDate.getFullYear());
     else if (startDate) maxYear = Math.max(maxYear, startDate.getFullYear());
   }
