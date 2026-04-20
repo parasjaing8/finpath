@@ -22,13 +22,13 @@ export default function DashboardScreen() {
   const router = useRouter();
 
   // Dashboard Controls — calc states trigger useMemo projection
-  const [sipAmount, setSipAmount] = useState(10000);
+  const [sipAmount, setSipAmount] = useState(0);
   const [sipReturnRate, setSipReturnRate] = useState(12);
   const [postSipReturnRate, setPostSipReturnRate] = useState(7);
   const [stepUpEnabled, setStepUpEnabled] = useState(true);
   const [stepUpRate, setStepUpRate] = useState(10);
   // Display states — update live while dragging; calc states update on finger lift
-  const [sipAmountDisplay, setSipAmountDisplay] = useState(10000);
+  const [sipAmountDisplay, setSipAmountDisplay] = useState(0);
   const [sipReturnRateDisplay, setSipReturnRateDisplay] = useState(12);
   const [postSipReturnRateDisplay, setPostSipReturnRateDisplay] = useState(7);
   const [stepUpRateDisplay, setStepUpRateDisplay] = useState(10);
