@@ -11,11 +11,12 @@ import {
   Alert,
 } from 'react-native';
 import { Text, TextInput, Button } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Crypto from 'expo-crypto';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { getAllProfiles, Profile, recordFailedAttempt, resetFailedAttempts, getProfilePin, getBiometricEnabled } from '../db/queries';
+import { getAllProfiles, Profile, recordFailedAttempt, resetFailedAttempts, getProfilePin, getBiometricEnabled, deleteProfile } from '../db/queries';
 import { useProfile } from '../hooks/useProfile';
 import { useApp } from '../context/AppContext';
 import { runLegacyMigration } from '../storage/legacyMigration';
@@ -26,6 +27,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const { setCurrentProfileId, refreshProfiles } = useProfile();
   const { loadProfile } = useApp();
+  const insets = useSafeAreaInsets();
 
   // Run the one-time AsyncStorage→SQLite migration on mount.
   // Idempotent — returns immediately if sentinel is already set.
@@ -170,7 +172,7 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 16 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -271,6 +273,33 @@ export default function LoginScreen() {
                 <Text style={styles.biometricBtnText}>Use Fingerprint</Text>
               </TouchableOpacity>
             )}
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert(
+                  'Forgot PIN?',
+                  `This will permanently delete the profile "${selectedProfile.name}" and all its data. This cannot be undone.`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete Profile',
+                      style: 'destructive',
+                      onPress: async () => {
+                        await deleteProfile(selectedProfile.id);
+                        setSelectedProfile(null);
+                        setPin('');
+                        setError('');
+                        autoSelectedRef.current = false;
+                        await loadProfiles();
+                      },
+                    },
+                  ]
+                );
+              }}
+              style={styles.forgotPin}
+              accessibilityRole="button"
+            >
+              <Text style={styles.forgotPinText}>Forgot PIN?</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -294,7 +323,6 @@ const styles = StyleSheet.create({
   },
   scroll: {
     padding: 24,
-    paddingTop: 60,
     flexGrow: 1,
   },
   header: {
@@ -442,6 +470,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
     fontWeight: '600',
+  },
+  forgotPin: {
+    alignSelf: 'center',
+    marginTop: 12,
+    paddingVertical: 4,
+  },
+  forgotPinText: {
+    fontSize: 13,
+    color: '#C62828',
+    textDecorationLine: 'underline',
   },
   loginBtnContent: {
     height: 48,

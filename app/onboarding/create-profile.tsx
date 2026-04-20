@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Switch, TouchableOpacity } from 'react-native';
-import { TextInput, Button, Text, SegmentedButtons, HelperText } from 'react-native-paper';
+import { TextInput, Button, Text, HelperText } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { createProfile, setBiometricEnabled } from '../../db/queries';
 import { useProfile } from '../../hooks/useProfile';
@@ -12,6 +12,17 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { DateInput } from '../../components/DateInput';
+
+const CURRENCIES: { value: string; label: string }[] = [
+  { value: 'INR', label: '₹ INR' },
+  { value: 'USD', label: '$ USD' },
+  { value: 'EUR', label: '€ EUR' },
+  { value: 'GBP', label: '£ GBP' },
+  { value: 'AUD', label: 'A$ AUD' },
+  { value: 'CAD', label: 'C$ CAD' },
+  { value: 'SGD', label: 'S$ SGD' },
+  { value: 'AED', label: 'د.إ AED' },
+];
 
 export default function CreateProfile() {
   const router = useRouter();
@@ -199,21 +210,25 @@ export default function CreateProfile() {
           mode="outlined"
           style={styles.input}
           keyboardType="numeric"
-          left={<TextInput.Affix text={currency === 'INR' ? '₹' : '$'} />}
+          left={<TextInput.Affix text={CURRENCIES.find(c => c.value === currency)?.label.split(' ')[0] ?? currency} />}
           error={!!errors.income}
         />
         {errors.income && <HelperText type="error">{errors.income}</HelperText>}
 
         <Text variant="labelLarge" style={styles.label}>Currency</Text>
-        <SegmentedButtons
-          value={currency}
-          onValueChange={setCurrency}
-          buttons={[
-            { value: 'INR', label: '₹ INR' },
-            { value: 'USD', label: '$ USD' },
-          ]}
-          style={styles.segment}
-        />
+        <View style={styles.currencyRow}>
+          {CURRENCIES.map(c => (
+            <TouchableOpacity
+              key={c.value}
+              style={[styles.currencyChip, currency === c.value && styles.currencyChipSelected]}
+              onPress={() => setCurrency(c.value)}
+            >
+              <Text style={[styles.currencyChipText, currency === c.value && styles.currencyChipTextSelected]}>
+                {c.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <TextInput
           label="Set PIN (6 digits)"
@@ -320,6 +335,11 @@ const styles = StyleSheet.create({
   input: { marginBottom: 4, backgroundColor: '#FFFFFF' },
   label: { marginTop: 12, marginBottom: 8 },
   segment: { marginBottom: 16 },
+  currencyRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  currencyChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: '#C8E6C9', backgroundColor: '#F1F8E9' },
+  currencyChipSelected: { backgroundColor: '#1B5E20', borderColor: '#1B5E20' },
+  currencyChipText: { fontSize: 13, color: '#1B5E20', fontWeight: '500' },
+  currencyChipTextSelected: { color: '#fff' },
   biometricRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 12, padding: 14, marginTop: 16, gap: 12, elevation: 1 },
   biometricText: { flex: 1 },
   biometricLabel: { color: '#1B5E20' },

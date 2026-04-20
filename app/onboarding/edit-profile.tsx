@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity } from 'react-native';
-import { TextInput, Button, Text, SegmentedButtons, HelperText } from 'react-native-paper';
+import { TextInput, Button, Text, HelperText } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { updateProfile, saveProfilePin } from '../../db/queries';
 import { useProfile } from '../../hooks/useProfile';
@@ -9,6 +9,17 @@ import type { Profile as EngineProfile } from '../../engine/types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { DateInput } from '../../components/DateInput';
 import * as Crypto from 'expo-crypto';
+
+const CURRENCIES: { value: string; label: string }[] = [
+  { value: 'INR', label: '₹ INR' },
+  { value: 'USD', label: '$ USD' },
+  { value: 'EUR', label: '€ EUR' },
+  { value: 'GBP', label: '£ GBP' },
+  { value: 'AUD', label: 'A$ AUD' },
+  { value: 'CAD', label: 'C$ CAD' },
+  { value: 'SGD', label: 'S$ SGD' },
+  { value: 'AED', label: 'د.إ AED' },
+];
 
 export default function EditProfile() {
   const router = useRouter();
@@ -109,21 +120,25 @@ export default function EditProfile() {
           mode="outlined"
           style={styles.input}
           keyboardType="numeric"
-          left={<TextInput.Affix text={currency === 'INR' ? '₹' : '$'} />}
+          left={<TextInput.Affix text={CURRENCIES.find(c => c.value === currency)?.label.split(' ')[0] ?? currency} />}
           error={!!errors.income}
         />
         {errors.income && <HelperText type="error">{errors.income}</HelperText>}
 
         <Text variant="labelLarge" style={styles.label}>Currency</Text>
-        <SegmentedButtons
-          value={currency}
-          onValueChange={setCurrency}
-          buttons={[
-            { value: 'INR', label: '₹ INR' },
-            { value: 'USD', label: '$ USD' },
-          ]}
-          style={styles.segment}
-        />
+        <View style={styles.currencyRow}>
+          {CURRENCIES.map(c => (
+            <TouchableOpacity
+              key={c.value}
+              style={[styles.currencyChip, currency === c.value && styles.currencyChipSelected]}
+              onPress={() => setCurrency(c.value)}
+            >
+              <Text style={[styles.currencyChipText, currency === c.value && styles.currencyChipTextSelected]}>
+                {c.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {/* PIN change (optional) */}
         <Text variant="labelSmall" style={[styles.sectionLabel, { marginTop: 8 }]}>CHANGE PIN (optional)</Text>
@@ -179,6 +194,11 @@ const styles = StyleSheet.create({
   input: { marginBottom: 4, backgroundColor: '#FFFFFF' },
   label: { marginTop: 12, marginBottom: 8 },
   segment: { marginBottom: 16 },
+  currencyRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  currencyChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: '#C8E6C9', backgroundColor: '#F1F8E9' },
+  currencyChipSelected: { backgroundColor: '#1B5E20', borderColor: '#1B5E20' },
+  currencyChipText: { fontSize: 13, color: '#1B5E20', fontWeight: '500' },
+  currencyChipTextSelected: { color: '#fff' },
   pinHint: { color: '#999', marginTop: 4, marginBottom: 8, fontStyle: 'italic' },
   button: { marginTop: 24, borderRadius: 8 },
   buttonContent: { paddingVertical: 8 },
