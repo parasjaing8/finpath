@@ -41,8 +41,12 @@ export default function GoalsScreen() {
   });
 
   useEffect(() => {
-    if (goals) setForm(goals);
-  }, [goals]);
+    if (goals) {
+      setForm(goals);
+    } else if (profile?.monthly_income) {
+      setForm(f => ({ ...f, pension_income: Math.round(profile.monthly_income * 0.7) }));
+    }
+  }, [goals, profile?.monthly_income]);
 
   function handleSave() {
     setGoals(form);
@@ -185,6 +189,18 @@ export default function GoalsScreen() {
         <InfoRow label="Monthly income (today)" value={formatCurrency(form.pension_income ?? 0, currency)} />
         <InfoRow label="Inflation" value={`${form.inflation_rate ?? 6}%`} />
         <InfoRow label="Corpus must last to" value={`age ${form.fire_target_age ?? 100}`} />
+        {(() => {
+          const yrs = Math.max(0, form.retirement_age - (profile ? getAge(profile.dob) : 30));
+          if (!form.pension_income || yrs <= 0) return null;
+          const adj = Math.round(form.pension_income * Math.pow(1 + (form.inflation_rate ?? 6) / 100, yrs));
+          return (
+            <InfoRow
+              label={`At age ${form.retirement_age} (inflation-adj.)`}
+              value={formatCurrency(adj, currency)}
+              suffix="/month"
+            />
+          );
+        })()}
       </View>
 
       <TouchableOpacity

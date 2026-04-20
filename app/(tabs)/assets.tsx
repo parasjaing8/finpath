@@ -172,6 +172,9 @@ export default function AssetsScreen() {
                 <Text style={[styles.assetName, { color: colors.foreground }]}>{asset.name}</Text>
                 <Text style={[styles.assetMeta, { color: colors.mutedForeground }]}>
                   {cat?.label ?? asset.category} · {asset.expected_roi}% p.a.
+                  {!asset.is_self_use && investableNetWorth > 0
+                    ? ` · ${Math.round(asset.current_value / investableNetWorth * 100)}%`
+                    : ''}
                   {asset.is_self_use ? ' · Self-use' : ''}
                 </Text>
               </View>

@@ -21,6 +21,7 @@ interface Props {
   onStepUpToggle: (v: boolean) => void;
   onStepUpChange: (v: number) => void;
   onStepUpCommit: (v: number) => void;
+  inflationRate?: number;
 }
 
 export function SIPControls({
@@ -40,6 +41,7 @@ export function SIPControls({
   onStepUpToggle,
   onStepUpChange,
   onStepUpCommit,
+  inflationRate = 6,
 }: Props) {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -56,7 +58,7 @@ export function SIPControls({
           value={sipAmountDisplay}
           onValueChange={(v: number[]) => onSipChange(Math.round(v[0] / 1000) * 1000)}
           onSlidingComplete={(v: number[]) => onSipCommit(Math.round(v[0] / 1000) * 1000)}
-          minimumValue={1000} maximumValue={500000} step={1000}
+          minimumValue={1000} maximumValue={1000000} step={1000}
           minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
         />
 
@@ -79,9 +81,16 @@ export function SIPControls({
 
         {showAdvanced && (
           <>
-            <Text variant="labelMedium" style={styles.sliderLabel}>
-              Return While Investing (until age {sipStopAge}): {sipReturnRateDisplay}%
-            </Text>
+            <View style={styles.returnRow}>
+              <Text variant="labelMedium" style={styles.sliderLabel}>
+                Return While Investing (until age {sipStopAge}): {sipReturnRateDisplay}%
+              </Text>
+              <View style={[styles.realReturnPill, { backgroundColor: sipReturnRateDisplay - inflationRate >= 4 ? '#E8F5E9' : '#FFF3E0' }]}>
+                <Text style={[styles.realReturnText, { color: sipReturnRateDisplay - inflationRate >= 4 ? '#1B5E20' : '#E65100' }]}>
+                  Real: +{(sipReturnRateDisplay - inflationRate).toFixed(1)}%
+                </Text>
+              </View>
+            </View>
             <Slider
               value={sipReturnRateDisplay}
               onValueChange={(v: number[]) => onReturnChange(Math.round(v[0]))}
@@ -100,7 +109,7 @@ export function SIPControls({
               minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
             />
             <Text variant="bodySmall" style={styles.infoText}>
-              Only withdrawn amounts are taxed. Remaining corpus compounds at gross return rate.
+              Equity LTCG above ₹1L/year is taxed at 10%. Lower your return rate by ~1–1.5% to model post-tax growth.
             </Text>
 
             <View style={styles.switchRow}>
@@ -138,4 +147,7 @@ const styles = StyleSheet.create({
   advancedToggle: { marginTop: 12, paddingVertical: 6, alignSelf: 'flex-start' },
   advancedToggleText: { color: '#1B5E20', fontWeight: '700' },
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 },
+  returnRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, marginBottom: 4 },
+  realReturnPill: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 },
+  realReturnText: { fontSize: 11, fontWeight: '700' },
 });

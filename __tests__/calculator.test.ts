@@ -855,3 +855,82 @@ describe('FUTURE_ONE_TIME pre-retirement — corpus deduction behaviour', () => 
     expect(yr35.totalNetExpenses).toBeCloseTo(20_000_000, -4);
   });
 });
+
+describe('new output fields and edge-case guards', () => {
+  const base = {
+    profile: { id: 1, name: 'Test', dob: '1990-01-01', currency: 'INR', monthly_income: 100000 },
+    assets: [{ id: 1, name: 'MF', category: 'MUTUAL_FUND', current_value: 500000, expected_roi: 11 }],
+    expenses: [],
+    goals: { retirement_age: 60, sip_stop_age: 60, pension_income: 50000, inflation_rate: 6, fire_type: 'moderate', fire_target_age: 100 },
+    sipAmount: 20000,
+    sipReturnRate: 12,
+    postSipReturnRate: 7,
+    stepUpRate: 10,
+  };
+
+  test('returns savingsRate as % of income', () => {
+    const r = calculateProjections(base);
+    expect(r.savingsRate).toBeGreaterThanOrEqual(0);
+    expect(r.savingsRate).toBeLessThanOrEqual(100);
+    expect(typeof r.savingsRate).toBe('number');
+  });
+
+  test('realReturnRate equals sipReturnRate minus inflationRatePct', () => {
+    const r = calculateProjections(base);
+    expect(r.realReturnRate).toBe(12 - 6); // sipReturnRate=12, inflation=6
+  });
+
+  test('inflationRatePct matches goals.inflation_rate', () => {
+    const r = calculateProjections(base);
+    expect(r.inflationRatePct).toBe(6);
+  });
+
+  test('sipCorpusAtRetirement + existingCorpusAtRetirement > 0 for standard input', () => {
+    const r = calculateProjections(base);
+    expect(r.sipCorpusAtRetirement + r.existingCorpusAtRetirement).toBeGreaterThan(0);
+  });
+
+  test('fire_target_age equal to retirement_age is auto-guarded to retirementAge+1', () => {
+    const dangerous = {
+      ...base,
+      goals: { ...base.goals, fire_target_age: 60, retirement_age: 60 },
+    };
+    // Should not throw and should return a valid corpus
+    expect(() => calculateProjections(dangerous)).not.toThrow();
+    const r = calculateProjections(dangerous);
+    expect(r.fireCorpus).toBeGreaterThanOrEqual(0);
+    expect(r.netWorthAtRetirement).toBeGreaterThanOrEqual(0);
+  });
+
+  test('fire_target_age below retirement_age is auto-guarded', () => {
+    const dangerous = {
+      ...base,
+      goals: { ...base.goals, fire_target_age: 55, retirement_age: 60 },
+    };
+    expect(() => calculateProjections(dangerous)).not.toThrow();
+    const r = calculateProjections(dangerous);
+    expect(r.fireCorpus).toBeGreaterThanOrEqual(0);
+  });
+
+  test('zero pension income with no future expenses gives fireCorpus 0', () => {
+    const noPension = {
+      ...base,
+      goals: { ...base.goals, pension_income: 0 },
+      expenses: [],
+    };
+    const r = calculateProjections(noPension);
+    expect(r.fireCorpus).toBe(0);
+  });
+
+  test('very high inflation (10%) produces larger required SIP than low inflation (3%)', () => {
+    const highInfl = calculateProjections({ ...base, goals: { ...base.goals, inflation_rate: 10 } });
+    const lowInfl  = calculateProjections({ ...base, goals: { ...base.goals, inflation_rate: 3 } });
+    expect(highInfl.requiredMonthlySIP).toBeGreaterThan(lowInfl.requiredMonthlySIP);
+  });
+
+  test('savingsRate is 0 when monthly_income is 0', () => {
+    const noIncome = { ...base, profile: { ...base.profile, monthly_income: 0 } };
+    const r = calculateProjections(noIncome);
+    expect(r.savingsRate).toBe(0);
+  });
+});

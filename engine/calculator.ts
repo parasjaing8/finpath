@@ -65,6 +65,11 @@ export interface CalculationOutput {
   netWorthAtRetirement: number;
   netWorthAtAge100: number;
   failureAge: number;
+  savingsRate: number;
+  realReturnRate: number;
+  sipCorpusAtRetirement: number;
+  existingCorpusAtRetirement: number;
+  inflationRatePct: number;
 }
 
 /**
@@ -389,6 +394,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
   const { retirement_age: retirementAge, sip_stop_age: sipStopAge } = goals;
+  const inflationRatePct = goals.inflation_rate ?? 6;
 
   let initialNetWorth = 0;
   let investableNetWorth = 0;
@@ -424,7 +430,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     postRetirementExpensesPV += annualAmt / Math.pow(1 + discountRate, yearsFromNow);
   }
 
-  const fireTargetAge = goals.fire_target_age ?? 100;
+  const fireTargetAge = Math.max(goals.fire_target_age ?? 100, retirementAge + 1);
   const fireCorpus = calculateSimulationFireCorpus(
     expenses, currentAge, currentYear, currentMonth,
     retirementAge, postSipReturnRate, monthlyPensionPV,
@@ -437,6 +443,8 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
   let existingBucket = investableNetWorth;
   let sipBucket = 0;
   let retirementMerged = false;
+  let sipCorpusCapture = 0;
+  let existingCorpusCapture = 0;
   let fireAchieved = false;
   let fireAchievedAge = -1;
   let failureAge = -1;
@@ -480,6 +488,8 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     const totalNetExpenses = age >= retirementAge ? (pensionIncome + plannedExpenses) : preRetFutureCost;
 
     if (age >= retirementAge && !retirementMerged) {
+      sipCorpusCapture = Math.max(0, sipBucket);
+      existingCorpusCapture = Math.max(0, existingBucket);
       if (age <= sipStopAge) existingBucket += annualSIP;
       existingBucket = existingBucket + sipBucket;
       sipBucket = 0;
@@ -573,6 +583,13 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     netWorthAtRetirement,
     netWorthAtAge100,
     failureAge,
+    savingsRate: profile.monthly_income > 0
+      ? Math.min(100, Math.round(requiredMonthlySIP / profile.monthly_income * 100))
+      : 0,
+    realReturnRate: sipReturnRate - inflationRatePct,
+    sipCorpusAtRetirement: sipCorpusCapture,
+    existingCorpusAtRetirement: existingCorpusCapture,
+    inflationRatePct,
   };
 }
 

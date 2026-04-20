@@ -14,6 +14,8 @@ interface Props {
   isOnTrack: boolean;
   planStatus: { title: string; subtitle: string; color: string };
   onDepletionPress: () => void;
+  fireCorpus: number;
+  investableNetWorth: number;
 }
 
 export function HeroCard({
@@ -26,8 +28,11 @@ export function HeroCard({
   isOnTrack,
   planStatus,
   onDepletionPress,
+  fireCorpus,
+  investableNetWorth,
 }: Props) {
   const sipRatio = requiredMonthlySIP > 0 ? sipAmountDisplay / requiredMonthlySIP : 1;
+  const progressPct = fireCorpus > 0 ? Math.min(100, Math.round(investableNetWorth / fireCorpus * 100)) : 0;
   const heroColors: [string, string] = sipRatio >= 1.15
     ? ['#1B5E20', '#2E7D32']
     : sipRatio >= 1.0
@@ -69,6 +74,17 @@ export function HeroCard({
           )
         )}
       </View>
+      {fireCorpus > 0 && (
+        <View style={styles.progressSection}>
+          <View style={styles.progressRow}>
+            <Text style={styles.progressLabel}>CORPUS TARGET</Text>
+            <Text style={styles.progressLabel}>{formatCurrency(fireCorpus, currency)} · {progressPct}% built</Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${Math.max(2, progressPct)}%` as any }]} />
+          </View>
+        </View>
+      )}
     </LinearGradient>
   );
 }
@@ -83,4 +99,9 @@ const styles = StyleSheet.create({
   heroPill: { backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   heroPillStatus: { backgroundColor: '#fff', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.5)' },
   heroPillText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  progressSection: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)' },
+  progressRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  progressLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.75)', letterSpacing: 0.5 },
+  progressTrack: { height: 5, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 3, overflow: 'hidden' },
+  progressFill: { height: 5, backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 3 },
 });

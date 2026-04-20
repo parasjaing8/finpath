@@ -227,6 +227,8 @@ export default function DashboardScreen() {
         isOnTrack={result.isOnTrack}
         planStatus={planStatus}
         onDepletionPress={() => setShowDepletionInfo(true)}
+        fireCorpus={result.fireCorpus}
+        investableNetWorth={result.investableNetWorth}
       />
 
       {/* Snapshot Row */}
@@ -236,6 +238,10 @@ export default function DashboardScreen() {
         retirementAge={retirementAge}
         currency={currency}
         onCorpusInfoPress={() => setShowCorpusInfo(true)}
+        savingsRate={result.savingsRate}
+        realReturnRate={result.realReturnRate}
+        sipCorpusAtRetirement={result.sipCorpusAtRetirement}
+        existingCorpusAtRetirement={result.existingCorpusAtRetirement}
       />
 
       {/* SIP burden warning — shown when required SIP exceeds or strains salary */}
@@ -274,6 +280,7 @@ export default function DashboardScreen() {
         onStepUpToggle={setStepUpEnabled}
         onStepUpChange={setStepUpRateDisplay}
         onStepUpCommit={setStepUpRate}
+        inflationRate={goals.inflation_rate ?? 6}
       />
 
       {/* Section C — Net Worth Projection Graph 2.0 */}
