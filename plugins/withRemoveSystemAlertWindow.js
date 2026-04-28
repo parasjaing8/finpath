@@ -1,18 +1,18 @@
 const { withAndroidManifest } = require('@expo/config-plugins');
 
-/**
- * Expo config plugin -- removes SYSTEM_ALERT_WINDOW permission from the release manifest.
- * This permission is injected by React Native's debug overlay and must not ship to production.
- * Google Play flags it for special review / rejection unless justified.
- */
+const PERMISSIONS_TO_REMOVE = [
+  'android.permission.SYSTEM_ALERT_WINDOW',   // injected by RN debug overlay; Play Store flags for review
+  'android.permission.READ_EXTERNAL_STORAGE', // scoped storage on Android 11+; not needed for cacheDir sharing
+  'android.permission.WRITE_EXTERNAL_STORAGE', // same — CSV export uses cacheDirectory + expo-sharing
+];
+
 module.exports = function withRemoveSystemAlertWindow(config) {
   return withAndroidManifest(config, (mod) => {
     const manifest = mod.modResults.manifest;
 
     if (Array.isArray(manifest['uses-permission'])) {
       manifest['uses-permission'] = manifest['uses-permission'].filter(
-        (perm) =>
-          perm.$['android:name'] !== 'android.permission.SYSTEM_ALERT_WINDOW'
+        (perm) => !PERMISSIONS_TO_REMOVE.includes(perm.$['android:name'])
       );
     }
 

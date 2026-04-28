@@ -100,7 +100,7 @@ index.tsx
 | name | TEXT | |
 | dob | TEXT | YYYY-MM-DD |
 | monthly_income | REAL | Take-home monthly salary |
-| currency | TEXT | INR or USD |
+| currency | TEXT | INR, USD, EUR, GBP, AUD, CAD, SGD, or AED |
 | pin | TEXT | NULL after SecureStore migration |
 | failed_attempts | INTEGER | Lockout counter |
 | lockout_until | INTEGER | Unix ms timestamp |
@@ -112,10 +112,10 @@ SecureStore keys: `finpath_pin_{id}` = salt$sha256(salt+pin) | `finpath_biometri
 |---|---|---|
 | id | INTEGER PK | |
 | profile_id | INTEGER FK | |
-| category | TEXT | ESOP_RSU, STOCKS, MUTUAL_FUND, SAVINGS, GOLD_SILVER, PF, NPS, REAL_ESTATE, OTHERS |
+| category | TEXT | EQUITY, MUTUAL_FUND, DEBT, FIXED_DEPOSIT, PPF, EPF, GOLD, REAL_ESTATE, CRYPTO, CASH, ESOP_RSU, OTHERS |
 | name | TEXT | |
-| current_value | REAL | Always stored in profile currency (USD converted on save for ESOP) |
-| currency | TEXT | INR or USD |
+| current_value | REAL | Stored in profile currency; no per-asset FX conversion today |
+| currency | TEXT | Profile currency code (INR/USD/EUR/GBP/AUD/CAD/SGD/AED) — stored but not used by engine |
 | expected_roi | REAL | Annual growth % -- 0 means use DEFAULT_GROWTH_RATES fallback |
 | is_recurring | INTEGER | 0/1 -- ESOP vesting schedule enabled |
 | recurring_amount | REAL | Per-vesting-event amount |
@@ -207,25 +207,23 @@ Key exports:
 
 ---
 
-## ⚠️ Dual Storage Warning (Identified 2026-04-19 Audit)
+## Storage Architecture (updated 2026-04-29)
 
-**CRITICAL:** The app has two storage layers that are NOT synchronized:
-- **AsyncStorage (encrypted):** Stores Profile, Assets[], Expenses[], Goals as JSON blobs. AppContext reads from here on launch.
-- **SQLite:** Stores normalized rows. Login reads from here via `syncToAppContext`. Mutations attempt to write to both.
+**SQLite is the single source of truth.** The dual-write path described in the 2026-04-19 audit has been resolved. `AppContext` mutations write to SQLite only (via `dbCreateAsset`, `dbCreateExpense`, etc.). AsyncStorage is used only for:
+- The migration sentinel (one-time flag that the SQLite migration has run)
+- The export/import JSON payload (backup restore — reads from SQLite, writes back to SQLite)
 
-These can diverge if one write fails (SQLite success + AsyncStorage fail, or vice versa). No atomic transaction wraps both writes. **Data loss is possible.** See `kb/deepAudit.md` §1 for full analysis and recommended fix.
+The "Dual Storage Warning" in earlier versions of this doc is stale and no longer applies.
 
 ---
 
 ## Known Issues
 
-- **Dual storage data sync risk** — see §Dual Storage Warning above
 - withReleaseSigning.js step-3 regex fails to patch buildTypes.release signingConfig. Manual sed needed after clean prebuild.
 - Sentry DSN not configured (no .env). Crash reporting inactive.
 - R8 minification disabled. APK ~54MB.
-- SYSTEM_ALERT_WINDOW + READ/WRITE_EXTERNAL_STORAGE still in AndroidManifest (should be removed for Play Store).
 - Hardcoded IAP price in ProPaywall (should fetch from Play Store billing).
 - gold_silver_quantity and gold_silver_unit columns are legacy/unused (value-only mode).
-- `totalNetExpenses` field in projections is wrong post-retirement (adds pension to expenses instead of subtracting).
+- Per-asset `currency` column exists in schema but engine does not use it for FX conversion — all assets treated in profile currency.
 - `calculateFutureGoalsCorpus` has zero test coverage.
 - 50+ hardcoded color instances instead of using theme system.

@@ -19,6 +19,12 @@ import { getProfilePin, saveProfilePin } from '@/db/queries';
 const CURRENCIES = [
   { key: 'INR', symbol: '₹', label: 'Indian Rupee' },
   { key: 'USD', symbol: '$', label: 'US Dollar' },
+  { key: 'EUR', symbol: '€', label: 'Euro' },
+  { key: 'GBP', symbol: '£', label: 'Brit. Pound' },
+  { key: 'AUD', symbol: 'A$', label: 'Aus. Dollar' },
+  { key: 'CAD', symbol: 'C$', label: 'Can. Dollar' },
+  { key: 'SGD', symbol: 'S$', label: 'Sing. Dollar' },
+  { key: 'AED', symbol: 'د.إ', label: 'UAE Dirham' },
 ];
 
 const DOB_REGEX = /^\d{4}-\d{2}-\d{2}$/;

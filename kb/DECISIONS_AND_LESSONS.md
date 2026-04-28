@@ -16,11 +16,15 @@
 
 ---
 
-## 2026-04-19 -- totalNetExpenses formula is wrong
+## 2026-04-29 -- totalNetExpenses is correct — prior audit entry was wrong on two counts
 
-**Bug:** `calculator.ts:579` adds pension income to planned expenses post-retirement. Pension is income, not expense. Field shows inflated values in projections. Display-only (core FIRE math unaffected) but dashboard/table numbers are misleading.
+**Correction of 2026-04-19 entry:** That entry claimed `totalNetExpenses` was display-only and that pension should be subtracted. Both claims are incorrect.
 
-**Fix needed:** Change to `plannedExpenses - pensionIncome` (net corpus withdrawal).
+1. **Not display-only:** `totalNetExpenses` is used at `calculator.ts:503` to update `existingBucket` in the projection loop. It IS in the corpus path.
+2. **Formula IS correct:** `pension_income` in this app is the desired corpus *withdrawal* (see 2026-04-06 "Pension model clarification" — there is no external pension concept). `totalNetExpenses = pensionIncome + plannedExpenses` = total annual withdrawal from corpus. This matches the simulation in `simulateCorpusAtAge` which uses `withdrawal = monthlyPension * 12 * inflation + futureExpenses`. Both paths are consistent.
+3. **Suggested fix `plannedExpenses - pensionIncome` would be wrong** — it would treat pension as income that reduces the withdrawal, breaking the model.
+
+**Naming note:** `pensionIncome` / `totalNetExpenses` are confusing names (sounds like received income); they represent corpus withdrawal amounts. Rename to `annualWithdrawal` / `totalWithdrawal` in a future cleanup pass.
 
 ---
 
@@ -59,7 +63,7 @@ When creating a new `CURRENT_RECURRING` expense, the end date pre-fills to the u
 
 ## 2026-04-06 -- Pension inflation rate vs expense inflation rate
 
-Pension withdrawals inflate at `PENSION_INFLATION_RATE` (6% fixed), separate from the user-configurable `inflation_rate` on goals. Do not merge these two rates -- they serve different purposes.
+~~Pension withdrawals inflate at `PENSION_INFLATION_RATE` (6% fixed).~~ **Corrected 2026-04-29:** `PENSION_INFLATION_RATE` constant exists in `engine/calculator.ts` but is dead code. The projection loop and `simulateCorpusAtAge` both use `discountRate = goals.inflation_rate / 100` for pension inflation. Pension and expenses inflate at the same user-configured rate.
 
 ---
 
