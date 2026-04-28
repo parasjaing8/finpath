@@ -1,3 +1,3 @@
-Latest commit: d7bd1a0 (fix: data persistence across sessions + crypto digest fix (v33))
-Latest AAB: app-release-v33.aab (versionCode 33, versionName 1.0.1)
-Branch: audit19April
+Latest commit: a8690d4 (fix(wave1): J1/C1/K1-K3 audit fixes)
+Latest APK: app-release.apk (versionCode 36, versionName 1.0.1)
+Branch: beyondv33
