@@ -10,22 +10,13 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useApp, ExportPayload } from '@/context/AppContext';
+import { CurrencyPicker } from '@/components/CurrencyPicker';
 import { Profile } from '@/engine/types';
 import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow } from '@/constants/theme';
 import { formatDateMask } from '@/components/DateInput';
 import * as Crypto from 'expo-crypto';
 import { getProfilePin, saveProfilePin } from '@/db/queries';
 
-const CURRENCIES = [
-  { key: 'INR', symbol: '₹', label: 'Indian Rupee' },
-  { key: 'USD', symbol: '$', label: 'US Dollar' },
-  { key: 'EUR', symbol: '€', label: 'Euro' },
-  { key: 'GBP', symbol: '£', label: 'Brit. Pound' },
-  { key: 'AUD', symbol: 'A$', label: 'Aus. Dollar' },
-  { key: 'CAD', symbol: 'C$', label: 'Can. Dollar' },
-  { key: 'SGD', symbol: 'S$', label: 'Sing. Dollar' },
-  { key: 'AED', symbol: 'د.إ', label: 'UAE Dirham' },
-];
 
 const DOB_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -356,25 +347,10 @@ export default function ProfileScreen() {
           accessibilityLabel="Monthly income"
         />
 
-        <Text style={styles.fieldLabel}>Currency</Text>
-        <View style={styles.currencyRow}>
-          {CURRENCIES.map(c => (
-            <TouchableOpacity
-              key={c.key}
-              style={[styles.currPill, {
-                borderColor: form.currency === c.key ? colors.primary : colors.border,
-                backgroundColor: form.currency === c.key ? colors.secondary : colors.background,
-              }]}
-              onPress={() => setForm(f => ({ ...f, currency: c.key }))}
-              accessibilityRole="button"
-              accessibilityLabel={`Set currency to ${c.label}`}
-            >
-              <Text style={[styles.currPillText, { color: form.currency === c.key ? colors.primary : colors.mutedForeground }]}>
-                {c.symbol} {c.key}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <CurrencyPicker
+          value={form.currency}
+          onChange={c => setForm(f => ({ ...f, currency: c }))}
+        />
       </View>
 
       <TouchableOpacity
@@ -575,9 +551,6 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 6, marginTop: 12, fontFamily: 'Inter_600SemiBold' },
   input: { borderWidth: 1.5, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: 'Inter_400Regular' },
   errorText: { color: '#C62828', fontSize: 12, marginTop: 6, fontFamily: 'Inter_500Medium' },
-  currencyRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  currPill: { borderWidth: 1.5, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 14 },
-  currPillText: { fontSize: 13, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   saveBtn: {
     borderRadius: 16, padding: 18, alignItems: 'center', justifyContent: 'center',
     ...shadow(3),

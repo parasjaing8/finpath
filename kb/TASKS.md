@@ -1,9 +1,9 @@
 # FinPath — Remaining Tasks
-**Branch:** `beyondv33` | **Last updated:** 2026-04-20 | **Latest commit:** `9d23585`
+**Branch:** `beyondv33` | **Last updated:** 2026-04-24 | **Latest commit:** `43be972`
 
 > Source of truth for what is done and what is pending. Based on `AUDIT_BEYONDV33.md`.
-> All code lives on Mac Mini at `~/finpath/`. Edit via SSH: `parasjain@192.168.0.130`.
-> After every change: `git commit` → `git push` → append to `kb/session_logs.md` + `C:\dropbox\claude\projects\finpath\logs.md` → update `status.md`.
+> All code lives on Mac Mini at `~/dev/apps/finpath/`. Claude Code runs natively here.
+> After every change: `git commit` → `git push` → append to `kb/session_logs.md` → update `status.md`.
 
 ---
 

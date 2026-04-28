@@ -584,6 +584,12 @@ interface CurrencyMeta {
   shortScale?: { divisor: number; suffix: string; decimals: number }[];
 }
 
+const WESTERN_SHORT_SCALE = [
+  { divisor: 1e9, suffix: 'B', decimals: 2 },
+  { divisor: 1e6, suffix: 'M', decimals: 2 },
+  { divisor: 1e3, suffix: 'K', decimals: 1 },
+];
+
 const CURRENCY_META: Record<string, CurrencyMeta> = {
   INR: {
     symbol: '₹',
@@ -594,14 +600,34 @@ const CURRENCY_META: Record<string, CurrencyMeta> = {
       { divisor: 1e3, suffix: 'K',   decimals: 1 },
     ],
   },
-  // Non-INR currencies use toLocaleString (full number with commas).
-  USD: { symbol: '$',    locale: 'en-US' },
-  EUR: { symbol: '€',    locale: 'de-DE' },
-  GBP: { symbol: '£',    locale: 'en-GB' },
-  AUD: { symbol: 'A$',   locale: 'en-AU' },
-  CAD: { symbol: 'C$',   locale: 'en-CA' },
-  SGD: { symbol: 'S$',   locale: 'en-SG' },
-  AED: { symbol: 'د.إ', locale: 'ar-AE' },
+  USD: { symbol: '$',    locale: 'en-US', shortScale: WESTERN_SHORT_SCALE },
+  EUR: { symbol: '€',    locale: 'de-DE', shortScale: WESTERN_SHORT_SCALE },
+  GBP: { symbol: '£',    locale: 'en-GB', shortScale: WESTERN_SHORT_SCALE },
+  AUD: { symbol: 'A$',   locale: 'en-AU', shortScale: WESTERN_SHORT_SCALE },
+  CAD: { symbol: 'C$',   locale: 'en-CA', shortScale: WESTERN_SHORT_SCALE },
+  SGD: { symbol: 'S$',   locale: 'en-SG', shortScale: WESTERN_SHORT_SCALE },
+  AED: { symbol: 'د.إ', locale: 'ar-AE', shortScale: WESTERN_SHORT_SCALE },
+  CHF: { symbol: 'Fr',   locale: 'de-CH', shortScale: WESTERN_SHORT_SCALE },
+  JPY: { symbol: '¥',    locale: 'ja-JP', shortScale: WESTERN_SHORT_SCALE },
+  NZD: { symbol: 'NZ$',  locale: 'en-NZ', shortScale: WESTERN_SHORT_SCALE },
+  SEK: { symbol: 'kr',   locale: 'sv-SE', shortScale: WESTERN_SHORT_SCALE },
+  NOK: { symbol: 'kr',   locale: 'nb-NO', shortScale: WESTERN_SHORT_SCALE },
+  DKK: { symbol: 'kr',   locale: 'da-DK', shortScale: WESTERN_SHORT_SCALE },
+  HKD: { symbol: 'HK$',  locale: 'zh-HK', shortScale: WESTERN_SHORT_SCALE },
+  MYR: { symbol: 'RM',   locale: 'ms-MY', shortScale: WESTERN_SHORT_SCALE },
+  THB: { symbol: '฿',    locale: 'th-TH', shortScale: WESTERN_SHORT_SCALE },
+  IDR: { symbol: 'Rp',   locale: 'id-ID', shortScale: WESTERN_SHORT_SCALE },
+  PHP: { symbol: '₱',    locale: 'fil-PH', shortScale: WESTERN_SHORT_SCALE },
+  ZAR: { symbol: 'R',    locale: 'en-ZA', shortScale: WESTERN_SHORT_SCALE },
+  BRL: { symbol: 'R$',   locale: 'pt-BR', shortScale: WESTERN_SHORT_SCALE },
+  MXN: { symbol: '$',    locale: 'es-MX', shortScale: WESTERN_SHORT_SCALE },
+  SAR: { symbol: '﷼',   locale: 'ar-SA', shortScale: WESTERN_SHORT_SCALE },
+  QAR: { symbol: '﷼',   locale: 'ar-QA', shortScale: WESTERN_SHORT_SCALE },
+  KWD: { symbol: 'KD',   locale: 'ar-KW', shortScale: WESTERN_SHORT_SCALE },
+  BHD: { symbol: 'BD',   locale: 'ar-BH', shortScale: WESTERN_SHORT_SCALE },
+  OMR: { symbol: '﷼',   locale: 'ar-OM', shortScale: WESTERN_SHORT_SCALE },
+  KRW: { symbol: '₩',    locale: 'ko-KR', shortScale: WESTERN_SHORT_SCALE },
+  TWD: { symbol: 'NT$',  locale: 'zh-TW', shortScale: WESTERN_SHORT_SCALE },
 };
 
 /**

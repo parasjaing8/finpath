@@ -1,81 +1,73 @@
-# Graph Report - .  (2026-04-18)
+# Graph Report - .  (2026-04-29)
 
 ## Corpus Check
-- Large corpus: 281 files · ~188,097 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder, or use --no-semantic to run AST-only.
+- 49 files · ~247,769 words
+- Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 241 nodes · 301 edges · 43 communities detected
-- Extraction: 93% EXTRACTED · 6% INFERRED · 1% AMBIGUOUS · INFERRED: 18 edges (avg confidence: 0.76)
-- Token cost: 37,000 input · 4,900 output
+- 173 nodes · 198 edges · 43 communities detected
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 2 edges (avg confidence: 0.77)
+- Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
-- [[_COMMUNITY_DB Queries Layer|DB Queries Layer]]
-- [[_COMMUNITY_AES Encryption Helpers|AES Encryption Helpers]]
-- [[_COMMUNITY_UI Components|UI Components]]
-- [[_COMMUNITY_Core App Context|Core App Context]]
-- [[_COMMUNITY_FIRE Calculator Engine|FIRE Calculator Engine]]
-- [[_COMMUNITY_Calculator Tests|Calculator Tests]]
-- [[_COMMUNITY_Auth  PIN Storage|Auth / PIN Storage]]
-- [[_COMMUNITY_Currency & CSV Export|Currency & CSV Export]]
-- [[_COMMUNITY_Error Boundary|Error Boundary]]
-- [[_COMMUNITY_Android Native Module|Android Native Module]]
-- [[_COMMUNITY_Login Screen|Login Screen]]
-- [[_COMMUNITY_Assets Screen|Assets Screen]]
-- [[_COMMUNITY_Date Input Component|Date Input Component]]
-- [[_COMMUNITY_Corpus Primer Dialog|Corpus Primer Dialog]]
-- [[_COMMUNITY_Android MainActivity|Android MainActivity]]
-- [[_COMMUNITY_AppProvider & State|AppProvider & State]]
-- [[_COMMUNITY_Onboarding Create Profile|Onboarding Create Profile]]
-- [[_COMMUNITY_Session Lock|Session Lock]]
-- [[_COMMUNITY_Goals Screen|Goals Screen]]
-- [[_COMMUNITY_Profile Screen|Profile Screen]]
-- [[_COMMUNITY_Expenses Screen|Expenses Screen]]
-- [[_COMMUNITY_Onboarding Edit Profile|Onboarding Edit Profile]]
-- [[_COMMUNITY_Schema Migrations|Schema Migrations]]
-- [[_COMMUNITY_Profile Hook|Profile Hook]]
-- [[_COMMUNITY_Pro IAP Hook|Pro IAP Hook]]
-- [[_COMMUNITY_SQLite Schema|SQLite Schema]]
-- [[_COMMUNITY_Onboarding Layout|Onboarding Layout]]
-- [[_COMMUNITY_Android Security Plugins|Android Security Plugins]]
-- [[_COMMUNITY_Keyboard Scroll Compat|Keyboard Scroll Compat]]
-- [[_COMMUNITY_Insight Card Component|Insight Card Component]]
-- [[_COMMUNITY_Pro Paywall Component|Pro Paywall Component]]
-- [[_COMMUNITY_Colors Hook|Colors Hook]]
-- [[_COMMUNITY_Engine Types|Engine Types]]
-- [[_COMMUNITY_AES-JS Declaration|AES-JS Declaration]]
-- [[_COMMUNITY_App Entry Point|App Entry Point]]
-- [[_COMMUNITY_Root Layout|Root Layout]]
-- [[_COMMUNITY_Dashboard Screen|Dashboard Screen]]
-- [[_COMMUNITY_Tabs Layout|Tabs Layout]]
-- [[_COMMUNITY_Release Signing Plugin|Release Signing Plugin]]
-- [[_COMMUNITY_Projection Table Component|Projection Table Component]]
-- [[_COMMUNITY_Test Mocks|Test Mocks]]
-- [[_COMMUNITY_Tabs Layout Config|Tabs Layout Config]]
-- [[_COMMUNITY_useColors Hook|useColors Hook]]
+- [[_COMMUNITY_Community 0|Community 0]]
+- [[_COMMUNITY_Community 1|Community 1]]
+- [[_COMMUNITY_Community 2|Community 2]]
+- [[_COMMUNITY_Community 3|Community 3]]
+- [[_COMMUNITY_Community 4|Community 4]]
+- [[_COMMUNITY_Community 5|Community 5]]
+- [[_COMMUNITY_Community 6|Community 6]]
+- [[_COMMUNITY_Community 7|Community 7]]
+- [[_COMMUNITY_Community 8|Community 8]]
+- [[_COMMUNITY_Community 9|Community 9]]
+- [[_COMMUNITY_Community 10|Community 10]]
+- [[_COMMUNITY_Community 11|Community 11]]
+- [[_COMMUNITY_Community 12|Community 12]]
+- [[_COMMUNITY_Community 13|Community 13]]
+- [[_COMMUNITY_Community 14|Community 14]]
+- [[_COMMUNITY_Community 15|Community 15]]
+- [[_COMMUNITY_Community 16|Community 16]]
+- [[_COMMUNITY_Community 17|Community 17]]
+- [[_COMMUNITY_Community 18|Community 18]]
+- [[_COMMUNITY_Community 19|Community 19]]
+- [[_COMMUNITY_Community 20|Community 20]]
+- [[_COMMUNITY_Community 21|Community 21]]
+- [[_COMMUNITY_Community 22|Community 22]]
+- [[_COMMUNITY_Community 23|Community 23]]
+- [[_COMMUNITY_Community 24|Community 24]]
+- [[_COMMUNITY_Community 25|Community 25]]
+- [[_COMMUNITY_Community 26|Community 26]]
+- [[_COMMUNITY_Community 27|Community 27]]
+- [[_COMMUNITY_Community 28|Community 28]]
+- [[_COMMUNITY_Community 29|Community 29]]
+- [[_COMMUNITY_Community 30|Community 30]]
+- [[_COMMUNITY_Community 31|Community 31]]
+- [[_COMMUNITY_Community 32|Community 32]]
+- [[_COMMUNITY_Community 33|Community 33]]
+- [[_COMMUNITY_Community 34|Community 34]]
+- [[_COMMUNITY_Community 35|Community 35]]
+- [[_COMMUNITY_Community 36|Community 36]]
+- [[_COMMUNITY_Community 37|Community 37]]
+- [[_COMMUNITY_Community 38|Community 38]]
+- [[_COMMUNITY_Community 39|Community 39]]
+- [[_COMMUNITY_Community 40|Community 40]]
+- [[_COMMUNITY_Community 41|Community 41]]
+- [[_COMMUNITY_Community 42|Community 42]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `App Context Provider` - 13 edges
-2. `Engine Types` - 10 edges
-3. `decryptString()` - 9 edges
-4. `calculateProjections()` - 9 edges
-5. `encryptString()` - 8 edges
-6. `DB Queries` - 7 edges
-7. `calculateExpenseForYear()` - 6 edges
-8. `concat()` - 5 edges
-9. `hmacSha256()` - 5 edges
-10. `MainActivity` - 5 edges
+1. `decryptString()` - 9 edges
+2. `calculateProjections()` - 9 edges
+3. `encryptString()` - 8 edges
+4. `calculateExpenseForYear()` - 8 edges
+5. `concat()` - 5 edges
+6. `hmacSha256()` - 5 edges
+7. `MainActivity` - 5 edges
+8. `parseDateStr()` - 5 edges
+9. `calculateVestingForYear()` - 5 edges
+10. `utf8ToBytes()` - 4 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Profile Screen` --shares_data_with--> `Engine Types`  [INFERRED]
-  app/(tabs)/profile.tsx → engine/types.ts
-- `Index Screen` --calls--> `DB Queries`  [EXTRACTED]
-  app/index.tsx → db/queries.ts
-- `Login Screen` --references--> `Session State`  [INFERRED]
-  app/login.tsx → storage/session.ts
-- `Assets Screen` --shares_data_with--> `Engine Types`  [INFERRED]
-  app/(tabs)/assets.tsx → engine/types.ts
-- `Expenses Screen` --shares_data_with--> `Engine Types`  [INFERRED]
-  app/(tabs)/expenses.tsx → engine/types.ts
+- None detected - all connections are within the same source files.
 
 ## Hyperedges (group relationships)
 - **Authentication and Session Flow** — login_loginscreen, db_queries, storage_auth, hooks_useprofile, storage_session [INFERRED 0.82]
@@ -96,236 +88,236 @@
 
 ## Communities
 
-### Community 0 - "DB Queries Layer"
+### Community 0 - "Community 0"
 Cohesion: 0.1
 Nodes (9): biometricKey(), createProfile(), deleteProfile(), deleteProfilePin(), getBiometricEnabled(), getProfilePin(), pinKey(), saveProfilePin() (+1 more)
 
-### Community 1 - "AES Encryption Helpers"
+### Community 1 - "Community 1"
 Cohesion: 0.2
 Nodes (16): base64ToBytes(), bytesToBase64(), concat(), constantTimeEqual(), decryptString(), deriveSubKey(), encryptString(), getDerivedKeys() (+8 more)
 
-### Community 2 - "UI Components"
-Cohesion: 0.12
-Nodes (5): CorpusInfoDialog component, DepletionDialog component, shadow(), inflationAdjusted(), presentValue()
+### Community 2 - "Community 2"
+Cohesion: 0.28
+Nodes (17): calculateExpenseForYear(), calculateFutureGoalsCorpus(), calculatePresentValueOfExpenses(), calculateProjections(), calculateRequiredSIP(), calculateSimulationFireCorpus(), calculateVestingForYear(), computeBlendedGrowthRate() (+9 more)
 
-### Community 3 - "Core App Context"
-Cohesion: 0.22
-Nodes (19): App Context Provider, DB Queries, DB Schema, Calculator Engine, Engine Types, Pro IAP Hook, Profile Hook, Index Screen (+11 more)
-
-### Community 4 - "FIRE Calculator Engine"
-Cohesion: 0.29
-Nodes (15): calculateExpenseForYear(), calculatePresentValueOfExpenses(), calculateProjections(), calculateRequiredSIP(), calculateSimulationFireCorpus(), calculateVestingForYear(), computeBlendedGrowthRate(), formatCurrency() (+7 more)
-
-### Community 5 - "Calculator Tests"
-Cohesion: 0.21
+### Community 3 - "Community 3"
+Cohesion: 0.26
 Nodes (7): baseInput(), makeDob(), makeGoals(), makeMFAsset(), makeProfile(), makeSavingsAsset(), makeSelfUseRealEstate()
 
-### Community 6 - "Auth / PIN Storage"
-Cohesion: 0.26
-Nodes (9): bytesToBase64(), getCredentials(), hasCredentials(), hashPin(), setBiometricEnabled(), setCredentials(), verifyPin(), Auth Storage (+1 more)
-
-### Community 7 - "Currency & CSV Export"
-Cohesion: 0.22
-Nodes (2): fetchGoldPrice(), getUSDToINR()
-
-### Community 8 - "Error Boundary"
+### Community 4 - "Community 4"
 Cohesion: 0.29
-Nodes (1): ErrorBoundary
+Nodes (0): 
 
-### Community 9 - "Android Native Module"
+### Community 5 - "Community 5"
 Cohesion: 0.29
 Nodes (1): MainApplication
 
-### Community 10 - "Login Screen"
-Cohesion: 0.53
-Nodes (4): handleLogin(), hashPin(), syncToAppContext(), triggerBiometric()
-
-### Community 11 - "Assets Screen"
+### Community 6 - "Community 6"
 Cohesion: 0.4
-Nodes (2): genId(), handleSave()
+Nodes (2): handleSubmit(), validate()
 
-### Community 12 - "Date Input Component"
-Cohesion: 0.53
-Nodes (5): confirmDate(), daysInMonth(), openPicker(), pad(), parseDate()
-
-### Community 13 - "Corpus Primer Dialog"
-Cohesion: 0.6
-Nodes (5): check(), dialogKey(), dismissDialog(), dismissHint(), hintKey()
-
-### Community 14 - "Android MainActivity"
+### Community 7 - "Community 7"
 Cohesion: 0.33
 Nodes (1): MainActivity
 
-### Community 15 - "AppProvider & State"
+### Community 8 - "Community 8"
+Cohesion: 0.5
+Nodes (2): handleLogin(), hashPin()
+
+### Community 9 - "Community 9"
+Cohesion: 0.4
+Nodes (0): 
+
+### Community 10 - "Community 10"
 Cohesion: 0.5
 Nodes (0): 
 
-### Community 16 - "Onboarding Create Profile"
+### Community 11 - "Community 11"
 Cohesion: 0.67
-Nodes (2): handleSubmit(), validate()
+Nodes (2): inflationAdjusted(), presentValue()
 
-### Community 17 - "Session Lock"
+### Community 12 - "Community 12"
+Cohesion: 0.67
+Nodes (3): runLegacyMigration(), safeParse(), Storage Migrations
+
+### Community 13 - "Community 13"
 Cohesion: 0.5
 Nodes (0): 
 
-### Community 18 - "Goals Screen"
+### Community 14 - "Community 14"
 Cohesion: 0.67
 Nodes (0): 
 
-### Community 19 - "Profile Screen"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 20 - "Expenses Screen"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 21 - "Onboarding Edit Profile"
+### Community 15 - "Community 15"
 Cohesion: 1.0
 Nodes (2): handleSave(), validate()
 
-### Community 22 - "Schema Migrations"
-Cohesion: 0.67
-Nodes (0): 
+### Community 16 - "Community 16"
+Cohesion: 1.0
+Nodes (2): DateInput(), formatDateMask()
 
-### Community 23 - "Profile Hook"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 24 - "Pro IAP Hook"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 25 - "SQLite Schema"
+### Community 17 - "Community 17"
 Cohesion: 1.0
 Nodes (2): getDatabase(), initializeDatabase()
 
-### Community 26 - "Onboarding Layout"
+### Community 18 - "Community 18"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 27 - "Android Security Plugins"
+### Community 19 - "Community 19"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 28 - "Keyboard Scroll Compat"
+### Community 20 - "Community 20"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 29 - "Insight Card Component"
+### Community 21 - "Community 21"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 30 - "Pro Paywall Component"
+### Community 22 - "Community 22"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 31 - "Colors Hook"
+### Community 23 - "Community 23"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 32 - "Engine Types"
+### Community 24 - "Community 24"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 33 - "AES-JS Declaration"
+### Community 25 - "Community 25"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 34 - "App Entry Point"
+### Community 26 - "Community 26"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 35 - "Root Layout"
+### Community 27 - "Community 27"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 36 - "Dashboard Screen"
+### Community 28 - "Community 28"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 37 - "Tabs Layout"
+### Community 29 - "Community 29"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 38 - "Release Signing Plugin"
+### Community 30 - "Community 30"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 39 - "Projection Table Component"
+### Community 31 - "Community 31"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 40 - "Test Mocks"
+### Community 32 - "Community 32"
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 41 - "Tabs Layout Config"
+### Community 33 - "Community 33"
 Cohesion: 1.0
-Nodes (1): Tab Layout
+Nodes (0): 
 
-### Community 42 - "useColors Hook"
+### Community 34 - "Community 34"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 35 - "Community 35"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 36 - "Community 36"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 37 - "Community 37"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 38 - "Community 38"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 39 - "Community 39"
+Cohesion: 1.0
+Nodes (1): Profile Hook
+
+### Community 40 - "Community 40"
+Cohesion: 1.0
+Nodes (1): Pro IAP Hook
+
+### Community 41 - "Community 41"
 Cohesion: 1.0
 Nodes (1): Colors Hook
 
-## Ambiguous Edges - Review These
-- `currency.ts` → `HeroCard.tsx`  [AMBIGUOUS]
-  utils/currency.ts · relation: shares_data_with
-- `SnapshotTiles.tsx` → `DepletionDialog.tsx`  [AMBIGUOUS]
-  components/DepletionDialog.tsx · relation: shares_data_with
+### Community 42 - "Community 42"
+Cohesion: 1.0
+Nodes (0): 
 
 ## Knowledge Gaps
-- **4 isolated node(s):** `Tab Layout`, `Colors Hook`, `Auth Storage`, `Session State`
+- **4 isolated node(s):** `Storage Migrations`, `Profile Hook`, `Pro IAP Hook`, `Colors Hook`
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Onboarding Layout`** (2 nodes): `_layout.tsx`, `OnboardingLayout()`
+- **Thin community `Community 18`** (2 nodes): `dashboard.tsx`, `if()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Android Security Plugins`** (2 nodes): `withFlagSecure.js`, `withRemoveSystemAlertWindow.js`
+- **Thin community `Community 19`** (2 nodes): `expenses.tsx`, `ExpensesScreen()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Keyboard Scroll Compat`** (2 nodes): `KeyboardAwareScrollViewCompat.tsx`, `KeyboardAwareScrollViewCompat()`
+- **Thin community `Community 20`** (2 nodes): `_layout.tsx`, `OnboardingLayout()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Insight Card Component`** (2 nodes): `InsightCard.tsx`, `InsightCard()`
+- **Thin community `Community 21`** (2 nodes): `withFlagSecure.js`, `withRemoveSystemAlertWindow.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Pro Paywall Component`** (2 nodes): `ProPaywall.tsx`, `handleDismiss()`
+- **Thin community `Community 22`** (2 nodes): `theme.ts`, `shadow()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Colors Hook`** (2 nodes): `useColors.ts`, `useColors()`
+- **Thin community `Community 23`** (2 nodes): `exportToCSV()`, `export.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Engine Types`** (2 nodes): `types.ts`, `getFrequencyMonthsPerPayment()`
+- **Thin community `Community 24`** (2 nodes): `ErrorBoundary.tsx`, `ErrorFallback.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `AES-JS Declaration`** (1 nodes): `aes-js.d.ts`
+- **Thin community `Community 25`** (1 nodes): `aes-js.d.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `App Entry Point`** (1 nodes): `index.tsx`
+- **Thin community `Community 26`** (1 nodes): `index.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Root Layout`** (1 nodes): `_layout.tsx`
+- **Thin community `Community 27`** (1 nodes): `_layout.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Dashboard Screen`** (1 nodes): `dashboard.tsx`
+- **Thin community `Community 28`** (1 nodes): `_layout.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Tabs Layout`** (1 nodes): `_layout.tsx`
+- **Thin community `Community 29`** (1 nodes): `withReleaseSigning.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Release Signing Plugin`** (1 nodes): `withReleaseSigning.js`
+- **Thin community `Community 30`** (1 nodes): `colors.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Projection Table Component`** (1 nodes): `ProjectionTable.tsx`
+- **Thin community `Community 31`** (1 nodes): `_label_and_html.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Test Mocks`** (1 nodes): `queries.ts`
+- **Thin community `Community 32`** (1 nodes): `KeyboardAwareScrollViewCompat.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Tabs Layout Config`** (1 nodes): `Tab Layout`
+- **Thin community `Community 33`** (1 nodes): `InsightCard.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `useColors Hook`** (1 nodes): `Colors Hook`
+- **Thin community `Community 34`** (1 nodes): `HeroCard.tsx`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 35`** (1 nodes): `SnapshotTiles.tsx`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 36`** (1 nodes): `ProjectionTable.tsx`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 37`** (1 nodes): `ProPaywall.tsx`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 38`** (1 nodes): `queries.ts`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 39`** (1 nodes): `Profile Hook`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 40`** (1 nodes): `Pro IAP Hook`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 41`** (1 nodes): `Colors Hook`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 42`** (1 nodes): `types.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **What is the exact relationship between `currency.ts` and `HeroCard.tsx`?**
-  _Edge tagged AMBIGUOUS (relation: shares_data_with) - confidence is low._
-- **What is the exact relationship between `SnapshotTiles.tsx` and `DepletionDialog.tsx`?**
-  _Edge tagged AMBIGUOUS (relation: shares_data_with) - confidence is low._
-- **Why does `Engine Types` connect `Core App Context` to `FIRE Calculator Engine`?**
-  _High betweenness centrality (0.046) - this node is a cross-community bridge._
-- **Why does `DB Schema` connect `Core App Context` to `DB Queries Layer`?**
-  _High betweenness centrality (0.043) - this node is a cross-community bridge._
-- **Why does `App Context Provider` connect `Core App Context` to `Auth / PIN Storage`?**
-  _High betweenness centrality (0.032) - this node is a cross-community bridge._
-- **Are the 6 inferred relationships involving `Engine Types` (e.g. with `Assets Screen` and `Expenses Screen`) actually correct?**
-  _`Engine Types` has 6 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `Tab Layout`, `Colors Hook`, `Auth Storage` to the rest of the system?**
+- **What connects `Storage Migrations`, `Profile Hook`, `Pro IAP Hook` to the rest of the system?**
   _4 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Community 0` be split into smaller, more focused modules?**
+  _Cohesion score 0.1 - nodes in this community are weakly interconnected._

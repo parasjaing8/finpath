@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../../context/AppContext';
 import { calculateProjections, CalculationOutput, formatCurrency, formatCurrencyFull, getAge } from '../../engine/calculator';
 import { exportToCSV } from '../../utils/export';
+import { exportToPDF } from '../../utils/exportPdf';
 import { useNavigation, useRouter } from 'expo-router';
 import { usePro } from '../../hooks/usePro';
 import { ProPaywall } from '../../components/ProPaywall';
@@ -301,7 +302,7 @@ export default function DashboardScreen() {
             <Button mode="text" icon="download" compact
               onPress={() => {
                 if (!isPro) { setShowPaywall(true); return; }
-                exportToCSV(currentProfile, assets, expenses, projections);
+                exportToCSV(currentProfile, assets, expenses, projections, result);
               }}>
               {isPro ? 'CSV' : '👑 CSV'}
             </Button>

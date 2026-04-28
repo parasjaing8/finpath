@@ -1,0 +1,7 @@
+model: ollama/qwen2.5-coder:14b
+editor-model: ollama/qwen2.5-coder:14b
+no-auto-commits: false
+auto-test: false
+read:
+  - CLAUDE.md
+  - kb/status.md
