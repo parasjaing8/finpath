@@ -43,7 +43,13 @@ export default function GoalsScreen() {
   });
 
   useEffect(() => {
-    if (goals) setForm(goals);
+    if (goals) {
+      const minAge = Math.max(35, currentAge + 1);
+      const retAge = Math.max(goals.retirement_age, minAge);
+      // sip_stop_age defaults to retirement_age (maximum); clamp into valid range
+      const sipAge = Math.min(Math.max(goals.sip_stop_age ?? retAge, minAge), retAge);
+      setForm({ ...goals, retirement_age: retAge, sip_stop_age: sipAge });
+    }
   }, [goals]);
 
   function handleSave() {
@@ -75,8 +81,12 @@ export default function GoalsScreen() {
           <Text style={[styles.sliderValue, { color: colors.primary }]}>{form.retirement_age}</Text>
         </View>
         <Slider
-          value={Math.max(form.retirement_age, retireMin)}
-          onValueChange={v => setForm(f => ({ ...f, retirement_age: Math.round(v), sip_stop_age: Math.min(f.sip_stop_age, Math.round(v)) }))}
+          value={form.retirement_age}
+          onValueChange={v => setForm(f => ({ ...f, retirement_age: Math.round(v) }))}
+          onSlidingComplete={v => {
+            const retAge = Math.round(v);
+            setForm(f => ({ ...f, retirement_age: retAge, sip_stop_age: retAge }));
+          }}
           minimumValue={retireMin}
           maximumValue={70}
           step={1}
@@ -97,7 +107,7 @@ export default function GoalsScreen() {
           <Text style={[styles.sliderValue, { color: colors.primary }]}>{form.sip_stop_age}</Text>
         </View>
         <Slider
-          value={Math.max(form.sip_stop_age, retireMin)}
+          value={form.sip_stop_age}
           onValueChange={v => setForm(f => ({ ...f, sip_stop_age: Math.min(Math.round(v), f.retirement_age) }))}
           minimumValue={retireMin}
           maximumValue={form.retirement_age}
