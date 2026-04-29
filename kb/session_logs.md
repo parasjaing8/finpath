@@ -1,5 +1,22 @@
 # Finpath — Session Logs
 
+---
+
+## 2026-04-29 — Wave 4 (commit 5ee6e93)
+
+**Commit:** `5ee6e93` | Branch: `beyondv33` | No build produced.
+
+**Wave 4 audit findings addressed:** A3, F1, F2, F4, I1, I2, I7.
+
+**Changes:**
+- `app/(tabs)/assets.tsx` (A3): Modal starts in quick-add mode (name + value only). "More options" toggle reveals category chips, ROI, self-use, and ESOP vesting section. `showAdvanced: false` in EMPTY_FORM, `true` when editing existing asset.
+- `app/(tabs)/goals.tsx` (F4): `retireMin = max(35, currentAge+1)`. Slider min updated; `sip_stop_age` min updated. Orange banner shown when `form.retirement_age <= currentAge`.
+- `app/(tabs)/dashboard.tsx` (F1, F2, I1): Three additions: (1) onboarding 3-step progress strip (Goals→Assets→Dashboard), hidden once dismissed via AsyncStorage `@finpath_onboarding_strip_dismissed`; (2) "Add data" InsightCard when assets+expenses both empty; (3) "Add Monthly Income" InsightCard when `monthly_income <= 0`.
+- `app/login.tsx` (I7): Forgot PIN now two-stage: first Alert warns about backup and offers Cancel/Delete; second Alert is final confirmation before `deleteProfile()` executes.
+- `app/onboarding/edit-profile.tsx` (I2): Deleted — nothing navigated to it. `(tabs)/profile.tsx` is the sole profile-edit surface.
+
+**Tests:** 70/70 pass. TypeScript: no new errors.
+
 One entry per session. Each entry is self-contained — enough for a future LLM to resume without re-reading code.
 Format: date, build produced, what changed, why, open items.
 

@@ -17,7 +17,7 @@ Beyond the feedback themes, the audit found a **critical category-vocabulary spl
 |---|---|---|---|---|
 | A1 | Asset UX | High | Asset form has no vesting fields — ESOP/RSU vesting is unreachable | [x] |
 | A2 | Asset UX | Critical | Category vocabulary split: UI uses `EQUITY` etc., engine vesting expects `ESOP_RSU` | [x] |
-| A3 | Asset UX | Medium | Add-asset modal: 5 fields + scroll-chip category, no quick-add path | [ ] |
+| A3 | Asset UX | Medium | Add-asset modal: 5 fields + scroll-chip category, no quick-add path | [x] |
 | A4 | Asset UX | Low | Default ROI changes when category changes, silently overwriting user input | [ ] |
 | A5 | Asset UX | Low | No swipe-to-delete, no bulk add, no clone-from-existing | [ ] |
 | A6 | Asset UX | Medium | `expected_roi` stored as 0 from UI when user accepts default — engine treats 0 ≠ null | [ ] |
