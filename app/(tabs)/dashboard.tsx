@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Text, Card, Button, Portal, Dialog } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../../context/AppContext';
@@ -41,6 +41,7 @@ export default function DashboardScreen() {
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [fxRates, setFxRates] = useState<FxRates | undefined>(undefined);
+  const [showOnboardingStrip, setShowOnboardingStrip] = useState(false);
 
   // Track the goals snapshot that was used for the last SIP auto-set.
   // Auto-set only fires again when goals actually change, not on every tab focus.
@@ -59,6 +60,12 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     getFxRates().then(setFxRates).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.getItem('@finpath_onboarding_strip_dismissed').then(v => {
+      if (!v) setShowOnboardingStrip(true);
+    });
   }, []);
 
   const result: CalculationOutput | null = useMemo(() => {
@@ -220,9 +227,56 @@ export default function DashboardScreen() {
     };
   })();
 
+  const noData = assets.length === 0 && expenses.length === 0;
+  const noIncome = (currentProfile.monthly_income ?? 0) <= 0;
+
+  // Onboarding strip step completion
+  const stepGoalsDone = !!goals;
+  const stepAssetsDone = assets.length > 0;
+  const stepDashDone = stepGoalsDone && stepAssetsDone;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
 
+      {/* Onboarding progress strip */}
+      {showOnboardingStrip && !stepDashDone && (
+        <View style={styles.onboardingStrip}>
+          <View style={styles.onboardingSteps}>
+            {[
+              { num: 1, label: 'Set Goals', done: stepGoalsDone, onPress: () => router.push('/(tabs)/goals') },
+              { num: 2, label: 'Add Assets', done: stepAssetsDone, onPress: () => router.push('/(tabs)/assets') },
+              { num: 3, label: 'View Dashboard', done: stepDashDone, onPress: undefined },
+            ].map((step, i) => (
+              <React.Fragment key={step.num}>
+                {i > 0 && <View style={[styles.onboardingConnector, { backgroundColor: step.done ? '#1B5E20' : '#C8E6C9' }]} />}
+                <TouchableOpacity
+                  style={[styles.onboardingStep, { borderColor: step.done ? '#1B5E20' : '#C8E6C9', backgroundColor: step.done ? '#E8F5E9' : '#fff' }]}
+                  onPress={step.onPress}
+                  disabled={!step.onPress}
+                  accessibilityRole="button"
+                  accessibilityLabel={step.label}
+                >
+                  <Text style={[styles.onboardingStepNum, { color: step.done ? '#1B5E20' : '#9E9E9E' }]}>
+                    {step.done ? '✓' : String(step.num)}
+                  </Text>
+                  <Text style={[styles.onboardingStepLabel, { color: step.done ? '#1B5E20' : '#9E9E9E' }]}>{step.label}</Text>
+                </TouchableOpacity>
+              </React.Fragment>
+            ))}
+          </View>
+          <TouchableOpacity
+            onPress={() => {
+              setShowOnboardingStrip(false);
+              AsyncStorage.setItem('@finpath_onboarding_strip_dismissed', '1');
+            }}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss onboarding guide"
+          >
+            <MaterialCommunityIcons name="close" size={16} color="#9E9E9E" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Section A — Hero Card */}
       <HeroCard
@@ -246,9 +300,26 @@ export default function DashboardScreen() {
         onCorpusInfoPress={() => setShowCorpusInfo(true)}
       />
 
+      {/* Empty-state nudge: no assets and no expenses */}
+      {noData && (
+        <InsightCard
+          type="info"
+          title="Add data for accurate projections"
+          message="Add your assets and expenses so your FIRE projections reflect your actual situation."
+        />
+      )}
+
       {/* SIP burden warning — shown when required SIP exceeds or strains salary */}
       {sipBurdenInsight && result.sipBurdenWarning && (
         <InsightCard type={sipBurdenInsight.type} title={sipBurdenInsight.title} message={result.sipBurdenWarning} />
+      )}
+      {/* Zero-income nudge */}
+      {noIncome && !result.sipBurdenWarning && (
+        <InsightCard
+          type="info"
+          title="Add Monthly Income"
+          message="Enter your monthly income in the Profile tab to get a SIP sustainability check."
+        />
       )}
       {result.isOnTrack && !result.failureAge && insights && (
         <InsightCard
@@ -440,6 +511,12 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F5F5' },
   scroll: { padding: 16, paddingBottom: 40 },
+  onboardingStrip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 12, marginBottom: 12, gap: 8, borderWidth: 1, borderColor: '#C8E6C9' },
+  onboardingSteps: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  onboardingConnector: { height: 2, flex: 1 },
+  onboardingStep: { alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  onboardingStepNum: { fontSize: 13, fontWeight: '700' },
+  onboardingStepLabel: { fontSize: 10, marginTop: 2 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   chartCard: { marginBottom: 16, borderRadius: 12 },
   chartTitle: { fontWeight: 'bold', marginBottom: 2 },

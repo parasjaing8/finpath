@@ -27,6 +27,8 @@ export default function GoalsScreen() {
   const { goals, setGoals, profile } = useApp();
 
   const currency = profile?.currency ?? 'INR';
+  const currentAge = profile ? getAge(profile.dob) : 30;
+  const retireMin = Math.max(35, currentAge + 1);
 
   const webTop = Platform.OS === 'web' ? WEB_HEADER_OFFSET : 0;
   const webBottom = Platform.OS === 'web' ? WEB_BOTTOM_OFFSET : 0;
@@ -73,9 +75,9 @@ export default function GoalsScreen() {
           <Text style={[styles.sliderValue, { color: colors.primary }]}>{form.retirement_age}</Text>
         </View>
         <Slider
-          value={form.retirement_age}
+          value={Math.max(form.retirement_age, retireMin)}
           onValueChange={v => setForm(f => ({ ...f, retirement_age: Math.round(v), sip_stop_age: Math.min(f.sip_stop_age, Math.round(v)) }))}
-          minimumValue={35}
+          minimumValue={retireMin}
           maximumValue={70}
           step={1}
           minimumTrackTintColor={colors.primary}
@@ -83,14 +85,21 @@ export default function GoalsScreen() {
           maximumTrackTintColor={colors.border}
         />
 
+        {form.retirement_age <= currentAge && (
+          <View style={[styles.ageBanner, { backgroundColor: colors.card, borderColor: colors.warning }]}>
+            <Feather name="alert-triangle" size={14} color={colors.warning} />
+            <Text style={[styles.ageBannerText, { color: colors.warning }]}>Retirement age is in the past — adjust to plan ahead.</Text>
+          </View>
+        )}
+
         <View style={[styles.sliderRow, { marginTop: 12 }]}>
           <Text style={[styles.sliderLabel, { color: colors.mutedForeground }]}>Stop SIP at</Text>
           <Text style={[styles.sliderValue, { color: colors.primary }]}>{form.sip_stop_age}</Text>
         </View>
         <Slider
-          value={form.sip_stop_age}
+          value={Math.max(form.sip_stop_age, retireMin)}
           onValueChange={v => setForm(f => ({ ...f, sip_stop_age: Math.min(Math.round(v), f.retirement_age) }))}
-          minimumValue={35}
+          minimumValue={retireMin}
           maximumValue={form.retirement_age}
           step={1}
           minimumTrackTintColor={colors.primary}
@@ -98,7 +107,7 @@ export default function GoalsScreen() {
           maximumTrackTintColor={colors.border}
         />
 
-        <InfoRow label="Years to retirement" value={Math.max(0, form.retirement_age - (profile ? getAge(profile.dob) : 30))} suffix=" yrs" />
+        <InfoRow label="Years to retirement" value={Math.max(0, form.retirement_age - currentAge)} suffix=" yrs" />
       </View>
 
       {/* Income & Withdrawal */}
@@ -227,4 +236,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  ageBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 8, padding: 8, marginTop: 8 },
+  ageBannerText: { fontSize: 12, fontFamily: 'Inter_500Medium', flex: 1 },
 });

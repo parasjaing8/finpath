@@ -41,6 +41,8 @@ interface AssetForm {
   next_vesting_date: string;
   vesting_end_date: string;
   cliff_date: string;
+  // UI state
+  showAdvanced: boolean;
 }
 
 const EMPTY_FORM: AssetForm = {
@@ -55,6 +57,7 @@ const EMPTY_FORM: AssetForm = {
   next_vesting_date: '',
   vesting_end_date: '',
   cliff_date: '',
+  showAdvanced: false,
 };
 
 export default function AssetsScreen() {
@@ -93,6 +96,7 @@ export default function AssetsScreen() {
       next_vesting_date: a.next_vesting_date ?? '',
       vesting_end_date: a.vesting_end_date ?? '',
       cliff_date: a.cliff_date ?? '',
+      showAdvanced: true,
     });
     setShowModal(true);
   }
@@ -254,22 +258,6 @@ export default function AssetsScreen() {
                 accessibilityLabel="Asset name"
               />
 
-              <Text style={styles.fieldLabel}>Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
-                {ASSET_CATEGORIES.map(c => (
-                  <TouchableOpacity
-                    key={c.key}
-                    style={[styles.catChip, { backgroundColor: form.category === c.key ? colors.primary : colors.secondary, borderColor: colors.border }]}
-                    onPress={() => setForm(f => ({ ...f, category: c.key, expected_roi: String(c.roi) }))}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Category: ${c.label}`}
-                    accessibilityState={{ selected: form.category === c.key }}
-                  >
-                    <Text style={[styles.catChipText, { color: form.category === c.key ? '#fff' : colors.foreground }]}>{c.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
               <Text style={styles.fieldLabel}>Current Value ({getCurrencySymbol(currency)})</Text>
               <TextInput
                 style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
@@ -281,32 +269,64 @@ export default function AssetsScreen() {
                 accessibilityLabel="Current value in your currency"
               />
 
-              <Text style={styles.fieldLabel}>Expected Return (% p.a.)</Text>
-              <TextInput
-                style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
-                value={form.expected_roi}
-                onChangeText={t => setForm(f => ({ ...f, expected_roi: t }))}
-                keyboardType="decimal-pad"
-                placeholder="e.g., 7.5"
-                placeholderTextColor={colors.mutedForeground}
-                accessibilityLabel="Expected annual return in percent"
-              />
-
+              {/* Advanced toggle */}
               <TouchableOpacity
-                  style={styles.checkRow}
-                  onPress={() => setForm(f => ({ ...f, is_self_use: !f.is_self_use }))}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: form.is_self_use }}
-                  accessibilityLabel="Self-use asset"
-                >
-                  <View style={[styles.checkbox, { borderColor: colors.primary, backgroundColor: form.is_self_use ? colors.primary : 'transparent' }]}>
-                    {form.is_self_use && <Feather name="check" size={12} color="#fff" />}
-                  </View>
-                  <Text style={[styles.checkLabel, { color: colors.foreground }]}>Self-use asset (excluded from investable net worth)</Text>
-                </TouchableOpacity>
+                style={styles.advancedToggle}
+                onPress={() => setForm(f => ({ ...f, showAdvanced: !f.showAdvanced }))}
+                accessibilityRole="button"
+                accessibilityLabel={form.showAdvanced ? 'Hide advanced options' : 'Show advanced options'}
+              >
+                <Text style={[styles.advancedToggleText, { color: colors.primary }]}>
+                  {form.showAdvanced ? '▲ Fewer options' : '▼ More options (category, ROI, vesting)'}
+                </Text>
+              </TouchableOpacity>
+
+              {form.showAdvanced && (
+                <>
+                  <Text style={styles.fieldLabel}>Category</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
+                    {ASSET_CATEGORIES.map(c => (
+                      <TouchableOpacity
+                        key={c.key}
+                        style={[styles.catChip, { backgroundColor: form.category === c.key ? colors.primary : colors.secondary, borderColor: colors.border }]}
+                        onPress={() => setForm(f => ({ ...f, category: c.key, expected_roi: String(c.roi) }))}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Category: ${c.label}`}
+                        accessibilityState={{ selected: form.category === c.key }}
+                      >
+                        <Text style={[styles.catChipText, { color: form.category === c.key ? '#fff' : colors.foreground }]}>{c.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+
+                  <Text style={styles.fieldLabel}>Expected Return (% p.a.)</Text>
+                  <TextInput
+                    style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+                    value={form.expected_roi}
+                    onChangeText={t => setForm(f => ({ ...f, expected_roi: t }))}
+                    keyboardType="decimal-pad"
+                    placeholder="e.g., 7.5"
+                    placeholderTextColor={colors.mutedForeground}
+                    accessibilityLabel="Expected annual return in percent"
+                  />
+
+                  <TouchableOpacity
+                    style={styles.checkRow}
+                    onPress={() => setForm(f => ({ ...f, is_self_use: !f.is_self_use }))}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: form.is_self_use }}
+                    accessibilityLabel="Self-use asset"
+                  >
+                    <View style={[styles.checkbox, { borderColor: colors.primary, backgroundColor: form.is_self_use ? colors.primary : 'transparent' }]}>
+                      {form.is_self_use && <Feather name="check" size={12} color="#fff" />}
+                    </View>
+                    <Text style={[styles.checkLabel, { color: colors.foreground }]}>Self-use asset (excluded from investable net worth)</Text>
+                  </TouchableOpacity>
+                </>
+              )}
 
               {/* ESOP/RSU vesting schedule */}
-              {form.category === 'ESOP_RSU' && (
+              {form.showAdvanced && form.category === 'ESOP_RSU' && (
                 <View style={[styles.vestingSection, { borderColor: colors.border }]}>
                   <TouchableOpacity
                     style={styles.checkRow}
@@ -454,6 +474,8 @@ const styles = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 1,
   },
   catChipText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  advancedToggle: { marginTop: 14, paddingVertical: 6, alignItems: 'center' },
+  advancedToggleText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   vestingSection: { borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 16 },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },

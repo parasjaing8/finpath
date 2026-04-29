@@ -277,19 +277,32 @@ export default function LoginScreen() {
               onPress={() => {
                 Alert.alert(
                   'Forgot PIN?',
-                  `This will permanently delete the profile "${selectedProfile.name}" and all its data. This cannot be undone.`,
+                  `Without your PIN, the only recovery option is to delete the profile.\n\nHave you exported a backup recently? Without a backup, all assets, expenses, and goals for "${selectedProfile.name}" will be permanently lost.`,
                   [
                     { text: 'Cancel', style: 'cancel' },
                     {
                       text: 'Delete Profile',
                       style: 'destructive',
-                      onPress: async () => {
-                        await deleteProfile(selectedProfile.id);
-                        setSelectedProfile(null);
-                        setPin('');
-                        setError('');
-                        autoSelectedRef.current = false;
-                        await loadProfiles();
+                      onPress: () => {
+                        Alert.alert(
+                          'Are you sure?',
+                          `Tap "Delete" to permanently erase "${selectedProfile.name}" and all associated data. This cannot be undone.`,
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                              text: 'Delete',
+                              style: 'destructive',
+                              onPress: async () => {
+                                await deleteProfile(selectedProfile.id);
+                                setSelectedProfile(null);
+                                setPin('');
+                                setError('');
+                                autoSelectedRef.current = false;
+                                await loadProfiles();
+                              },
+                            },
+                          ]
+                        );
                       },
                     },
                   ]
