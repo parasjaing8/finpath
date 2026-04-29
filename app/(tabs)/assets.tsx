@@ -41,8 +41,6 @@ interface AssetForm {
   next_vesting_date: string;
   vesting_end_date: string;
   cliff_date: string;
-  // UI state
-  showAdvanced: boolean;
 }
 
 const EMPTY_FORM: AssetForm = {
@@ -57,7 +55,6 @@ const EMPTY_FORM: AssetForm = {
   next_vesting_date: '',
   vesting_end_date: '',
   cliff_date: '',
-  showAdvanced: false,
 };
 
 export default function AssetsScreen() {
@@ -96,7 +93,6 @@ export default function AssetsScreen() {
       next_vesting_date: a.next_vesting_date ?? '',
       vesting_end_date: a.vesting_end_date ?? '',
       cliff_date: a.cliff_date ?? '',
-      showAdvanced: true,
     });
     setShowModal(true);
   }
@@ -269,21 +265,7 @@ export default function AssetsScreen() {
                 accessibilityLabel="Current value in your currency"
               />
 
-              {/* Advanced toggle */}
-              <TouchableOpacity
-                style={styles.advancedToggle}
-                onPress={() => setForm(f => ({ ...f, showAdvanced: !f.showAdvanced }))}
-                accessibilityRole="button"
-                accessibilityLabel={form.showAdvanced ? 'Hide advanced options' : 'Show advanced options'}
-              >
-                <Text style={[styles.advancedToggleText, { color: colors.primary }]}>
-                  {form.showAdvanced ? '▲ Fewer options' : '▼ More options (category, ROI, vesting)'}
-                </Text>
-              </TouchableOpacity>
-
-              {form.showAdvanced && (
-                <>
-                  <Text style={styles.fieldLabel}>Category</Text>
+              <Text style={styles.fieldLabel}>Category</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
                     {ASSET_CATEGORIES.map(c => (
                       <TouchableOpacity
@@ -322,11 +304,9 @@ export default function AssetsScreen() {
                     </View>
                     <Text style={[styles.checkLabel, { color: colors.foreground }]}>Self-use asset (excluded from investable net worth)</Text>
                   </TouchableOpacity>
-                </>
-              )}
 
               {/* ESOP/RSU vesting schedule */}
-              {form.showAdvanced && form.category === 'ESOP_RSU' && (
+              {form.category === 'ESOP_RSU' && (
                 <View style={[styles.vestingSection, { borderColor: colors.border }]}>
                   <TouchableOpacity
                     style={styles.checkRow}
@@ -474,8 +454,6 @@ const styles = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 1,
   },
   catChipText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
-  advancedToggle: { marginTop: 14, paddingVertical: 6, alignItems: 'center' },
-  advancedToggleText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   vestingSection: { borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 16 },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
