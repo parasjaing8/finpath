@@ -104,6 +104,9 @@ export async function initializeDatabase(): Promise<void> {
     { version: 7, sql: 'ALTER TABLE goals ADD COLUMN withdrawal_rate REAL DEFAULT 5.0' },
     { version: 8, sql: 'ALTER TABLE goals ADD COLUMN inflation_rate REAL DEFAULT 6.0' },
     { version: 9, sql: "UPDATE goals SET fire_type = 'lean' WHERE fire_type = 'slim'" },
+    { version: 10, sql: 'ALTER TABLE assets ADD COLUMN cliff_date TEXT' },
+    { version: 11, sql: "ALTER TABLE assets ADD COLUMN value_currency TEXT" },
+    { version: 12, sql: "ALTER TABLE assets ADD COLUMN recurring_amount_currency TEXT" },
   ];
 
   for (const migration of MIGRATIONS) {

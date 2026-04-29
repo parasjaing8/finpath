@@ -6,7 +6,9 @@ import {
   FrequencyInput,
   FREQUENCY_TO_PAYMENTS_PER_YEAR,
   DEFAULT_GROWTH_RATES,
+  ESOP_RSU_KEY,
 } from './types';
+import { FxRates, convertCurrency } from '../utils/fx';
 
 
 /** Parse a YYYY-MM-DD string as a LOCAL-time Date to avoid UTC-midnight off-by-one
@@ -35,6 +37,7 @@ export interface CalculationInput {
   sipReturnRate: number;
   postSipReturnRate: number;
   stepUpRate: number;
+  fxRates?: FxRates;
 }
 
 export interface YearProjection {
@@ -144,11 +147,21 @@ function calculateExpenseForYear(
   return 0;
 }
 
-function calculateVestingForYear(assets: Asset[], targetYear: number): number {
+function calculateVestingForYear(
+  assets: Asset[],
+  targetYear: number,
+  profileCurrency: string,
+  fxRates?: FxRates,
+): number {
   let total = 0;
   for (const asset of assets) {
-    if (asset.category !== 'ESOP_RSU') continue;
+    if (asset.category !== ESOP_RSU_KEY) continue;
     if (!asset.is_recurring || !asset.recurring_amount || !asset.next_vesting_date) continue;
+    // Cliff: no vesting before cliff date year
+    if (asset.cliff_date) {
+      const cliffYear = parseDateStr(asset.cliff_date).getFullYear();
+      if (targetYear < cliffYear) continue;
+    }
     const vestingStart = parseDateStr(asset.next_vesting_date);
     const vestingStartYear = vestingStart.getFullYear();
     if (targetYear < vestingStartYear) continue;
@@ -156,7 +169,13 @@ function calculateVestingForYear(assets: Asset[], targetYear: number): number {
     const vestingEndYear = vestingEnd ? vestingEnd.getFullYear() : null;
     if (vestingEndYear != null && targetYear > vestingEndYear) continue;
     const timesPerYear = getFrequencyMultiplier(asset.recurring_frequency ?? null);
-    total += asset.recurring_amount * timesPerYear;
+    let amount = asset.recurring_amount * timesPerYear;
+    // FX conversion: recurring_amount may be in a different currency
+    const amtCurrency = asset.recurring_amount_currency ?? asset.value_currency ?? profileCurrency;
+    if (fxRates && amtCurrency !== profileCurrency) {
+      amount = convertCurrency(amount, amtCurrency, profileCurrency, fxRates);
+    }
+    total += amount;
   }
   return total;
 }
@@ -266,7 +285,10 @@ function simulateCorpusAtAge(
   targetAge: number,
   inflationRate: number,
   blendedRate?: number,
+  profileCurrency?: string,
+  fxRates?: FxRates,
 ): number {
+  const currency = profileCurrency ?? 'INR';
   const futureExpenses = expenses.filter(e => e.expense_type !== 'CURRENT_RECURRING');
   const existingRate = blendedRate ?? sipReturnRate;
   let existingBucket = initialNetWorth;
@@ -285,7 +307,7 @@ function simulateCorpusAtAge(
         ? monthlyContrib * (Math.pow(1 + monthlyRate, monthsThisYear) - 1) / monthlyRate
         : monthlyContrib * monthsThisYear;
     }
-    const vestingIncome = calculateVestingForYear(assets, year);
+    const vestingIncome = calculateVestingForYear(assets, year, currency, fxRates);
 
     if (age >= retirementAge && !merged) {
       if (age <= sipStopAge) existingBucket += annualSIP;
@@ -383,7 +405,8 @@ function calculateRequiredSIP(
 }
 
 export function calculateProjections(input: CalculationInput): CalculationOutput {
-  const { profile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpRate } = input;
+  const { profile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpRate, fxRates } = input;
+  const profileCurrency = profile.currency;
   const currentAge = getAge(profile.dob);
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -393,9 +416,14 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
   let initialNetWorth = 0;
   let investableNetWorth = 0;
   for (const asset of assets) {
-    initialNetWorth += asset.current_value;
+    let value = asset.current_value;
+    const assetCurrency = asset.value_currency ?? profileCurrency;
+    if (fxRates && assetCurrency !== profileCurrency) {
+      value = convertCurrency(value, assetCurrency, profileCurrency, fxRates);
+    }
+    initialNetWorth += value;
     if (!asset.is_self_use)
-      investableNetWorth += asset.current_value;
+      investableNetWorth += value;
   }
 
   const monthlyPensionPV = goals.pension_income ?? 0;
@@ -470,7 +498,7 @@ export function calculateProjections(input: CalculationInput): CalculationOutput
     if (age >= retirementAge && monthlyPensionPV > 0)
       pensionIncome = monthlyPensionPV * 12 * Math.pow(1 + discountRate, yearsFromStart);
 
-    const vestingIncome = calculateVestingForYear(assets, year);
+    const vestingIncome = calculateVestingForYear(assets, year, profileCurrency, fxRates);
 
     let preRetFutureCost = 0;
     if (age < retirementAge) {

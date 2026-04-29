@@ -6,6 +6,7 @@ import { useApp } from '../../context/AppContext';
 import { calculateProjections, CalculationOutput, formatCurrency, formatCurrencyFull, getAge } from '../../engine/calculator';
 import { exportToCSV } from '../../utils/export';
 import { exportToPDF } from '../../utils/exportPdf';
+import { getFxRates, FxRates } from '../../utils/fx';
 import { useNavigation, useRouter } from 'expo-router';
 import { usePro } from '../../hooks/usePro';
 import { ProPaywall } from '../../components/ProPaywall';
@@ -39,6 +40,7 @@ export default function DashboardScreen() {
   const [showDepletionInfo, setShowDepletionInfo] = useState(false);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  const [fxRates, setFxRates] = useState<FxRates | undefined>(undefined);
 
   // Track the goals snapshot that was used for the last SIP auto-set.
   // Auto-set only fires again when goals actually change, not on every tab focus.
@@ -55,6 +57,10 @@ export default function DashboardScreen() {
     });
   }, []);
 
+  useEffect(() => {
+    getFxRates().then(setFxRates).catch(() => {});
+  }, []);
+
   const result: CalculationOutput | null = useMemo(() => {
     if (!currentProfile || !goals || !isLoaded) return null;
     try {
@@ -67,12 +73,13 @@ export default function DashboardScreen() {
         sipReturnRate,
         postSipReturnRate,
         stepUpRate: stepUpEnabled ? stepUpRate : 0,
+        fxRates,
       });
     } catch (e) {
       if (__DEV__) console.error('calculateProjections error:', e);
       return null;
     }
-  }, [currentProfile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpEnabled, stepUpRate, isLoaded, retryKey]);
+  }, [currentProfile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpEnabled, stepUpRate, isLoaded, retryKey, fxRates]);
 
   // Insights: peak, depletion, affordability
   const insights = useMemo(() => {

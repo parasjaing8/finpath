@@ -5,25 +5,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/context/AppContext';
-import { Asset } from '@/engine/types';
+import { Asset, ASSET_CATEGORIES, FREQUENCIES } from '@/engine/types';
 import { formatCurrency, getCurrencySymbol } from '@/engine/calculator';
+import { formatDateMask } from '@/components/DateInput';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow, FAB_SIZE, FAB_RIGHT, FAB_BOTTOM_NATIVE, FAB_BOTTOM_WEB } from '@/constants/theme';
 
-const CATEGORIES = [
-  { key: 'EQUITY', label: 'Equity', roi: 12 },
-  { key: 'MUTUAL_FUND', label: 'Mutual Fund', roi: 11 },
-  { key: 'DEBT', label: 'Debt', roi: 7 },
-  { key: 'FIXED_DEPOSIT', label: 'Fixed Deposit', roi: 7 },
-  { key: 'PPF', label: 'PPF', roi: 7.1 },
-  { key: 'EPF', label: 'EPF', roi: 8.15 },
-  { key: 'GOLD', label: 'Gold', roi: 8 },
-  { key: 'REAL_ESTATE', label: 'Real Estate', roi: 8 },
-  { key: 'CRYPTO', label: 'Crypto', roi: 15 },
-  { key: 'CASH', label: 'Cash/Savings', roi: 3.5 },
-  { key: 'ESOP_RSU', label: 'ESOP/RSU', roi: 12 },
-  { key: 'OTHERS', label: 'Others', roi: 8 },
-];
 
 const CATEGORY_ICONS: Record<string, string> = {
   EQUITY: 'trending-up',
@@ -47,6 +34,13 @@ interface AssetForm {
   current_value: string;
   expected_roi: string;
   is_self_use: boolean;
+  // ESOP/RSU vesting
+  is_recurring: boolean;
+  recurring_amount: string;
+  recurring_frequency: string;
+  next_vesting_date: string;
+  vesting_end_date: string;
+  cliff_date: string;
 }
 
 const EMPTY_FORM: AssetForm = {
@@ -55,6 +49,12 @@ const EMPTY_FORM: AssetForm = {
   current_value: '',
   expected_roi: '11',
   is_self_use: false,
+  is_recurring: false,
+  recurring_amount: '',
+  recurring_frequency: 'QUARTERLY',
+  next_vesting_date: '',
+  vesting_end_date: '',
+  cliff_date: '',
 };
 
 export default function AssetsScreen() {
@@ -87,6 +87,12 @@ export default function AssetsScreen() {
       current_value: String(a.current_value),
       expected_roi: String(a.expected_roi),
       is_self_use: !!(a.is_self_use ?? false),
+      is_recurring: !!(a.is_recurring ?? false),
+      recurring_amount: a.recurring_amount != null ? String(a.recurring_amount) : '',
+      recurring_frequency: a.recurring_frequency ?? 'QUARTERLY',
+      next_vesting_date: a.next_vesting_date ?? '',
+      vesting_end_date: a.vesting_end_date ?? '',
+      cliff_date: a.cliff_date ?? '',
     });
     setShowModal(true);
   }
@@ -98,6 +104,8 @@ export default function AssetsScreen() {
       Alert.alert('Validation', 'Please enter a valid name and value.');
       return;
     }
+    const isEsop = form.category === 'ESOP_RSU';
+    const recurringAmt = parseFloat(form.recurring_amount);
     const asset: Asset = {
       id: editId ?? '',
       name: form.name.trim(),
@@ -105,6 +113,12 @@ export default function AssetsScreen() {
       current_value: value,
       expected_roi: isNaN(roi) ? 8 : roi,
       is_self_use: form.is_self_use,
+      is_recurring: isEsop ? form.is_recurring : false,
+      recurring_amount: isEsop && form.is_recurring && !isNaN(recurringAmt) ? recurringAmt : null,
+      recurring_frequency: isEsop && form.is_recurring ? form.recurring_frequency : null,
+      next_vesting_date: isEsop && form.is_recurring && form.next_vesting_date ? form.next_vesting_date : null,
+      vesting_end_date: isEsop && form.is_recurring && form.vesting_end_date ? form.vesting_end_date : null,
+      cliff_date: isEsop && form.is_recurring && form.cliff_date ? form.cliff_date : null,
     };
     if (editId) updateAsset(asset);
     else {
@@ -161,7 +175,7 @@ export default function AssetsScreen() {
         )}
 
         {assets.map(asset => {
-          const cat = CATEGORIES.find(c => c.key === asset.category);
+          const cat = ASSET_CATEGORIES.find(c => c.key === asset.category);
           const icon = CATEGORY_ICONS[asset.category] ?? 'box';
           return (
             <View key={asset.id} style={[styles.assetCard, { backgroundColor: colors.card }]}>
@@ -242,7 +256,7 @@ export default function AssetsScreen() {
 
               <Text style={styles.fieldLabel}>Category</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
-                {CATEGORIES.map(c => (
+                {ASSET_CATEGORIES.map(c => (
                   <TouchableOpacity
                     key={c.key}
                     style={[styles.catChip, { backgroundColor: form.category === c.key ? colors.primary : colors.secondary, borderColor: colors.border }]}
@@ -290,6 +304,85 @@ export default function AssetsScreen() {
                   </View>
                   <Text style={[styles.checkLabel, { color: colors.foreground }]}>Self-use asset (excluded from investable net worth)</Text>
                 </TouchableOpacity>
+
+              {/* ESOP/RSU vesting schedule */}
+              {form.category === 'ESOP_RSU' && (
+                <View style={[styles.vestingSection, { borderColor: colors.border }]}>
+                  <TouchableOpacity
+                    style={styles.checkRow}
+                    onPress={() => setForm(f => ({ ...f, is_recurring: !f.is_recurring }))}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: form.is_recurring }}
+                    accessibilityLabel="Has vesting schedule"
+                  >
+                    <View style={[styles.checkbox, { borderColor: colors.primary, backgroundColor: form.is_recurring ? colors.primary : 'transparent' }]}>
+                      {form.is_recurring && <Feather name="check" size={12} color="#fff" />}
+                    </View>
+                    <Text style={[styles.checkLabel, { color: colors.foreground }]}>Has vesting schedule</Text>
+                  </TouchableOpacity>
+
+                  {form.is_recurring && (
+                    <>
+                      <Text style={styles.fieldLabel}>Amount per Vesting Event ({getCurrencySymbol(currency)})</Text>
+                      <TextInput
+                        style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+                        value={form.recurring_amount}
+                        onChangeText={t => setForm(f => ({ ...f, recurring_amount: t }))}
+                        keyboardType="numeric"
+                        placeholder="e.g., 50000"
+                        placeholderTextColor={colors.mutedForeground}
+                        accessibilityLabel="Amount per vesting event"
+                      />
+
+                      <Text style={styles.fieldLabel}>Frequency</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
+                        {FREQUENCIES.filter(f => f.key !== 'ONE_TIME').map(f => (
+                          <TouchableOpacity
+                            key={f.key}
+                            style={[styles.catChip, { backgroundColor: form.recurring_frequency === f.key ? colors.primary : colors.secondary, borderColor: colors.border }]}
+                            onPress={() => setForm(prev => ({ ...prev, recurring_frequency: f.key }))}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Frequency: ${f.label}`}
+                            accessibilityState={{ selected: form.recurring_frequency === f.key }}
+                          >
+                            <Text style={[styles.catChipText, { color: form.recurring_frequency === f.key ? '#fff' : colors.foreground }]}>{f.label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+
+                      <Text style={styles.fieldLabel}>Cliff Date (YYYY-MM-DD, optional)</Text>
+                      <TextInput
+                        style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+                        value={form.cliff_date}
+                        onChangeText={t => setForm(f => ({ ...f, cliff_date: formatDateMask(t) }))}
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor={colors.mutedForeground}
+                        accessibilityLabel="Cliff date"
+                      />
+
+                      <Text style={styles.fieldLabel}>First Vesting Date (YYYY-MM-DD)</Text>
+                      <TextInput
+                        style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+                        value={form.next_vesting_date}
+                        onChangeText={t => setForm(f => ({ ...f, next_vesting_date: formatDateMask(t) }))}
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor={colors.mutedForeground}
+                        accessibilityLabel="First vesting date"
+                      />
+
+                      <Text style={styles.fieldLabel}>Last Vesting Date (YYYY-MM-DD, optional)</Text>
+                      <TextInput
+                        style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+                        value={form.vesting_end_date}
+                        onChangeText={t => setForm(f => ({ ...f, vesting_end_date: formatDateMask(t) }))}
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor={colors.mutedForeground}
+                        accessibilityLabel="Last vesting date"
+                      />
+                    </>
+                  )}
+                </View>
+              )}
 
               <View style={styles.modalBtns}>
                 <TouchableOpacity
@@ -361,6 +454,7 @@ const styles = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 1,
   },
   catChipText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  vestingSection: { borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 16 },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
   checkLabel: { flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular' },

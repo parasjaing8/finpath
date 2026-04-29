@@ -7,6 +7,7 @@
 export type Frequency =
   | 'MONTHLY'
   | 'QUARTERLY'
+  | 'HALF_YEARLY'
   | 'ANNUALLY'
   | 'ONE_TIME';
 
@@ -17,6 +18,7 @@ export type FrequencyInput = Frequency | 'ANNUAL' | 'YEARLY';
 export const FREQUENCY_TO_PAYMENTS_PER_YEAR: Record<FrequencyInput, number> = {
   MONTHLY: 12,
   QUARTERLY: 4,
+  HALF_YEARLY: 2,
   ANNUALLY: 1,
   ANNUAL: 1,
   YEARLY: 1,
@@ -27,6 +29,7 @@ export const FREQUENCY_TO_PAYMENTS_PER_YEAR: Record<FrequencyInput, number> = {
 export const FREQUENCY_TO_MONTHS_PER_PAYMENT: Record<FrequencyInput, number> = {
   MONTHLY: 1,
   QUARTERLY: 3,
+  HALF_YEARLY: 6,
   ANNUALLY: 12,
   ANNUAL: 12,
   YEARLY: 12,
@@ -36,10 +39,30 @@ export const FREQUENCY_TO_MONTHS_PER_PAYMENT: Record<FrequencyInput, number> = {
 export const FREQUENCIES: { key: Frequency; multiplier: number; label: string }[] = [
   { key: 'MONTHLY', multiplier: 12, label: 'Monthly' },
   { key: 'QUARTERLY', multiplier: 4, label: 'Quarterly' },
+  { key: 'HALF_YEARLY', multiplier: 2, label: 'Half-yearly' },
   { key: 'ANNUALLY', multiplier: 1, label: 'Annually' },
   { key: 'ONE_TIME', multiplier: 1, label: 'One-time' },
 ];
 
+
+/** Canonical asset categories — single source of truth for UI and engine. */
+export const ASSET_CATEGORIES: { key: string; label: string; roi: number }[] = [
+  { key: 'EQUITY', label: 'Equity', roi: 12 },
+  { key: 'MUTUAL_FUND', label: 'Mutual Fund', roi: 11 },
+  { key: 'DEBT', label: 'Debt', roi: 7 },
+  { key: 'FIXED_DEPOSIT', label: 'Fixed Deposit', roi: 7 },
+  { key: 'PPF', label: 'PPF', roi: 7.1 },
+  { key: 'EPF', label: 'EPF', roi: 8.15 },
+  { key: 'GOLD', label: 'Gold', roi: 8 },
+  { key: 'REAL_ESTATE', label: 'Real Estate', roi: 8 },
+  { key: 'CRYPTO', label: 'Crypto', roi: 15 },
+  { key: 'CASH', label: 'Cash/Savings', roi: 3.5 },
+  { key: 'ESOP_RSU', label: 'ESOP/RSU', roi: 12 },
+  { key: 'OTHERS', label: 'Others', roi: 8 },
+];
+
+/** Key used by vesting engine — derive from ASSET_CATEGORIES to prevent drift. */
+export const ESOP_RSU_KEY = 'ESOP_RSU';
 
 export const DEFAULT_GROWTH_RATES: Record<string, number> = {
   EQUITY: 12,
@@ -78,6 +101,9 @@ export interface Asset {
   recurring_frequency?: string | null;
   next_vesting_date?: string | null;
   vesting_end_date?: string | null;
+  cliff_date?: string | null;
+  value_currency?: string | null;
+  recurring_amount_currency?: string | null;
 }
 
 export interface Expense {
