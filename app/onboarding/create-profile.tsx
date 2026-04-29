@@ -21,7 +21,7 @@ export default function CreateProfile() {
   const { setProfile: setAppProfile, importAll } = useApp();
 
   const [name, setName] = useState('');
-  const [dob, setDob] = useState('2000-01-01');
+  const [dob, setDob] = useState('');
   const [monthlyIncome, setMonthlyIncome] = useState('');
   const [currency, setCurrency] = useState('INR');
   const [pin, setPin] = useState('');
@@ -81,7 +81,7 @@ export default function CreateProfile() {
       // Pre-fill form from backup profile
       const p = parsed.profile;
       setName(p.name ?? '');
-      setDob(p.dob ?? '2000-01-01');
+      setDob(p.dob ?? '');
       setMonthlyIncome(String(p.monthly_income ?? ''));
       setCurrency(p.currency ?? 'INR');
       setBackupPayload(parsed);

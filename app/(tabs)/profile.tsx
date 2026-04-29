@@ -60,7 +60,7 @@ export default function ProfileScreen() {
   const [form, setForm] = useState<Profile>({
     id: '1',
     name: '',
-    dob: '1995-01-01',
+    dob: '',
     currency: 'INR',
     monthly_income: 0,
   });

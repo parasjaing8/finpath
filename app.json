@@ -23,7 +23,19 @@
       },
       "versionCode": 39,
       "package": "com.aihomecloud.finpath",
-      "privacyPolicyUrl": "https://parasjaing8.github.io/finpath/privacy-policy.html"
+      "privacyPolicyUrl": "https://parasjaing8.github.io/finpath/privacy-policy.html",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [{ "scheme": "content", "mimeType": "application/json" }],
+          "category": ["DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "data": [{ "scheme": "file", "mimeType": "application/json" }],
+          "category": ["DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
