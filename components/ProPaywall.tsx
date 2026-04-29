@@ -10,8 +10,8 @@ interface ProPaywallProps {
 }
 
 const FEATURES = [
-  { icon: 'download', text: 'CSV export — full year-by-year projection' },
-  { icon: 'file-chart', text: 'PDF report with charts (coming soon)' },
+  { icon: 'download', text: 'CSV export — full year-by-year projection with summary' },
+  { icon: 'file-pdf-box', text: 'PDF report with net worth chart and FIRE summary' },
   { icon: 'lightbulb-on', text: 'Personalized financial tips (coming soon)' },
 ];
 

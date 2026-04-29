@@ -228,9 +228,11 @@ describe('formatCurrency — INR display formatting', () => {
     expect(formatCurrency(-10_000_000)).toBe('-₹1.00 Cr');
   });
 
-  test('USD mode delegates to toLocaleString without INR suffixes', () => {
-    expect(formatCurrency(1_000, 'USD')).toBe('$1,000');
-    expect(formatCurrency(1_000_000, 'USD')).toBe('$1,000,000');
+  test('USD mode uses K/M/B short-scale (C3)', () => {
+    expect(formatCurrency(1_000, 'USD')).toBe('$1.0K');
+    expect(formatCurrency(1_000_000, 'USD')).toBe('$1.00M');
+    expect(formatCurrency(2_500_000_000, 'USD')).toBe('$2.50B');
+    expect(formatCurrency(500, 'USD')).toBe('$500');  // below 1K → toLocaleString
   });
 });
 

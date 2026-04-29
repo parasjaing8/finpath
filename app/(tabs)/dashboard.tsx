@@ -302,9 +302,16 @@ export default function DashboardScreen() {
             <Button mode="text" icon="download" compact
               onPress={() => {
                 if (!isPro) { setShowPaywall(true); return; }
-                exportToCSV(currentProfile, assets, expenses, projections, result);
+                exportToCSV(currentProfile, assets, expenses, projections, result ?? undefined);
               }}>
               {isPro ? 'CSV' : '👑 CSV'}
+            </Button>
+            <Button mode="text" icon="file-pdf-box" compact
+              onPress={() => {
+                if (!isPro) { setShowPaywall(true); return; }
+                if (result) exportToPDF(currentProfile, assets, expenses, projections, result);
+              }}>
+              {isPro ? 'PDF' : '👑 PDF'}
             </Button>
             <ProPaywall visible={showPaywall} onDismiss={() => setShowPaywall(false)} />
           </View>

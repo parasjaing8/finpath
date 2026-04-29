@@ -31,10 +31,13 @@ function svgBarChart(projections: YearProjection[], currency: string): string {
   // Y-axis: 0 and max
   const sym = getCurrencySymbol(currency);
   function fmt(v: number): string {
-    if (v >= 1e7) return `${sym}${(v / 1e7).toFixed(1)}Cr`;
-    if (v >= 1e5) return `${sym}${(v / 1e5).toFixed(1)}L`;
-    if (v >= 1e9) return `${sym}${(v / 1e9).toFixed(1)}B`;
-    if (v >= 1e6) return `${sym}${(v / 1e6).toFixed(1)}M`;
+    if (currency === 'INR') {
+      if (v >= 1e7) return `${sym}${(v / 1e7).toFixed(1)}Cr`;
+      if (v >= 1e5) return `${sym}${(v / 1e5).toFixed(1)}L`;
+    } else {
+      if (v >= 1e9) return `${sym}${(v / 1e9).toFixed(1)}B`;
+      if (v >= 1e6) return `${sym}${(v / 1e6).toFixed(1)}M`;
+    }
     if (v >= 1e3) return `${sym}${(v / 1e3).toFixed(0)}K`;
     return `${sym}${v.toFixed(0)}`;
   }
