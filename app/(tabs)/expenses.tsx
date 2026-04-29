@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -7,7 +7,7 @@ import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/context/AppContext';
 import { Expense, Frequency, FrequencyInput, FREQUENCY_TO_MONTHS_PER_PAYMENT } from '@/engine/types';
 import { formatCurrency, getCurrencySymbol, calculateFutureGoalsCorpus } from '@/engine/calculator';
-import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
+import { BottomSheet } from '@/components/BottomSheet';
 import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow, FAB_SIZE, FAB_RIGHT, FAB_BOTTOM_NATIVE, FAB_BOTTOM_WEB } from '@/constants/theme';
 import { formatDateMask } from '@/components/DateInput';
 
@@ -238,24 +238,18 @@ export default function ExpensesScreen() {
         <Feather name="plus" size={24} color="#fff" />
       </TouchableOpacity>
 
-      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
-        <View style={styles.overlay}>
-          <KeyboardAwareScrollViewCompat
-            showsVerticalScrollIndicator={false}
-            bottomOffset={20}
+      <BottomSheet visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.card}>
+        <View style={styles.sheetHeader}>
+          <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{editId ? 'Edit Expense' : 'Add Expense'}</Text>
+          <TouchableOpacity
+            onPress={() => setShowModal(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Close expense form"
+            hitSlop={10}
           >
-            <View style={[styles.sheet, { backgroundColor: colors.card }]}>
-              <View style={styles.sheetHeader}>
-                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{editId ? 'Edit Expense' : 'Add Expense'}</Text>
-                <TouchableOpacity
-                  onPress={() => setShowModal(false)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Close expense form"
-                  hitSlop={10}
-                >
-                  <Feather name="x" size={22} color={colors.mutedForeground} />
-                </TouchableOpacity>
-              </View>
+            <Feather name="x" size={22} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        </View>
 
               <Text style={styles.fieldLabel}>Type</Text>
               {EXPENSE_TYPES.map(t => (
@@ -356,7 +350,7 @@ export default function ExpensesScreen() {
                 </>
               )}
 
-              <View style={styles.modalBtns}>
+              <View style={styles.formBtns}>
                 <TouchableOpacity
                   style={[styles.cancelBtn, { borderColor: colors.border }]}
                   onPress={() => setShowModal(false)}
@@ -374,10 +368,7 @@ export default function ExpensesScreen() {
                   <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Save</Text>
                 </TouchableOpacity>
               </View>
-            </View>
-          </KeyboardAwareScrollViewCompat>
-        </View>
-      </Modal>
+      </BottomSheet>
     </View>
   );
 }
@@ -414,9 +405,7 @@ const styles = StyleSheet.create({
     borderRadius: FAB_SIZE / 2, justifyContent: 'center', alignItems: 'center',
     ...shadow(4),
   },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
-  sheet: { marginTop: 80, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingTop: 4 },
   sheetTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 6, marginTop: 12, fontFamily: 'Inter_600SemiBold' },
   input: { borderWidth: 1.5, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: 'Inter_400Regular' },
@@ -426,7 +415,7 @@ const styles = StyleSheet.create({
   freqRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   freqChip: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
   freqText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
-  modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24, marginBottom: 32 },
+  formBtns: { flexDirection: 'row', gap: 12, marginTop: 24 },
   cancelBtn: { flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: 'center' },
   saveBtn: { flex: 1, borderRadius: 12, padding: 14, alignItems: 'center' },
 });

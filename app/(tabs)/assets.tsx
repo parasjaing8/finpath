@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -8,7 +8,7 @@ import { useApp } from '@/context/AppContext';
 import { Asset, ASSET_CATEGORIES, FREQUENCIES } from '@/engine/types';
 import { formatCurrency, getCurrencySymbol } from '@/engine/calculator';
 import { formatDateMask } from '@/components/DateInput';
-import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
+import { BottomSheet } from '@/components/BottomSheet';
 import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow, FAB_SIZE, FAB_RIGHT, FAB_BOTTOM_NATIVE, FAB_BOTTOM_WEB } from '@/constants/theme';
 
 
@@ -225,25 +225,19 @@ export default function AssetsScreen() {
         <Feather name="plus" size={24} color="#fff" />
       </TouchableOpacity>
 
-      {/* Add/Edit Modal */}
-      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
-        <View style={styles.modalOverlay}>
-          <KeyboardAwareScrollViewCompat
-            showsVerticalScrollIndicator={false}
-            bottomOffset={20}
+      {/* Add/Edit Bottom Sheet */}
+      <BottomSheet visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.card}>
+        <View style={styles.sheetHeader}>
+          <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{editId ? 'Edit Asset' : 'Add Asset'}</Text>
+          <TouchableOpacity
+            onPress={() => setShowModal(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Close asset form"
+            hitSlop={10}
           >
-          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.foreground }]}>{editId ? 'Edit Asset' : 'Add Asset'}</Text>
-              <TouchableOpacity
-                onPress={() => setShowModal(false)}
-                accessibilityRole="button"
-                accessibilityLabel="Close asset form"
-                hitSlop={10}
-              >
-                <Feather name="x" size={22} color={colors.mutedForeground} />
-              </TouchableOpacity>
-            </View>
+            <Feather name="x" size={22} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        </View>
               <Text style={styles.fieldLabel}>Name</Text>
               <TextInput
                 style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
@@ -267,10 +261,10 @@ export default function AssetsScreen() {
 
               <Text style={styles.fieldLabel}>Category</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
-                    {ASSET_CATEGORIES.map(c => (
+                    {ASSET_CATEGORIES.map((c, i) => (
                       <TouchableOpacity
                         key={c.key}
-                        style={[styles.catChip, { backgroundColor: form.category === c.key ? colors.primary : colors.secondary, borderColor: colors.border }]}
+                        style={[styles.catChip, i === 0 && styles.catFirst, { backgroundColor: form.category === c.key ? colors.primary : colors.secondary, borderColor: colors.border }]}
                         onPress={() => setForm(f => ({ ...f, category: c.key, expected_roi: String(c.roi) }))}
                         accessibilityRole="button"
                         accessibilityLabel={`Category: ${c.label}`}
@@ -384,7 +378,7 @@ export default function AssetsScreen() {
                 </View>
               )}
 
-              <View style={styles.modalBtns}>
+              <View style={styles.formBtns}>
                 <TouchableOpacity
                   style={[styles.cancelBtn, { borderColor: colors.border }]}
                   onPress={() => setShowModal(false)}
@@ -402,10 +396,7 @@ export default function AssetsScreen() {
                   <Text style={{ color: '#fff', fontFamily: 'Inter_600SemiBold' }}>Save</Text>
                 </TouchableOpacity>
               </View>
-          </View>
-          </KeyboardAwareScrollViewCompat>
-        </View>
-      </Modal>
+      </BottomSheet>
     </View>
   );
 }
@@ -441,24 +432,23 @@ const styles = StyleSheet.create({
     borderRadius: FAB_SIZE / 2, justifyContent: 'center', alignItems: 'center',
     ...shadow(4),
   },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
-  modalSheet: { marginTop: 80, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingTop: 4 },
+  sheetTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: '#666', marginBottom: 6, marginTop: 12, fontFamily: 'Inter_600SemiBold' },
   input: {
     borderWidth: 1.5, borderRadius: 10, padding: 12, fontSize: 15, fontFamily: 'Inter_400Regular',
   },
-  catScroll: { marginBottom: 4, flexGrow: 0 },
+  catScroll: { marginBottom: 4, flexGrow: 0, marginHorizontal: -24 },
   catChip: {
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 1,
   },
+  catFirst: { marginLeft: 24 },
   catChipText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   vestingSection: { borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 16 },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
   checkLabel: { flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular' },
-  modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24 },
+  formBtns: { flexDirection: 'row', gap: 12, marginTop: 24 },
   cancelBtn: { flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: 'center' },
   saveBtn: { flex: 1, borderRadius: 12, padding: 14, alignItems: 'center' },
 });
