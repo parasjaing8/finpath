@@ -1,38 +1,38 @@
-// Bundled FX rates (USD base). Updated with each app release — April 2026.
-// App is offline-first; no network fetch. Refresh rates monthly before release.
+// Bundled FX rates (USD base). Source: open.er-api.com — 29 April 2026.
+// App is offline-first; no network fetch. Update rates before each release.
 
 export type FxRates = Record<string, number>;
 
 const BUNDLED_RATES: FxRates = {
   USD: 1,
-  INR: 84.0,
-  EUR: 0.91,
-  GBP: 0.78,
-  AUD: 1.58,
-  CAD: 1.39,
-  SGD: 1.35,
-  AED: 3.67,   // hard peg
-  CHF: 0.89,
-  JPY: 152.0,
-  NZD: 1.73,
-  SEK: 10.5,
-  NOK: 10.8,
-  DKK: 6.90,
-  HKD: 7.78,
-  MYR: 4.45,
-  THB: 35.5,
-  IDR: 16200,
-  PHP: 57.5,
-  ZAR: 18.8,
-  BRL: 5.20,
-  MXN: 17.2,
-  SAR: 3.75,   // peg
-  QAR: 3.64,   // peg
-  KWD: 0.307,
-  BHD: 0.376,  // peg
-  OMR: 0.385,  // peg
-  KRW: 1380,
-  TWD: 32.0,
+  INR: 94.62,
+  EUR: 0.8541,
+  GBP: 0.7403,
+  AUD: 1.3931,
+  CAD: 1.3673,
+  SGD: 1.2764,
+  AED: 3.6725,  // hard peg
+  CHF: 0.7895,
+  JPY: 159.54,
+  NZD: 1.6991,
+  SEK: 9.267,
+  NOK: 9.318,
+  DKK: 6.378,
+  HKD: 7.837,
+  MYR: 3.952,
+  THB: 32.51,
+  IDR: 17266,
+  PHP: 61.18,
+  ZAR: 16.55,
+  BRL: 4.985,
+  MXN: 17.40,
+  SAR: 3.75,    // peg
+  QAR: 3.64,    // peg
+  KWD: 0.3077,
+  BHD: 0.376,   // peg
+  OMR: 0.3845,  // peg
+  KRW: 1473.3,
+  TWD: 31.57,
 };
 
 /** Returns bundled FX rates. Async signature kept for call-site compatibility. */
