@@ -15,8 +15,8 @@ Beyond the feedback themes, the audit found a **critical category-vocabulary spl
 
 | ID | Area | Severity | Title | Status |
 |---|---|---|---|---|
-| A1 | Asset UX | High | Asset form has no vesting fields — ESOP/RSU vesting is unreachable | [ ] |
-| A2 | Asset UX | Critical | Category vocabulary split: UI uses `EQUITY` etc., engine vesting expects `ESOP_RSU` | [!] |
+| A1 | Asset UX | High | Asset form has no vesting fields — ESOP/RSU vesting is unreachable | [x] |
+| A2 | Asset UX | Critical | Category vocabulary split: UI uses `EQUITY` etc., engine vesting expects `ESOP_RSU` | [x] |
 | A3 | Asset UX | Medium | Add-asset modal: 5 fields + scroll-chip category, no quick-add path | [ ] |
 | A4 | Asset UX | Low | Default ROI changes when category changes, silently overwriting user input | [ ] |
 | A5 | Asset UX | Low | No swipe-to-delete, no bulk add, no clone-from-existing | [ ] |
@@ -29,11 +29,11 @@ Beyond the feedback themes, the audit found a **critical category-vocabulary spl
 | C2 | Currency | High | No country-search dropdown; no full ISO-4217 list anywhere | [x] |
 | C3 | Currency | Medium | `formatCurrency` short-scale (Cr/L/K) only for INR; other currencies show full numbers | [x] |
 | C4 | Currency | Medium | Currency stored per-asset in DB but every code path normalizes to profile.currency | [ ] |
-| C5 | Currency | Critical | No FX conversion engine; secondary currency is a string field with no math | [!] |
-| D1 | ESOP/RSU | High | Asset interface has vesting fields, but UI never sets them | [ ] |
-| D2 | ESOP/RSU | High | Vesting frequencies limited to MONTHLY/QUARTERLY/ANNUALLY — no half-yearly | [ ] |
-| D3 | ESOP/RSU | High | No cliff-period model; no per-tranche vesting | [ ] |
-| D4 | ESOP/RSU | High | Vesting amount stored in profile currency; no USD-grant → INR-vest path | [ ] |
+| C5 | Currency | Critical | No FX conversion engine; secondary currency is a string field with no math | [x] |
+| D1 | ESOP/RSU | High | Asset interface has vesting fields, but UI never sets them | [x] |
+| D2 | ESOP/RSU | High | Vesting frequencies limited to MONTHLY/QUARTERLY/ANNUALLY — no half-yearly | [x] |
+| D3 | ESOP/RSU | High | No cliff-period model; no per-tranche vesting | [x] |
+| D4 | ESOP/RSU | High | Vesting amount stored in profile currency; no USD-grant → INR-vest path | [x] |
 | D5 | ESOP/RSU | Medium | RSU form would need: grant currency, FX rate, cliff, vest schedule, tax model | [ ] |
 | E1 | FIRE Engine | High | `totalNetExpenses` post-retirement adds pension to expenses; corpus path uses it | [x] |
 | E2 | FIRE Engine | Medium | `PENSION_INFLATION_RATE` hardcoded 6%; ignores user `goals.inflation_rate` (Option B by design) | [~] |

@@ -5,6 +5,28 @@ Format: date, build produced, what changed, why, open items.
 
 ---
 
+## 2026-04-29 — Wave 3 (commit 659a1bd)
+
+**Commit:** `659a1bd` | Branch: `beyondv33` | No build produced (code changes only).
+
+**Wave 3 audit findings addressed:** A1, A2, C5, D1, D2, D3, D4.
+
+**Changes:**
+- `engine/types.ts`: Added `ASSET_CATEGORIES` (canonical list; replaces local const in assets.tsx), `ESOP_RSU_KEY` const, `HALF_YEARLY` to Frequency/FrequencyInput/FREQUENCY_TO_PAYMENTS_PER_YEAR/MONTHS_PER_PAYMENT/FREQUENCIES. Added `cliff_date`, `value_currency`, `recurring_amount_currency` to Asset interface.
+- `db/schema.ts`: Migrations v10 (cliff_date TEXT), v11 (value_currency TEXT), v12 (recurring_amount_currency TEXT) on assets table.
+- `db/queries.ts`: Asset interface and createAsset/updateAsset SQL updated for the three new columns.
+- `utils/fx.ts` (new): `getFxRates()` with 24hr AsyncStorage cache → open.er-api.com → stale cache → FALLBACK_RATES. `convertCurrency(amount, from, to, rates)` via USD pivot.
+- `engine/calculator.ts`: Imports `ESOP_RSU_KEY`, `FxRates`, `convertCurrency`. `CalculationInput` gains optional `fxRates`. `calculateProjections` converts asset values at compute time using `value_currency`. `calculateVestingForYear` gains `profileCurrency`/`fxRates` params; uses `cliff_date` as vesting gate; FX-converts recurring_amount_currency. `simulateCorpusAtAge` gains same optional params.
+- `app/(tabs)/assets.tsx`: Imports ASSET_CATEGORIES+FREQUENCIES from engine/types (removes local CATEGORIES). AssetForm + EMPTY_FORM extended with 6 vesting fields. openEdit populates them. handleSave persists them. Vesting section renders conditionally when category=ESOP_RSU.
+- `app/(tabs)/dashboard.tsx`: Imports getFxRates/FxRates; fetches on mount; passes to calculateProjections; fxRates in useMemo dep array.
+- `__tests__/calculator.test.ts`: Added cliff_date/value_currency/recurring_amount_currency: null to test asset fixtures.
+
+**Tests:** 61/61 pass. TypeScript: no new errors.
+
+**Open items (Wave 3 not in scope):** A3 (quick-add), A4 (ROI overwrite), A6 (null ROI), B4 (share image), C4 (per-asset currency in engine — partially done: value_currency column + FX conversion now live), D5 (full RSU tax model).
+
+---
+
 ## 2026-04-29 — Audit + Wave 1 fixes (commit a8690d4)
 
 **Commit:** `a8690d4` | Branch: `beyondv33` | No build produced.

@@ -1,5 +1,5 @@
 # FinPath — Remaining Tasks
-**Branch:** `beyondv33` | **Last updated:** 2026-04-24 | **Latest commit:** `43be972`
+**Branch:** `beyondv33` | **Last updated:** 2026-04-29 | **Latest commit:** `659a1bd`
 
 > Source of truth for what is done and what is pending. Based on `AUDIT_BEYONDV33.md`.
 > All code lives on Mac Mini at `~/dev/apps/finpath/`. Claude Code runs natively here.
