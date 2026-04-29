@@ -1,7 +1,7 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Alert } from 'react-native';
-import { Asset, Expense, Profile } from '../engine/types';
+import { Asset, Expense, Profile, ASSET_CATEGORIES } from '../engine/types';
 import { YearProjection, CalculationOutput, formatCurrencyFull, getCurrencySymbol, getAge } from '../engine/calculator';
 
 function svgBarChart(projections: YearProjection[], currency: string): string {
@@ -68,8 +68,19 @@ function buildHtml(
 
   const f = (v: number) => formatCurrencyFull(v, cur);
 
+  // Show currency column only when assets are in more than one currency
+  const getCatLabel = (key: string) => ASSET_CATEGORIES.find(c => c.key === key)?.label ?? key;
+  const getAssetCurrency = (a: Asset) => (a as any).value_currency ?? (a as any).currency ?? cur;
+  const multiCurrency = assets.some(a => getAssetCurrency(a) !== cur);
+
   const assetRows = assets.map(a =>
-    `<tr><td>${a.category}</td><td>${a.name}</td><td style="text-align:right">${f(a.current_value)}</td><td>${a.currency}</td><td>${a.expected_roi ?? '—'}%</td></tr>`
+    `<tr>
+      <td>${getCatLabel(a.category)}</td>
+      <td>${a.name}</td>
+      <td style="text-align:right">${f(a.current_value)}</td>
+      ${multiCurrency ? `<td>${getAssetCurrency(a)}</td>` : ''}
+      <td>${a.expected_roi ?? '—'}%</td>
+    </tr>`
   ).join('');
 
   const projRows = projections.filter((_, i) => i % 5 === 0 || i === projections.length - 1).map(p =>
@@ -142,7 +153,7 @@ ${chart}
 
 <h2>Assets (${assets.length})</h2>
 <table>
-  <tr><th>Category</th><th>Name</th><th>Value</th><th>Currency</th><th>ROI</th></tr>
+  <tr><th>Category</th><th>Name</th><th>Value</th>${multiCurrency ? '<th>Currency</th>' : ''}<th>ROI</th></tr>
   ${assetRows}
 </table>
 
