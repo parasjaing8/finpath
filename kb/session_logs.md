@@ -22,6 +22,24 @@ Format: date, build produced, what changed, why, open items.
 
 ### Open: Wave 2–4 in kb/Audit29April.md
 
+---
+
+## 2026-04-29 — Wave 2 (commits 531be24 + d36f6f7)
+
+**Commits:** `531be24` (qwen bulk wave2) + `d36f6f7` (completions + fixes) | Branch: `beyondv33` | No build.
+
+### What changed
+- **C2:** `constants/currencies.ts` — 29-currency list (G20 + FIRE communities). `components/CurrencyPicker.tsx` — searchable modal (flag + code + name, common chips shortcut). Replaced chip rows in `create-profile.tsx`, `edit-profile.tsx`, `profile.tsx`.
+- **C3:** `WESTERN_SHORT_SCALE` (K/M/B) added to all non-INR entries in `CURRENCY_META` (calculator.ts). CHF/JPY/NZD/SEK/NOK/DKK/HKD/MYR/THB/IDR/PHP/ZAR/BRL/MXN/SAR/QAR/KWD/BHD/OMR/KRW/TWD also added to CURRENCY_META.
+- **B3:** `utils/export.ts` — SUMMARY section at top of CSV: name, age, currency, income, required SIP, FIRE corpus, NW at retirement/100, FIRE age, depletion age.
+- **B2:** CSV projection columns renamed: "Pension/Income" → "Annual Withdrawal", "Total Net Expenses" → "Corpus Withdrawal".
+- **B1:** `utils/exportPdf.ts` — HTML+SVG PDF via expo-print. Inline SVG bar chart (sampled every 5 years, dark green = FIRE achieved). Summary stat cards, assets table, 5-year projection snapshot. Shared via expo-sharing.
+- PDF button added to dashboard next to CSV; ProPaywall updated (no more "coming soon").
+- Bug fixed: `svgBarChart fmt()` had unreachable 1e9 branch — now branches on INR (Cr/L) vs other (B/M).
+- Test updated for C3 USD short-scale.
+
+### Open: Wave 3–4 in kb/Audit29April.md
+
 2026-04-20 9d23585: fix(login,onboarding): M7 safe area insets (useSafeAreaInsets replaces paddingTop:60 in login.tsx), M8 all 8 currencies exposed via chip row in create-profile+edit-profile (CURRENCIES const, income affix lookup), M9 Forgot PIN link + destructive Alert → deleteProfile + state reset in login.tsx. No build. Pushed.
 
 ---

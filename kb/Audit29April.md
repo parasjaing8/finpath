@@ -21,13 +21,13 @@ Beyond the feedback themes, the audit found a **critical category-vocabulary spl
 | A4 | Asset UX | Low | Default ROI changes when category changes, silently overwriting user input | [ ] |
 | A5 | Asset UX | Low | No swipe-to-delete, no bulk add, no clone-from-existing | [ ] |
 | A6 | Asset UX | Medium | `expected_roi` stored as 0 from UI when user accepts default — engine treats 0 ≠ null | [ ] |
-| B1 | Reporting | High | CSV is the only export format; PDF promised in paywall, never implemented | [ ] |
-| B2 | Reporting | Low | CSV exports `totalNetExpenses` — misleading column name (it's corpus withdrawal, not net expenses) | [ ] |
-| B3 | Reporting | Low | CSV has no summary section (FIRE corpus, required SIP, profile context) | [ ] |
+| B1 | Reporting | High | CSV is the only export format; PDF promised in paywall, never implemented | [x] |
+| B2 | Reporting | Low | CSV exports `totalNetExpenses` — misleading column name (it's corpus withdrawal, not net expenses) | [x] |
+| B3 | Reporting | Low | CSV has no summary section (FIRE corpus, required SIP, profile context) | [x] |
 | B4 | Reporting | Low | No share-as-image of dashboard chart | [ ] |
 | C1 | Currency | High | Profile-tab "Edit" card hardcodes INR/USD only (vs 8 elsewhere) | [x] |
-| C2 | Currency | High | No country-search dropdown; no full ISO-4217 list anywhere | [ ] |
-| C3 | Currency | Medium | `formatCurrency` short-scale (Cr/L/K) only for INR; other currencies show full numbers | [ ] |
+| C2 | Currency | High | No country-search dropdown; no full ISO-4217 list anywhere | [x] |
+| C3 | Currency | Medium | `formatCurrency` short-scale (Cr/L/K) only for INR; other currencies show full numbers | [x] |
 | C4 | Currency | Medium | Currency stored per-asset in DB but every code path normalizes to profile.currency | [ ] |
 | C5 | Currency | Critical | No FX conversion engine; secondary currency is a string field with no math | [!] |
 | D1 | ESOP/RSU | High | Asset interface has vesting fields, but UI never sets them | [ ] |
