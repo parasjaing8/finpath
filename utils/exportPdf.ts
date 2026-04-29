@@ -6,8 +6,8 @@ import { YearProjection, CalculationOutput, formatCurrencyFull, getCurrencySymbo
 
 function svgBarChart(projections: YearProjection[], currency: string): string {
   const W = 560;
-  const H = 180;
-  const PAD = { top: 10, right: 10, bottom: 30, left: 60 };
+  const H = 196;
+  const PAD = { top: 10, right: 10, bottom: 46, left: 60 };
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
 
@@ -25,7 +25,7 @@ function svgBarChart(projections: YearProjection[], currency: string): string {
 
   const xLabels = sample.map((p, i) => {
     const x = PAD.left + (i / (sample.length - 1 || 1)) * chartW;
-    return `<text x="${x}" y="${H - 4}" font-size="9" text-anchor="middle" fill="#666">${p.age}</text>`;
+    return `<text x="${x}" y="${PAD.top + chartH + 14}" font-size="9" text-anchor="middle" fill="#666">${p.age}</text>`;
   });
 
   // Y-axis: 0 and max
@@ -50,7 +50,7 @@ function svgBarChart(projections: YearProjection[], currency: string): string {
   <line x1="${PAD.left}" y1="${PAD.top + chartH}" x2="${W - PAD.right}" y2="${PAD.top + chartH}" stroke="#ddd" stroke-width="1"/>
   ${bars.join('\n  ')}
   ${xLabels.join('\n  ')}
-  <text x="${W / 2}" y="${H - 1}" font-size="8" text-anchor="middle" fill="#999">Age →   Dark green = FIRE achieved</text>
+  <text x="${W / 2}" y="${H - 4}" font-size="8" text-anchor="middle" fill="#999">Age →   Dark green = FIRE achieved</text>
 </svg>`;
 }
 
