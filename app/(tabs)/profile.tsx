@@ -16,6 +16,7 @@ import { WEB_HEADER_OFFSET, WEB_BOTTOM_OFFSET, shadow } from '@/constants/theme'
 import { formatDateMask } from '@/components/DateInput';
 import * as Crypto from 'expo-crypto';
 import { getProfilePin, saveProfilePin } from '@/db/queries';
+import { isEncryptedBackup, encryptBackup, decryptBackup } from '@/utils/backupCrypto';
 
 
 const DOB_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -71,6 +72,12 @@ export default function ProfileScreen() {
   const [pinFields, setPinFields] = useState({ current: '', next: '', confirm: '' });
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinChanging, setPinChanging] = useState(false);
+  const [showExportPassphrase, setShowExportPassphrase] = useState(false);
+  const [exportPassphrase, setExportPassphrase] = useState('');
+  const [showImportPassphrase, setShowImportPassphrase] = useState(false);
+  const [importPassphrase, setImportPassphrase] = useState('');
+  const [importPassphraseError, setImportPassphraseError] = useState('');
+  const [pendingEncryptedText, setPendingEncryptedText] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile) setForm(profile);
@@ -169,13 +176,28 @@ export default function ProfileScreen() {
     );
   }
 
-  const handleExport = useCallback(async () => {
+  const handleExport = useCallback(() => {
+    setExportPassphrase('');
+    setShowExportPassphrase(true);
+  }, []);
+
+  const doExport = useCallback(async (passphrase: string | null) => {
+    setShowExportPassphrase(false);
     const payload = exportAll();
     const json = JSON.stringify(payload, null, 2);
+    let content = json;
+    if (passphrase) {
+      try {
+        content = await encryptBackup(json, passphrase);
+      } catch (e: any) {
+        Alert.alert('Encryption failed', e?.message ?? 'Could not encrypt backup.');
+        return;
+      }
+    }
     const filename = `fire-planner-backup-${new Date().toISOString().slice(0, 10)}.json`;
     if (Platform.OS === 'web') {
       try {
-        const blob = new Blob([json], { type: 'application/json' });
+        const blob = new Blob([content], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -190,14 +212,16 @@ export default function ProfileScreen() {
     } else {
       try {
         const tmpUri = FileSystem.cacheDirectory + filename;
-        await FileSystem.writeAsStringAsync(tmpUri, json, { encoding: FileSystem.EncodingType.UTF8 });
+        await FileSystem.writeAsStringAsync(tmpUri, content, { encoding: FileSystem.EncodingType.UTF8 });
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(tmpUri, { mimeType: 'application/json', dialogTitle: 'Save Backup File' });
-          Alert.alert(
-            'Backup shared',
-            'Tip: If WhatsApp or Telegram saves the file as .bin, you can still open it directly — FinPath will recognise it. Or save to Google Drive / Files for a clean .json copy.',
-            [{ text: 'OK' }],
-          );
+          if (!passphrase) {
+            Alert.alert(
+              'Backup shared',
+              'Tip: If WhatsApp or Telegram saves the file as .bin, you can still open it directly — FinPath will recognise it. Or save to Google Drive / Files for a clean .json copy.',
+              [{ text: 'OK' }],
+            );
+          }
         } else {
           Alert.alert('Export failed', 'Sharing is not available on this device.');
         }
@@ -239,6 +263,13 @@ export default function ProfileScreen() {
   const runImport = useCallback(async (jsonText: string) => {
     if (!profile) {
       Alert.alert("Not logged in", "Log in before importing a backup.");
+      return;
+    }
+    if (isEncryptedBackup(jsonText)) {
+      setPendingEncryptedText(jsonText);
+      setImportPassphrase('');
+      setImportPassphraseError('');
+      setShowImportPassphrase(true);
       return;
     }
     const profileId = parseInt(String(profile.id), 10);
@@ -285,6 +316,21 @@ export default function ProfileScreen() {
       ],
     );
   }, [importAll, profile]);
+
+  const doDecryptAndImport = useCallback(async () => {
+    if (!pendingEncryptedText) return;
+    try {
+      const decrypted = await decryptBackup(pendingEncryptedText, importPassphrase);
+      setShowImportPassphrase(false);
+      setPendingEncryptedText(null);
+      setImportPassphrase('');
+      setImportPassphraseError('');
+      runImport(decrypted);
+    } catch {
+      setImportPassphraseError('Wrong passphrase. Try again.');
+    }
+  }, [pendingEncryptedText, importPassphrase, runImport]);
+
 
   return (
     <>
@@ -531,6 +577,56 @@ export default function ProfileScreen() {
           <PaperButton onPress={handleChangePin} textColor={colors.primary} disabled={pinChanging}>
             {pinChanging ? 'Saving…' : 'Change PIN'}
           </PaperButton>
+        </Dialog.Actions>
+      </Dialog>
+    </Portal>
+
+    <Portal>
+      <Dialog visible={showExportPassphrase} onDismiss={() => setShowExportPassphrase(false)} style={{ backgroundColor: colors.card, borderRadius: 16 }}>
+        <Dialog.Title style={{ color: colors.foreground, fontWeight: '700' }}>Protect your backup</Dialog.Title>
+        <Dialog.Content>
+          <Text style={{ color: colors.mutedForeground, marginBottom: 12, fontSize: 13 }}>
+            Set a passphrase to encrypt your backup. Leave blank to export unencrypted.
+          </Text>
+          <TextInput
+            placeholder="Passphrase (optional)"
+            placeholderTextColor={colors.mutedForeground}
+            secureTextEntry
+            value={exportPassphrase}
+            onChangeText={setExportPassphrase}
+            style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 10, color: colors.foreground, backgroundColor: colors.background }}
+          />
+        </Dialog.Content>
+        <Dialog.Actions>
+          <PaperButton onPress={() => setShowExportPassphrase(false)} textColor={colors.mutedForeground}>Cancel</PaperButton>
+          <PaperButton onPress={() => doExport(null)} textColor={colors.mutedForeground}>No encryption</PaperButton>
+          <PaperButton onPress={() => doExport(exportPassphrase || null)} textColor={colors.primary}>
+            {exportPassphrase ? 'Encrypt & Export' : 'Export'}
+          </PaperButton>
+        </Dialog.Actions>
+      </Dialog>
+    </Portal>
+
+    <Portal>
+      <Dialog visible={showImportPassphrase} onDismiss={() => { setShowImportPassphrase(false); setPendingEncryptedText(null); }} style={{ backgroundColor: colors.card, borderRadius: 16 }}>
+        <Dialog.Title style={{ color: colors.foreground, fontWeight: '700' }}>Encrypted backup</Dialog.Title>
+        <Dialog.Content>
+          <Text style={{ color: colors.mutedForeground, marginBottom: 12, fontSize: 13 }}>
+            Enter the passphrase used when this backup was exported.
+          </Text>
+          <TextInput
+            placeholder="Passphrase"
+            placeholderTextColor={colors.mutedForeground}
+            secureTextEntry
+            value={importPassphrase}
+            onChangeText={t => { setImportPassphrase(t); setImportPassphraseError(''); }}
+            style={{ borderWidth: 1, borderColor: importPassphraseError ? '#c00' : colors.border, borderRadius: 8, padding: 10, color: colors.foreground, backgroundColor: colors.background }}
+          />
+          {importPassphraseError ? <Text style={{ color: '#c00', fontSize: 12, marginTop: 4 }}>{importPassphraseError}</Text> : null}
+        </Dialog.Content>
+        <Dialog.Actions>
+          <PaperButton onPress={() => { setShowImportPassphrase(false); setPendingEncryptedText(null); }} textColor={colors.mutedForeground}>Cancel</PaperButton>
+          <PaperButton onPress={doDecryptAndImport} textColor={colors.primary} disabled={!importPassphrase}>Unlock</PaperButton>
         </Dialog.Actions>
       </Dialog>
     </Portal>

@@ -18,6 +18,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
 import { getProfilePin } from '../db/queries';
+import { isEncryptedBackup, decryptBackup } from '../utils/backupCrypto';
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -41,6 +42,9 @@ const theme = {
 function LinkingHandler() {
   const { profile, importAll } = useApp();
   const [pendingPayload, setPendingPayload] = useState<ExportPayload | null>(null);
+  const [pendingEncryptedText, setPendingEncryptedText] = useState<string | null>(null);
+  const [backupPassphrase, setBackupPassphrase] = useState('');
+  const [backupPassphraseError, setBackupPassphraseError] = useState('');
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -102,11 +106,35 @@ function LinkingHandler() {
     const readUri = toReadableUri(url);
     try {
       const text = await FileSystem.readAsStringAsync(readUri);
+      if (isEncryptedBackup(text)) {
+        setPendingEncryptedText(text);
+        setBackupPassphrase('');
+        setBackupPassphraseError('');
+        return;
+      }
       const parsed: ExportPayload = JSON.parse(text);
       if (!parsed?.profile || typeof parsed.version !== 'number') return;
       setPendingPayload(parsed);
     } catch {
       // not a valid backup — ignore silently
+    }
+  }
+
+  async function decryptAndSetPayload() {
+    if (!pendingEncryptedText) return;
+    try {
+      const decrypted = await decryptBackup(pendingEncryptedText, backupPassphrase);
+      const parsed: ExportPayload = JSON.parse(decrypted);
+      if (!parsed?.profile || typeof parsed.version !== 'number') {
+        setBackupPassphraseError('Decrypted file is not a valid backup.');
+        return;
+      }
+      setPendingEncryptedText(null);
+      setBackupPassphrase('');
+      setBackupPassphraseError('');
+      setPendingPayload(parsed);
+    } catch {
+      setBackupPassphraseError('Wrong passphrase. Try again.');
     }
   }
 
@@ -168,48 +196,74 @@ function LinkingHandler() {
     doImport(pendingPayload);
   }
 
-  if (!pendingPayload || !profile) return null;
+  if (!profile) return null;
 
   return (
-    <Modal visible animationType="slide" transparent onRequestClose={dismiss}>
-      <View style={ls.overlay}>
-        <View style={ls.sheet}>
-          <Text style={ls.title}>Restore Backup?</Text>
-          <Text style={ls.subtitle}>
-            Backup for <Text style={ls.bold}>{pendingPayload.profile?.name ?? 'unknown'}</Text> detected.{'\n'}
-            This will replace your current profile, assets, expenses, and goals.
-          </Text>
-
-          <TextInput
-            style={ls.pinInput}
-            placeholder="6-digit PIN"
-            placeholderTextColor="#999"
-            value={pinInput}
-            onChangeText={t => { setPinInput(t.replace(/\D/g, '').slice(0, 6)); setPinError(''); }}
-            keyboardType="number-pad"
-            secureTextEntry
-            maxLength={6}
-          />
-          {!!pinError && <Text style={ls.error}>{pinError}</Text>}
-
-          <TouchableOpacity style={ls.confirmBtn} onPress={confirmWithPin} disabled={loading}>
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={ls.confirmBtnText}>Confirm with PIN</Text>}
-          </TouchableOpacity>
-
-          {biometricAvailable && (
-            <TouchableOpacity style={ls.bioBtn} onPress={confirmWithBiometric} disabled={loading}>
-              <Text style={ls.bioBtnText}>Use Fingerprint</Text>
+    <>
+      <Modal visible={!!(pendingEncryptedText && !pendingPayload)} animationType="slide" transparent onRequestClose={() => { setPendingEncryptedText(null); setBackupPassphrase(''); setBackupPassphraseError(''); }}>
+        <View style={ls.overlay}>
+          <View style={ls.sheet}>
+            <Text style={ls.title}>Encrypted Backup</Text>
+            <Text style={ls.subtitle}>Enter the passphrase used when this backup was exported.</Text>
+            <TextInput
+              style={[ls.pinInput, backupPassphraseError ? { borderColor: '#C62828' } : null]}
+              placeholder="Passphrase"
+              placeholderTextColor="#999"
+              value={backupPassphrase}
+              onChangeText={t => { setBackupPassphrase(t); setBackupPassphraseError(''); }}
+              secureTextEntry
+            />
+            {!!backupPassphraseError && <Text style={ls.error}>{backupPassphraseError}</Text>}
+            <TouchableOpacity style={[ls.confirmBtn, !backupPassphrase ? { opacity: 0.5 } : null]} onPress={decryptAndSetPayload} disabled={!backupPassphrase}>
+              <Text style={ls.confirmBtnText}>Unlock</Text>
             </TouchableOpacity>
-          )}
-
-          <TouchableOpacity style={ls.cancelBtn} onPress={dismiss} disabled={loading}>
-            <Text style={ls.cancelBtnText}>Cancel</Text>
-          </TouchableOpacity>
+            <TouchableOpacity style={ls.cancelBtn} onPress={() => { setPendingEncryptedText(null); setBackupPassphrase(''); setBackupPassphraseError(''); }}>
+              <Text style={ls.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      <Modal visible={!!(pendingPayload)} animationType="slide" transparent onRequestClose={dismiss}>
+        <View style={ls.overlay}>
+          <View style={ls.sheet}>
+            <Text style={ls.title}>Restore Backup?</Text>
+            <Text style={ls.subtitle}>
+              Backup for <Text style={ls.bold}>{pendingPayload?.profile?.name ?? 'unknown'}</Text> detected.{'\n'}
+              This will replace your current profile, assets, expenses, and goals.
+            </Text>
+
+            <TextInput
+              style={ls.pinInput}
+              placeholder="6-digit PIN"
+              placeholderTextColor="#999"
+              value={pinInput}
+              onChangeText={t => { setPinInput(t.replace(/\D/g, '').slice(0, 6)); setPinError(''); }}
+              keyboardType="number-pad"
+              secureTextEntry
+              maxLength={6}
+            />
+            {!!pinError && <Text style={ls.error}>{pinError}</Text>}
+
+            <TouchableOpacity style={ls.confirmBtn} onPress={confirmWithPin} disabled={loading}>
+              {loading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={ls.confirmBtnText}>Confirm with PIN</Text>}
+            </TouchableOpacity>
+
+            {biometricAvailable && (
+              <TouchableOpacity style={ls.bioBtn} onPress={confirmWithBiometric} disabled={loading}>
+                <Text style={ls.bioBtnText}>Use Fingerprint</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity style={ls.cancelBtn} onPress={dismiss} disabled={loading}>
+              <Text style={ls.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
