@@ -100,20 +100,25 @@ export default function AssetsScreen() {
   }
 
   async function handleSave() {
-    const value = parseFloat(form.current_value);
-    const roi = parseFloat(form.expected_roi);
-    if (!form.name.trim() || isNaN(value) || value <= 0) {
-      Alert.alert('Validation', 'Please enter a valid name and value.');
+    const value = parseFloat(form.current_value.replace(/,/g, ''));
+    const roi = parseFloat(form.expected_roi.replace(/,/g, ''));
+    const MAX_VAL = 1e12;
+    if (!form.name.trim() || isNaN(value) || !isFinite(value) || value <= 0 || value > MAX_VAL) {
+      Alert.alert('Validation', value > MAX_VAL ? 'Value too large (max ₹1 trillion).' : 'Please enter a valid name and value.');
       return;
     }
     const isEsop = form.category === 'ESOP_RSU';
-    const recurringAmt = parseFloat(form.recurring_amount);
+    const recurringAmt = parseFloat(form.recurring_amount.replace(/,/g, ''));
+    if (isEsop && form.is_recurring && (!isNaN(recurringAmt)) && (recurringAmt > MAX_VAL || !isFinite(recurringAmt))) {
+      Alert.alert('Validation', 'Vesting amount too large.');
+      return;
+    }
     const asset: Asset = {
       id: editId ?? '',
       name: form.name.trim(),
       category: form.category,
       current_value: value,
-      expected_roi: isNaN(roi) ? 8 : roi,
+      expected_roi: isNaN(roi) || !isFinite(roi) ? 8 : Math.min(roi, 200),
       is_self_use: form.is_self_use,
       is_recurring: isEsop ? form.is_recurring : false,
       recurring_amount: isEsop && form.is_recurring && !isNaN(recurringAmt) ? recurringAmt : null,

@@ -103,10 +103,11 @@ export default function ExpensesScreen() {
   }
 
   async function handleSave() {
-    const amount = parseFloat(form.amount);
-    const inflation = parseFloat(form.inflation_rate);
-    if (!form.name.trim() || isNaN(amount) || amount <= 0) {
-      Alert.alert('Validation', 'Please enter a valid name and amount.');
+    const amount = parseFloat(form.amount.replace(/,/g, ''));
+    const inflation = parseFloat(form.inflation_rate.replace(/,/g, ''));
+    const MAX_VAL = 1e12;
+    if (!form.name.trim() || isNaN(amount) || !isFinite(amount) || amount <= 0 || amount > MAX_VAL) {
+      Alert.alert('Validation', amount > MAX_VAL ? 'Amount too large (max ₹1 trillion).' : 'Please enter a valid name and amount.');
       return;
     }
     const exp: Expense = {
@@ -116,7 +117,7 @@ export default function ExpensesScreen() {
       expense_type: form.expense_type as any,
       amount,
       frequency: form.frequency,
-      inflation_rate: isNaN(inflation) ? 6 : inflation,
+      inflation_rate: isNaN(inflation) || !isFinite(inflation) ? 6 : Math.min(inflation, 100),
       start_date: form.start_date || undefined,
       end_date: form.end_date || undefined,
     };
