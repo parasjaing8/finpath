@@ -193,6 +193,11 @@ export default function ProfileScreen() {
         await FileSystem.writeAsStringAsync(tmpUri, json, { encoding: FileSystem.EncodingType.UTF8 });
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(tmpUri, { mimeType: 'application/json', dialogTitle: 'Save Backup File' });
+          Alert.alert(
+            'Backup shared',
+            'Tip: If WhatsApp or Telegram saves the file as .bin, you can still open it directly — FinPath will recognise it. Or save to Google Drive / Files for a clean .json copy.',
+            [{ text: 'OK' }],
+          );
         } else {
           Alert.alert('Export failed', 'Sharing is not available on this device.');
         }

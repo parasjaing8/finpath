@@ -34,6 +34,16 @@
           "action": "VIEW",
           "data": [{ "scheme": "file", "mimeType": "application/json" }],
           "category": ["DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "data": [{ "scheme": "content", "mimeType": "application/octet-stream" }],
+          "category": ["DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "data": [{ "scheme": "file", "mimeType": "application/octet-stream" }],
+          "category": ["DEFAULT"]
         }
       ]
     },
