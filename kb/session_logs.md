@@ -2,6 +2,19 @@
 
 ---
 
+## 2026-04-30 — PDF premium report + finance quotes (commit ad7f624)
+
+**Commit:** `ad7f624` | Branch: `beyondv33` | APK: versionCode 40, versionName 1.0.1
+
+**Changes:**
+- `utils/exportPdf.ts` (full rewrite): Financial Health Score (0-100 gauge SVG), executive summary (3 algorithmic bullets), asset allocation horizontal stacked bar, pre-retirement line chart with FIRE milestone diamonds, post-retirement drawdown curve, 3×3 sensitivity table (inflation × return scenarios), action items list (up to 5), improved stat grid, disclaimer footer. `exportToPDF` signature extended with `goals`, `sipAmount`, rates, `fxRates`.
+- `constants/quotes.ts` (new): 35 curated quotes from finance books tagged with trigger conditions (`corpusDepletes`, `earlyFire`, `highSipBurden`, `onTrack`, `justStarting`, `halfwayThere`, `compounding`, `discipline`, `inflation`, `riskReturn`, `general`). `getContextualQuote()` picks a daily context-matched quote deterministically by day index.
+- `app/(tabs)/dashboard.tsx`: Pro-gated quote card below InsightCards — green left border, italic quote text, author name, book title. `exportToPDF` call updated with new params.
+
+**All features gated behind `isPro`.**
+
+---
+
 ## 2026-04-29 — Wave 4 (commit 5ee6e93)
 
 **Commit:** `5ee6e93` | Branch: `beyondv33` | No build produced.
@@ -1515,3 +1528,24 @@ Layout now: KAV (flex:1, justifyContent:flex-end) → sheet (flex:1, maxHeight:8
 - Logs/status now point to `~/dev/apps/finpath/kb/` instead of Windows Dropbox paths
 - CLAUDE.md is gitignored — no commit; copied to Mac via scp
 - Transfer folder created at `~/dev/apps/finpath/transfer/` with all Windows context MDs
+
+## 2026-04-29 c3c3705
+fix(pdf): age labels and legend overlapped in net worth SVG chart. Increased H to 196, PAD.bottom to 46, moved age labels to axis+14px, legend to H-4px. chartH unchanged (140) so bars unaffected.
+
+## 2026-04-30 — Keystore fix for Play Console upload
+- Problem: AAB signed with wrong key (SHA1 9B:13:3E...) — Play Console rejected, expects FC:E2:6E...
+- Root cause: `finpath-release.jks` inside `C:/dropbox/finpath/` is a different/newer key — wrong one
+- Correct keystore: `C:/dropbox/finpath-release.jks` (Dropbox ROOT), password Paras@iisc18, alias finpath
+- Copied correct keystore to ~/dev/apps/finpath/finpath-release.jks (replaced wrong one)
+- Created ~/dev/apps/finpath/android/keystore.properties with storeFile=../../finpath-release.jks
+- Both .jks and keystore.properties are gitignored — safe
+- No code commit needed (keystore is gitignored)
+
+## 2026-04-30 — AAB v38 built with correct signing key
+- Built bundleRelease via Gradle (10s, 93 tasks executed)
+- Signed with correct keystore: SHA1 FC:E2:6E:11:A2:67:DD:BF:BB:AE:05:D4:F5:88:A6:E9:D4:F5:9B:63
+- versionCode 38, versionName 1.0.1
+- Copied to C:/dropbox/finpath/app-release-v38.aab
+
+## 2026-04-30 (build)
+AAB versionCode 38 rebuilt with correct release key (FC:E2:6E...). keystore.properties was missing — build had fallen back to debug key. Created android/keystore.properties pointing to finpath-release.jks (alias: finpath). AAB at FinPath-v1.0.1-r38.aab (111MB).
