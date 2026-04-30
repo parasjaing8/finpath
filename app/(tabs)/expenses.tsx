@@ -110,6 +110,10 @@ export default function ExpensesScreen() {
       Alert.alert('Validation', amount > MAX_VAL ? 'Amount too large (max ₹1 trillion).' : 'Please enter a valid name and amount.');
       return;
     }
+    if (form.expense_type === 'FUTURE_RECURRING' && form.start_date && form.end_date && form.start_date >= form.end_date) {
+      Alert.alert('Validation', 'Start date must be before end date.');
+      return;
+    }
     const exp: Expense = {
       id: editId ?? '',
       name: form.name.trim(),
