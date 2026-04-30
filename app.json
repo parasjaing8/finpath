@@ -21,7 +21,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "versionCode": 40,
+      "versionCode": 41,
       "package": "com.aihomecloud.finpath",
       "privacyPolicyUrl": "https://parasjaing8.github.io/finpath/privacy-policy.html",
       "intentFilters": [
