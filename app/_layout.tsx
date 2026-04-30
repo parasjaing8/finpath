@@ -79,13 +79,29 @@ function LinkingHandler() {
   }, [profile]);
 
   function isJsonUri(url: string): boolean {
-    return url.startsWith('content://') || url.startsWith('file://');
+    if (url.startsWith('content://') || url.startsWith('file://')) return true;
+    // Expo Router converts incoming content:// intents to finpath:// scheme.
+    // Detect by checking if the host segment looks like a content provider (contains dots).
+    if (url.startsWith('finpath://')) {
+      const host = url.slice('finpath://'.length).split('/')[0];
+      return host.includes('.');
+    }
+    return false;
+  }
+
+  function toReadableUri(url: string): string {
+    // Convert finpath://com.foo.provider/... back to content://com.foo.provider/...
+    if (url.startsWith('finpath://')) {
+      return 'content://' + url.slice('finpath://'.length);
+    }
+    return url;
   }
 
   async function tryReadUri(url: string) {
     if (!isJsonUri(url)) return;
+    const readUri = toReadableUri(url);
     try {
-      const text = await FileSystem.readAsStringAsync(url);
+      const text = await FileSystem.readAsStringAsync(readUri);
       const parsed: ExportPayload = JSON.parse(text);
       if (!parsed?.profile || typeof parsed.version !== 'number') return;
       setPendingPayload(parsed);
