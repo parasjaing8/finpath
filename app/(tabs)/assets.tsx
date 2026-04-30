@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/context/AppContext';
@@ -60,6 +61,7 @@ const EMPTY_FORM: AssetForm = {
 export default function AssetsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const { assets, addAsset, deleteAsset, updateAsset, profile } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -226,7 +228,7 @@ export default function AssetsScreen() {
       </TouchableOpacity>
 
       {/* Add/Edit Bottom Sheet */}
-      <BottomSheet visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.card}>
+      <BottomSheet visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.card} bottomInset={tabBarHeight}>
         <View style={styles.sheetHeader}>
           <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{editId ? 'Edit Asset' : 'Add Asset'}</Text>
           <TouchableOpacity

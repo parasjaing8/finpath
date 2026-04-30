@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/context/AppContext';
@@ -55,6 +56,7 @@ const EMPTY_FORM: ExpenseForm = {
 export default function ExpensesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const { expenses, addExpense, deleteExpense, updateExpense, profile, assets } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -238,7 +240,7 @@ export default function ExpensesScreen() {
         <Feather name="plus" size={24} color="#fff" />
       </TouchableOpacity>
 
-      <BottomSheet visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.card}>
+      <BottomSheet visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.card} bottomInset={tabBarHeight}>
         <View style={styles.sheetHeader}>
           <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{editId ? 'Edit Expense' : 'Add Expense'}</Text>
           <TouchableOpacity

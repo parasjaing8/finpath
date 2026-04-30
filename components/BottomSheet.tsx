@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, StyleSheet, ScrollView, TouchableOpacity,
+  View, StyleSheet, TouchableOpacity,
   Keyboard, PanResponder, Animated, Dimensions, BackHandler,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -10,10 +11,11 @@ interface BottomSheetProps {
   visible: boolean;
   onClose: () => void;
   backgroundColor?: string;
+  bottomInset?: number;
   children: React.ReactNode;
 }
 
-export function BottomSheet({ visible, onClose, backgroundColor = '#fff', children }: BottomSheetProps) {
+export function BottomSheet({ visible, onClose, backgroundColor = '#fff', bottomInset = 0, children }: BottomSheetProps) {
   const [mounted, setMounted] = useState(false);
   const offsetY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -51,7 +53,6 @@ export function BottomSheet({ visible, onClose, backgroundColor = '#fff', childr
     }
   }, [visible]);
 
-  // Hardware back button dismisses the sheet
   useEffect(() => {
     if (!mounted) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -97,18 +98,19 @@ export function BottomSheet({ visible, onClose, backgroundColor = '#fff', childr
         <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
       </Animated.View>
 
-      <Animated.View style={[styles.sheet, { backgroundColor, transform: [{ translateY: offsetY }] }]}>
+      <Animated.View style={[styles.sheet, { backgroundColor, bottom: bottomInset, transform: [{ translateY: offsetY }] }]}>
         <View {...panResponder.panHandlers} style={styles.handleArea}>
           <View style={styles.handle} />
         </View>
-        <ScrollView
+        <KeyboardAwareScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           bounces={false}
           contentContainerStyle={styles.scrollContent}
+          bottomOffset={16}
         >
           {children}
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </Animated.View>
     </>
   );
@@ -121,7 +123,6 @@ const styles = StyleSheet.create({
   },
   sheet: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
     maxHeight: '92%',
