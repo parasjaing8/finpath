@@ -17,6 +17,7 @@ import { SnapshotTiles } from '../../components/SnapshotTiles';
 import { InsightCard } from '../../components/InsightCard';
 import { SIPControls } from '../../components/SIPControls';
 import { ProjectionTable } from '../../components/ProjectionTable';
+import { getContextualQuote } from '../../constants/quotes';
 
 export default function DashboardScreen() {
   const { profile: currentProfile, assets, expenses, goals, isLoaded } = useApp();
@@ -336,6 +337,23 @@ export default function DashboardScreen() {
         />
       )}
 
+      {/* Finance wisdom — Pro only, context-matched daily quote */}
+      {isPro && goals && (() => {
+        const q = getContextualQuote(result, currentProfile, goals, currentProfile.id as number);
+        return (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setShowPaywall(false)}
+            style={styles.quoteCard}
+          >
+            <Text style={styles.quoteIcon}>"</Text>
+            <Text style={styles.quoteText}>{q.text}</Text>
+            <Text style={styles.quoteAttrib}>— {q.author}</Text>
+            <Text style={styles.quoteBook}>{q.book}</Text>
+          </TouchableOpacity>
+        );
+      })()}
+
       <SIPControls
         sipAmountDisplay={sipAmountDisplay}
         sipReturnRateDisplay={sipReturnRateDisplay}
@@ -387,7 +405,7 @@ export default function DashboardScreen() {
             <Button mode="text" icon="file-pdf-box" compact
               onPress={() => {
                 if (!isPro) { setShowPaywall(true); return; }
-                if (result) exportToPDF(currentProfile, assets, expenses, projections, result);
+                if (result) exportToPDF(currentProfile, assets, expenses, projections, result, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpEnabled ? stepUpRate : 0, fxRates);
               }}>
               {isPro ? 'PDF' : '👑 PDF'}
             </Button>
@@ -523,4 +541,17 @@ const styles = StyleSheet.create({
   chartSubtitle: { color: '#6B7A6B', marginBottom: 12, marginTop: 2 },
   tableCard: { marginBottom: 16, borderRadius: 12 },
   tableHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  quoteCard: {
+    backgroundColor: '#F9FBE7',
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#558B2F',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 16,
+  },
+  quoteIcon: { fontSize: 32, color: '#AED581', lineHeight: 32, marginBottom: 2 },
+  quoteText: { fontSize: 13, color: '#33691E', lineHeight: 20, fontStyle: 'italic', marginBottom: 8 },
+  quoteAttrib: { fontSize: 12, color: '#558B2F', fontWeight: '600' },
+  quoteBook: { fontSize: 11, color: '#7CB342', marginTop: 2 },
 });
