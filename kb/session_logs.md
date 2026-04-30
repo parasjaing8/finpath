@@ -2,6 +2,20 @@
 
 ---
 
+## 2026-04-30 — BottomSheet tab bar + keyboard fixes (commit 1543c64)
+
+**Commit:** `1543c64` | Branch: `beyondv33` | APK: versionCode 40 (rebuilt)
+
+**Changes:**
+- `components/BottomSheet.tsx`: Added `bottomInset` prop; sheet `bottom` is now `bottomInset` instead of 0, placing it above the tab bar. Replaced `ScrollView` with `KeyboardAwareScrollView` from `react-native-keyboard-controller` (`bottomOffset=16`) — auto-scrolls to focused input as keyboard opens.
+- `app/(tabs)/assets.tsx` + `expenses.tsx`: Import `useBottomTabBarHeight` from `@react-navigation/bottom-tabs`, pass `tabBarHeight` as `bottomInset` to BottomSheet.
+
+**Root causes fixed:**
+1. Tab bar uses absolute positioning over screen content — `bottom: 0` went behind it. Fix: lift by exact tab bar height.
+2. Plain ScrollView doesn't scroll to focused TextInput — keyboard covered lower fields. Fix: KeyboardAwareScrollView handles this natively.
+
+---
+
 ## 2026-04-30 — PDF premium report + finance quotes (commit ad7f624)
 
 **Commit:** `ad7f624` | Branch: `beyondv33` | APK: versionCode 40, versionName 1.0.1
