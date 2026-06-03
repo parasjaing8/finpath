@@ -59,6 +59,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Profile',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="account-circle-outline" size={size} color={color} />,
           tabBarAccessibilityLabel: 'Profile tab',
         }}
