@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
-import { formatCurrencyFull, formatCurrency } from '../engine/calculator';
+import { formatCurrencyFull } from '../engine/calculator';
 
 interface Props {
   sipAmountDisplay: number;
@@ -13,8 +13,6 @@ interface Props {
   fireAchievedAge: number;
   isOnTrack: boolean;
   planStatus: { title: string; subtitle: string; color: string };
-  netWorthAtRetirement: number;
-  safetyMargin: number | null;
   onDepletionPress: () => void;
 }
 
@@ -27,8 +25,6 @@ export function HeroCard({
   fireAchievedAge,
   isOnTrack,
   planStatus,
-  netWorthAtRetirement,
-  safetyMargin,
   onDepletionPress,
 }: Props) {
   const sipRatio = requiredMonthlySIP > 0 ? sipAmountDisplay / requiredMonthlySIP : 1;
@@ -42,37 +38,14 @@ export function HeroCard({
 
   return (
     <LinearGradient colors={heroColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroCard}>
-
-      {/* Primary: FIRE statement */}
-      <Text style={styles.heroStatement}>{planStatus.title}</Text>
+      <Text style={styles.heroLabel}>YOUR MONTHLY SIP</Text>
+      {requiredMonthlySIP > 0 ? (
+        <Text style={styles.heroAmount}>{formatCurrencyFull(sipAmountDisplay, currency)}</Text>
+      ) : (
+        <Text style={styles.heroAmount}>No SIP needed</Text>
+      )}
+      <Text style={styles.heroStatusTitle}>{planStatus.title}</Text>
       <Text style={styles.heroSubtitle}>{planStatus.subtitle}</Text>
-
-      {/* Big number: projected corpus */}
-      {netWorthAtRetirement > 0 && (
-        <View style={styles.corpusRow}>
-          <View style={styles.corpusBlock}>
-            <Text style={styles.corpusLabel}>PROJECTED CORPUS</Text>
-            <Text style={styles.corpusAmount}>{formatCurrencyFull(netWorthAtRetirement, currency)}</Text>
-          </View>
-          {safetyMargin !== null && (
-            <View style={[styles.safetyBadge, { backgroundColor: safetyMargin >= 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,80,80,0.3)' }]}>
-              <Text style={styles.safetyBadgeText}>
-                {safetyMargin >= 0 ? '+' : ''}{Math.round(safetyMargin)}%
-              </Text>
-              <Text style={styles.safetyBadgeLabel}>margin</Text>
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* Secondary: monthly SIP */}
-      {requiredMonthlySIP > 0 && (
-        <Text style={styles.sipLine}>
-          Monthly SIP · {formatCurrency(sipAmountDisplay, currency)}
-        </Text>
-      )}
-
-      {/* Status pills */}
       <View style={styles.heroPillRow}>
         <View style={[styles.heroPill, styles.heroPillStatus]}>
           <Text style={[styles.heroPillText, { color: isOnTrack ? '#1B5E20' : '#C62828' }]}>
@@ -102,21 +75,10 @@ export function HeroCard({
 
 const styles = StyleSheet.create({
   heroCard: { borderRadius: 16, padding: 20, marginBottom: 12, overflow: 'hidden' },
-
-  heroStatement: { fontSize: 20, fontWeight: '800', color: '#fff', marginBottom: 2 },
-  heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 16 },
-
-  corpusRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 12 },
-  corpusBlock: { flex: 1 },
-  corpusLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.4, color: 'rgba(255,255,255,0.65)', marginBottom: 3 },
-  corpusAmount: { fontSize: 30, fontWeight: '800', color: '#fff' },
-
-  safetyBadge: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center', marginLeft: 12 },
-  safetyBadgeText: { fontSize: 18, fontWeight: '800', color: '#fff' },
-  safetyBadgeLabel: { fontSize: 9, color: 'rgba(255,255,255,0.75)', fontWeight: '600', letterSpacing: 0.5 },
-
-  sipLine: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginBottom: 14 },
-
+  heroLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: 'rgba(255,255,255,0.7)', marginBottom: 4 },
+  heroAmount: { fontSize: 36, fontWeight: '800', color: '#fff', marginBottom: 4 },
+  heroStatusTitle: { fontSize: 15, fontWeight: '800', color: '#fff', marginBottom: 2 },
+  heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 14 },
   heroPillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   heroPill: { backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   heroPillStatus: { backgroundColor: '#fff', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.5)' },

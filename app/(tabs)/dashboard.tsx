@@ -332,8 +332,6 @@ export default function DashboardScreen() {
         fireAchievedAge={result.fireAchievedAge}
         isOnTrack={result.isOnTrack}
         planStatus={planStatus}
-        netWorthAtRetirement={result.netWorthAtRetirement}
-        safetyMargin={safetyMargin}
         onDepletionPress={() => setShowDepletionInfo(true)}
       />
 
