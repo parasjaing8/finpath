@@ -48,6 +48,17 @@ export function CustomSlider({
   onValueChangeRef.current = onValueChange;
   onSlidingCompleteRef.current = onSlidingComplete;
 
+  // Throttle onValueChange to ~60fps to avoid triggering heavy re-renders on
+  // every touch frame. onSlidingComplete is NOT throttled.
+  const lastValueChangeTime = useRef(0);
+  function fireValueChange(clamped: number) {
+    const now = Date.now();
+    if (now - lastValueChangeTime.current >= 16) {
+      lastValueChangeTime.current = now;
+      onValueChangeRef.current?.(clamped);
+    }
+  }
+
   const clamp = useCallback((v: number) => {
     const min = minRef.current;
     const max = maxRef.current;
@@ -75,7 +86,7 @@ export function CustomSlider({
       const r = locationX / w;
       const raw = minRef.current + r * (maxRef.current - minRef.current);
       const clamped = clamp(raw);
-      onValueChangeRef.current?.(clamped);
+      fireValueChange(clamped);
     },
     onPanResponderMove: (evt) => {
       const { locationX } = evt.nativeEvent;
@@ -84,7 +95,7 @@ export function CustomSlider({
       const r = locationX / w;
       const raw = minRef.current + r * (maxRef.current - minRef.current);
       const clamped = clamp(raw);
-      onValueChangeRef.current?.(clamped);
+      fireValueChange(clamped);
     },
     onPanResponderRelease: (evt) => {
       const { locationX } = evt.nativeEvent;

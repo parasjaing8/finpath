@@ -33,6 +33,10 @@ export default function GoalsScreen() {
   const webTop = Platform.OS === 'web' ? WEB_HEADER_OFFSET : 0;
   const webBottom = Platform.OS === 'web' ? WEB_BOTTOM_OFFSET : 0;
 
+  // Lightweight display state updated on every drag frame; form only updates
+  // on onSlidingComplete to avoid re-rendering the full screen mid-drag.
+  const [sliderDisplay, setSliderDisplay] = useState<Partial<Goals>>({});
+
   const [form, setForm] = useState<Goals>({
     retirement_age: 50,
     sip_stop_age: 50,
@@ -78,14 +82,15 @@ export default function GoalsScreen() {
 
         <View style={styles.sliderRow}>
           <Text style={[styles.sliderLabel, { color: colors.mutedForeground }]}>Retire at</Text>
-          <Text style={[styles.sliderValue, { color: colors.primary }]}>{form.retirement_age}</Text>
+          <Text style={[styles.sliderValue, { color: colors.primary }]}>{sliderDisplay.retirement_age ?? form.retirement_age}</Text>
         </View>
         <Slider
-          value={form.retirement_age}
-          onValueChange={v => setForm(f => ({ ...f, retirement_age: Math.round(v) }))}
+          value={sliderDisplay.retirement_age ?? form.retirement_age}
+          onValueChange={v => setSliderDisplay(d => ({ ...d, retirement_age: Math.round(v) }))}
           onSlidingComplete={v => {
             const retAge = Math.round(v);
-            setForm(f => ({ ...f, retirement_age: retAge, sip_stop_age: retAge }));
+            setSliderDisplay(d => ({ ...d, retirement_age: retAge, sip_stop_age: retAge }));
+            setForm(f => ({ ...f, retirement_age: retAge, sip_stop_age: Math.min(f.sip_stop_age, retAge) }));
           }}
           minimumValue={retireMin}
           maximumValue={70}
@@ -104,13 +109,18 @@ export default function GoalsScreen() {
 
         <View style={[styles.sliderRow, { marginTop: 12 }]}>
           <Text style={[styles.sliderLabel, { color: colors.mutedForeground }]}>Stop SIP at</Text>
-          <Text style={[styles.sliderValue, { color: colors.primary }]}>{form.sip_stop_age}</Text>
+          <Text style={[styles.sliderValue, { color: colors.primary }]}>{sliderDisplay.sip_stop_age ?? form.sip_stop_age}</Text>
         </View>
         <Slider
-          value={form.sip_stop_age}
-          onValueChange={v => setForm(f => ({ ...f, sip_stop_age: Math.min(Math.round(v), f.retirement_age) }))}
+          value={sliderDisplay.sip_stop_age ?? form.sip_stop_age}
+          onValueChange={v => setSliderDisplay(d => ({ ...d, sip_stop_age: Math.min(Math.round(v), sliderDisplay.retirement_age ?? form.retirement_age) }))}
+          onSlidingComplete={v => {
+            const sipAge = Math.min(Math.round(v), form.retirement_age);
+            setSliderDisplay(d => ({ ...d, sip_stop_age: sipAge }));
+            setForm(f => ({ ...f, sip_stop_age: sipAge }));
+          }}
           minimumValue={retireMin}
-          maximumValue={form.retirement_age}
+          maximumValue={sliderDisplay.retirement_age ?? form.retirement_age}
           step={1}
           minimumTrackTintColor={colors.primary}
           thumbTintColor={colors.primary}
@@ -139,11 +149,16 @@ export default function GoalsScreen() {
 
         <View style={[styles.sliderRow, { marginTop: 16 }]}>
           <Text style={[styles.sliderLabel, { color: colors.mutedForeground }]}>Inflation Rate</Text>
-          <Text style={[styles.sliderValue, { color: colors.warning }]}>{form.inflation_rate ?? 6}%</Text>
+          <Text style={[styles.sliderValue, { color: colors.warning }]}>{sliderDisplay.inflation_rate ?? form.inflation_rate ?? 6}%</Text>
         </View>
         <Slider
-          value={form.inflation_rate ?? 6}
-          onValueChange={v => setForm(f => ({ ...f, inflation_rate: parseFloat(v.toFixed(1)) }))}
+          value={sliderDisplay.inflation_rate ?? form.inflation_rate ?? 6}
+          onValueChange={v => setSliderDisplay(d => ({ ...d, inflation_rate: parseFloat(v.toFixed(1)) }))}
+          onSlidingComplete={v => {
+            const rate = parseFloat(v.toFixed(1));
+            setSliderDisplay(d => ({ ...d, inflation_rate: rate }));
+            setForm(f => ({ ...f, inflation_rate: rate }));
+          }}
           minimumValue={3}
           maximumValue={10}
           step={0.5}
@@ -178,14 +193,16 @@ export default function GoalsScreen() {
 
         <View style={[styles.sliderRow, { marginTop: 16 }]}>
           <Text style={[styles.sliderLabel, { color: colors.mutedForeground }]}>Survive to age</Text>
-          <Text style={[styles.sliderValue, { color: colors.purple }]}>{form.fire_target_age ?? 100}</Text>
+          <Text style={[styles.sliderValue, { color: colors.purple }]}>{sliderDisplay.fire_target_age ?? form.fire_target_age ?? 100}</Text>
         </View>
         <Slider
-          value={form.fire_target_age ?? 100}
-          onValueChange={v => {
+          value={sliderDisplay.fire_target_age ?? form.fire_target_age ?? 100}
+          onValueChange={v => setSliderDisplay(d => ({ ...d, fire_target_age: Math.round(v) }))}
+          onSlidingComplete={v => {
             const rounded = Math.round(v);
             const preset = PRESET_AGE[form.fire_type ?? ''];
             const switchToCustom = preset !== undefined && preset !== rounded;
+            setSliderDisplay(d => ({ ...d, fire_target_age: rounded }));
             setForm(f => ({ ...f, fire_target_age: rounded, ...(switchToCustom ? { fire_type: 'custom' } : {}) }));
           }}
           minimumValue={80}
