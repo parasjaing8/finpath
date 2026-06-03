@@ -281,13 +281,8 @@ export default function ProfileScreen() {
 
         <View style={styles.heroBody}>
           {/* Avatar */}
-          <View style={styles.avatarWrap}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarLetter}>{initial}</Text>
-            </View>
-            <TouchableOpacity style={styles.avatarEditFab} onPress={() => setEditMode(true)} accessibilityRole="button" accessibilityLabel="Edit profile">
-              <Feather name="edit-2" size={12} color={BRAND} />
-            </TouchableOpacity>
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarLetter}>{initial}</Text>
           </View>
 
           {/* Name + Age */}
@@ -571,10 +566,8 @@ const styles = StyleSheet.create({
   heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   heroTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
   heroBody: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
-  avatarWrap: { position: 'relative' },
   avatarCircle: { width: 88, height: 88, borderRadius: 44, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center', borderWidth: 2.5, borderColor: 'rgba(255,255,255,0.5)' },
   avatarLetter: { fontSize: 38, fontWeight: '800', color: '#fff' },
-  avatarEditFab: { position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: 13, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', elevation: 3 },
   heroInfo: { flex: 1, paddingTop: 4 },
   heroName: { fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 2 },
   heroAge: { fontSize: 14, color: 'rgba(255,255,255,0.75)', marginBottom: 12 },
