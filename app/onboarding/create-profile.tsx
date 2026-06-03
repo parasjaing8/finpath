@@ -364,7 +364,7 @@ export default function CreateProfile() {
 
   // ─── Step 2: About You ─────────────────────────────────────────────────────
 
-  function StepAboutYou() {
+  function renderStepAboutYou() {
     return (
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.stepScroll} keyboardShouldPersistTaps="handled">
@@ -412,7 +412,7 @@ export default function CreateProfile() {
 
   // ─── Step 3: Income ────────────────────────────────────────────────────────
 
-  function StepIncome() {
+  function renderStepIncome() {
     return (
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.stepScroll} keyboardShouldPersistTaps="handled">
@@ -450,7 +450,7 @@ export default function CreateProfile() {
 
   // ─── Step 4: Security ──────────────────────────────────────────────────────
 
-  function StepSecurity() {
+  function renderStepSecurity() {
     return (
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.stepScroll} keyboardShouldPersistTaps="handled">
@@ -541,9 +541,9 @@ export default function CreateProfile() {
       <BackButton />
       <ProgressDots />
       {step === 1 && <StepMission />}
-      {step === 2 && <StepAboutYou />}
-      {step === 3 && <StepIncome />}
-      {step === 4 && <StepSecurity />}
+      {step === 2 && renderStepAboutYou()}
+      {step === 3 && renderStepIncome()}
+      {step === 4 && renderStepSecurity()}
     </View>
   );
 }
