@@ -131,7 +131,7 @@ export default function CreateProfile() {
 
   function validateStep3(): boolean {
     const errs: Record<string, string> = {};
-    if (pin.length !== 6 || !/^\d{6}$/.test(pin)) errs.pin = 'PIN must be 6 digits';
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) errs.pin = 'PIN must be 4 digits';
     if (pin !== confirmPin) errs.confirmPin = 'PINs do not match';
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -388,14 +388,14 @@ export default function CreateProfile() {
           </View>
 
           <TextInput
-            label="Set PIN (6 digits)"
+            label="Set PIN (4 digits)"
             value={pin}
             onChangeText={setPin}
             mode="outlined"
             style={styles.input}
             keyboardType="numeric"
             secureTextEntry
-            maxLength={6}
+            maxLength={4}
             error={!!errors.pin}
           />
           {errors.pin && <HelperText type="error">{errors.pin}</HelperText>}
@@ -408,7 +408,7 @@ export default function CreateProfile() {
             style={styles.input}
             keyboardType="numeric"
             secureTextEntry
-            maxLength={6}
+            maxLength={4}
             error={!!errors.confirmPin}
           />
           {errors.confirmPin && <HelperText type="error">{errors.confirmPin}</HelperText>}

@@ -129,8 +129,8 @@ export default function ProfileScreen() {
 
   async function handleChangePin() {
     const { current, next, confirm } = pinFields;
-    if (current.length !== 6 || !/^\d{6}$/.test(current)) { setPinError('Current PIN must be 6 digits'); return; }
-    if (next.length !== 6 || !/^\d{6}$/.test(next)) { setPinError('New PIN must be 6 digits'); return; }
+    if (current.length !== 4 || !/^\d{4}$/.test(current)) { setPinError('Current PIN must be 4 digits'); return; }
+    if (next.length !== 4 || !/^\d{4}$/.test(next)) { setPinError('New PIN must be 4 digits'); return; }
     if (next !== confirm) { setPinError('New PINs do not match'); return; }
     setPinChanging(true); setPinError(null);
     try {
@@ -480,7 +480,7 @@ export default function ProfileScreen() {
       <Dialog visible={showPinChange} onDismiss={() => setShowPinChange(false)} style={styles.dialog}>
         <Dialog.Title style={styles.dialogTitle}>Change PIN</Dialog.Title>
         <Dialog.Content>
-          <Text style={styles.dialogHint}>Enter your current PIN, then choose a new 6-digit PIN.</Text>
+          <Text style={styles.dialogHint}>Enter your current PIN, then choose a new 4-digit PIN.</Text>
           {(['current', 'next', 'confirm'] as const).map((field, i) => (
             <TextInput
               key={field}
@@ -488,8 +488,8 @@ export default function ProfileScreen() {
               placeholder={['Current PIN', 'New PIN', 'Confirm new PIN'][i]}
               placeholderTextColor="#AAA"
               value={pinFields[field]}
-              onChangeText={t => setPinFields(f => ({ ...f, [field]: t.replace(/\D/g, '').slice(0, 6) }))}
-              keyboardType="number-pad" maxLength={6} secureTextEntry
+              onChangeText={t => setPinFields(f => ({ ...f, [field]: t.replace(/\D/g, '').slice(0, 4) }))}
+              keyboardType="number-pad" maxLength={4} secureTextEntry
             />
           ))}
           {pinError ? <Text style={{ color: RED, fontSize: 12, marginTop: 6 }}>{pinError}</Text> : null}

@@ -125,8 +125,8 @@ export default function LoginScreen() {
   async function handleLogin() {
     if (!selectedProfile) return;
     if (lockoutSeconds > 0) return;
-    if (pin.length !== 6) {
-      setError('Enter your 6-digit PIN');
+    if (pin.length !== 4) {
+      setError('Enter your 4-digit PIN');
       return;
     }
     setLoading(true);
@@ -235,15 +235,15 @@ export default function LoginScreen() {
             </Text>
             <TextInput
               mode="outlined"
-              label="6-digit PIN"
+              label="4-digit PIN"
               value={pin}
               onChangeText={text => {
-                setPin(text.replace(/\D/g, '').slice(0, 6));
+                setPin(text.replace(/\D/g, '').slice(0, 4));
                 setError('');
               }}
               keyboardType="number-pad"
               secureTextEntry
-              maxLength={6}
+              maxLength={4}
               style={styles.pinInput}
               error={!!error}
               outlineColor="#C8E6C9"
@@ -255,7 +255,7 @@ export default function LoginScreen() {
               mode="contained"
               onPress={handleLogin}
               loading={loading}
-              disabled={pin.length !== 6 || loading || lockoutSeconds > 0}
+              disabled={pin.length !== 4 || loading || lockoutSeconds > 0}
               style={styles.loginBtn}
               contentStyle={styles.loginBtnContent}
               textColor="#fff"

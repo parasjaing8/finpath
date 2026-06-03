@@ -162,7 +162,7 @@ function LinkingHandler() {
 
   async function confirmWithPin() {
     if (!profile || !pendingPayload) return;
-    if (!/^\d{6}$/.test(pinInput)) { setPinError('Enter your 6-digit PIN'); return; }
+    if (!/^\d{4}$/.test(pinInput)) { setPinError('Enter your 4-digit PIN'); return; }
     const profileId = parseInt(String(profile.id), 10);
     setLoading(true);
     try {
@@ -235,13 +235,13 @@ function LinkingHandler() {
 
             <TextInput
               style={ls.pinInput}
-              placeholder="6-digit PIN"
+              placeholder="4-digit PIN"
               placeholderTextColor="#999"
               value={pinInput}
-              onChangeText={t => { setPinInput(t.replace(/\D/g, '').slice(0, 6)); setPinError(''); }}
+              onChangeText={t => { setPinInput(t.replace(/\D/g, '').slice(0, 4)); setPinError(''); }}
               keyboardType="number-pad"
               secureTextEntry
-              maxLength={6}
+              maxLength={4}
             />
             {!!pinError && <Text style={ls.error}>{pinError}</Text>}
 
