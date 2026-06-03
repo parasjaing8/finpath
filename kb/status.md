@@ -1,5 +1,5 @@
-Latest commit: a8ad950 (chore: versionCode 43, fix Gradle AGP path cache) [finpath-v2]
-Latest APK: app-release-v43.apk (versionCode 43, versionName 1.0.1) — finpath-v2 branch
-Branch: finpath-v2 (based on beyondv33)
+Latest commit: 1891fe7 (feat: vC59 — update app icon) [finpath-v2]
+Latest APK: app-release-v59.apk (versionCode 59, versionName 1.0.1)
+Branch: finpath-v2 (37 commits ahead of beyondv33)
 
-beyondv33 latest: b05273a | APK: app-release-v42.aab (vC42)
+beyondv33 (production base): b05273a | vC42 — untouched

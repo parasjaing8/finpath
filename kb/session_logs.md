@@ -1630,3 +1630,24 @@ AAB versionCode 38 rebuilt with correct release key (FC:E2:6E...). keystore.prop
 **Build:** APK at `android/app/build/outputs/apk/release/app-release-v43.apk` (153MB, arm64+x86+armeabi-v7a+x86_64)
 **Tests:** 70/70 pass
 **Root cause fixed:** Gradle was using stale `autolinking.json` pointing to old `~/dev/apps/finpath/` path — deleted and rebuilt clean
+
+## 2026-06-04 — finpath-v2: full UX overhaul session (vC43→vC59)
+
+**Branch:** `finpath-v2` | 37 commits | **Final:** vC59
+
+### Changes delivered
+- Onboarding: 5→4 steps, merged baseline, fixed button positions, bold 51%, no skip, 4-digit PIN, F-logo hero
+- Dashboard: hero two-column layout, remove cash flow from hero, remove simulator/insights tiles, restore table, regional paywall pricing, ⭐ report buttons
+- Profile: full premium redesign (green hero, read/edit toggle, compact numbers, flag+code currency, colorless icons, no gear/FAB, wisdom card, no double header)
+- Goals: FIRE tile → slider sync fix (sliderDisplay updated on tile press)
+- App icon: F+road logo (JPEG→PNG converted, 1024×1024, white bg)
+- PIN: 6→4 digits across all 4 entry points
+- gstack skills installed at .claude/skills/
+- Play Store marketing assets: docs/playstore_assets.md
+
+### Audit (pre-AAB)
+- 70/70 engine tests pass
+- No unguarded console.log/error
+- No missing @/ aliased imports
+- No leftover unused variables (safetyMargin, planScenarios, keyInsights, showTable all cleaned)
+- 4 duplicate release signingConfig blocks cleaned from build.gradle (caused by multiple prebuild runs)
