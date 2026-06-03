@@ -207,8 +207,7 @@ export default function DashboardScreen() {
       return { title: 'Assets cover retirement', subtitle: `No SIP needed · Retire at ${retirementAge}`, color: '#1B5E20' };
     if (insights?.depletionAge)
       return { title: 'Plan needs adjustment', subtitle: `Money runs out at ${insights.depletionAge}`, color: '#C62828' };
-    if (insights && !insights.isAffordable)
-      return { title: 'Cash flow is tight', subtitle: 'SIP + expenses exceed monthly income', color: '#F57C00' };
+    // Cash flow warning is shown by InsightCard below — don't repeat it in the hero
     if (insights && insights.sipGap > 500)
       return { title: `${formatCurrency(insights.sipGap, currency)}/mo short of target`, subtitle: 'Increase SIP to stay on track', color: '#F57C00' };
     if (sipAmount - result.requiredMonthlySIP > 500 && result.fireAchievedAge > 0 && result.fireAchievedAge < retirementAge) {

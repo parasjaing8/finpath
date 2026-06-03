@@ -178,6 +178,8 @@ export default function GoalsScreen() {
                 style={[styles.fireChip, { borderColor: selected ? t.color : colors.border, backgroundColor: selected ? `${t.color}18` : colors.background }]}
                 onPress={() => {
                   const newAge = t.targetAge ?? form.fire_target_age;
+                  // Sync display state so slider moves immediately
+                  setSliderDisplay(d => ({ ...d, fire_target_age: newAge }));
                   setForm(f => ({ ...f, fire_type: t.key, fire_target_age: newAge }));
                 }}
                 accessibilityRole="radio"

@@ -38,36 +38,47 @@ export function HeroCard({
 
   return (
     <LinearGradient colors={heroColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroCard}>
-      <Text style={styles.heroLabel}>YOUR MONTHLY SIP</Text>
-      {requiredMonthlySIP > 0 ? (
-        <Text style={styles.heroAmount}>{formatCurrencyFull(sipAmountDisplay, currency)}</Text>
-      ) : (
-        <Text style={styles.heroAmount}>No SIP needed</Text>
-      )}
-      <Text style={styles.heroStatusTitle}>{planStatus.title}</Text>
-      <Text style={styles.heroSubtitle}>{planStatus.subtitle}</Text>
-      <View style={styles.heroPillRow}>
-        <View style={[styles.heroPill, styles.heroPillStatus]}>
-          <Text style={[styles.heroPillText, { color: isOnTrack ? '#1B5E20' : '#C62828' }]}>
-            {isOnTrack ? '✓ On Track' : '✗ Off Track'}
-          </Text>
-        </View>
-        {fireAchievedAge > 0 && (
-          failureAge > 0 ? (
-            <TouchableOpacity
-              style={[styles.heroPill, { backgroundColor: 'rgba(255,167,38,0.9)' }]}
-              onPress={onDepletionPress}
-              accessibilityRole="button"
-              accessibilityLabel="Corpus depletion detail"
-            >
-              <Text style={styles.heroPillText}>⚠ Runs out at {failureAge} ›</Text>
-            </TouchableOpacity>
+      <View style={styles.heroBody}>
+
+        {/* Left column — SIP + status */}
+        <View style={styles.heroLeft}>
+          <Text style={styles.heroLabel}>YOUR MONTHLY SIP</Text>
+          {requiredMonthlySIP > 0 ? (
+            <Text style={styles.heroAmount}>{formatCurrencyFull(sipAmountDisplay, currency)}</Text>
           ) : (
-            <View style={styles.heroPill}>
-              <Text style={styles.heroPillText}>✓ Lasts till {fireTargetAge}</Text>
-            </View>
-          )
-        )}
+            <Text style={styles.heroAmount}>No SIP needed</Text>
+          )}
+          <Text style={styles.heroStatusTitle}>{planStatus.title}</Text>
+          {!!planStatus.subtitle && (
+            <Text style={styles.heroSubtitle}>{planStatus.subtitle}</Text>
+          )}
+        </View>
+
+        {/* Right column — stacked pills */}
+        <View style={styles.heroRight}>
+          <View style={[styles.heroPill, styles.heroPillStatus]}>
+            <Text style={[styles.heroPillText, { color: isOnTrack ? '#1B5E20' : '#C62828' }]}>
+              {isOnTrack ? '✓ On Track' : '✗ Off Track'}
+            </Text>
+          </View>
+          {fireAchievedAge > 0 && (
+            failureAge > 0 ? (
+              <TouchableOpacity
+                style={[styles.heroPill, { backgroundColor: 'rgba(255,167,38,0.9)' }]}
+                onPress={onDepletionPress}
+                accessibilityRole="button"
+                accessibilityLabel="Corpus depletion detail"
+              >
+                <Text style={styles.heroPillText}>⚠ Runs out{'\n'}at {failureAge} ›</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.heroPill}>
+                <Text style={styles.heroPillText}>✓ Lasts till{'\n'}{fireTargetAge}</Text>
+              </View>
+            )
+          )}
+        </View>
+
       </View>
     </LinearGradient>
   );
@@ -75,12 +86,17 @@ export function HeroCard({
 
 const styles = StyleSheet.create({
   heroCard: { borderRadius: 16, padding: 20, marginBottom: 12, overflow: 'hidden' },
+
+  heroBody: { flexDirection: 'row', alignItems: 'flex-start' },
+
+  heroLeft: { flex: 1, marginRight: 12 },
   heroLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: 'rgba(255,255,255,0.7)', marginBottom: 4 },
-  heroAmount: { fontSize: 36, fontWeight: '800', color: '#fff', marginBottom: 4 },
-  heroStatusTitle: { fontSize: 15, fontWeight: '800', color: '#fff', marginBottom: 2 },
-  heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 14 },
-  heroPillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  heroPill: { backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  heroAmount: { fontSize: 32, fontWeight: '800', color: '#fff', marginBottom: 4 },
+  heroStatusTitle: { fontSize: 14, fontWeight: '800', color: '#fff', marginBottom: 2 },
+  heroSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.8)' },
+
+  heroRight: { gap: 8, alignItems: 'flex-end', justifyContent: 'center', paddingTop: 20 },
+  heroPill: { backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10, paddingVertical: 7, borderRadius: 14, alignItems: 'center' },
   heroPillStatus: { backgroundColor: '#fff', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.5)' },
-  heroPillText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  heroPillText: { color: '#fff', fontSize: 11, fontWeight: '700', textAlign: 'center' },
 });
