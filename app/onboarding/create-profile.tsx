@@ -19,6 +19,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'react-native';
 import { DateInput } from '../../components/DateInput';
 import { CurrencyPicker } from '../../components/CurrencyPicker';
 import { getCurrencyByCode } from '../../constants/currencies';
@@ -234,9 +235,11 @@ export default function CreateProfile() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.logoCircle}>
-          <MaterialCommunityIcons name="leaf" size={48} color="#FFF" />
-        </View>
+        <Image
+          source={require('../../assets/icon.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
         <Text style={styles.heroHeadline}>Your Path to{'\n'}Financial Freedom</Text>
         <Text style={styles.heroSubtext}>Track assets · Plan FIRE · Zero compromise</Text>
         <View style={styles.pillsRow}>
@@ -474,13 +477,11 @@ const styles = StyleSheet.create({
   },
 
   // ── Hero only ─────────────────────────────────────────────────────────────
-  logoCircle: {
-    width: 96, height: 96, borderRadius: 48,
-    backgroundColor: BRAND,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 28,
-    elevation: 4,
-    shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 4 },
+  logoImage: {
+    width: 110,
+    height: 110,
+    marginBottom: 24,
+    borderRadius: 24,
   },
   heroHeadline: { fontSize: 28, fontWeight: 'bold', color: BRAND, textAlign: 'center', marginBottom: 10, lineHeight: 36 },
   heroSubtext: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 28 },
