@@ -24,6 +24,19 @@ import * as Crypto from 'expo-crypto';
 import { getProfilePin, saveProfilePin } from '@/db/queries';
 import { isEncryptedBackup, encryptBackup, decryptBackup } from '@/utils/backupCrypto';
 
+// Compact regional number format: INR → 1.35 L / 2.5 Cr; others → 100 K / 1.2 M
+function formatCompact(amount: number, currency: string): string {
+  if (currency === 'INR') {
+    if (amount >= 10000000) return `${+(amount / 10000000).toFixed(2)} Cr`;
+    if (amount >= 100000)   return `${+(amount / 100000).toFixed(2)} L`;
+    if (amount >= 1000)     return `${+(amount / 1000).toFixed(1)} K`;
+    return String(Math.round(amount));
+  }
+  if (amount >= 1000000) return `${+(amount / 1000000).toFixed(2)} M`;
+  if (amount >= 1000)    return `${+(amount / 1000).toFixed(1)} K`;
+  return String(Math.round(amount));
+}
+
 const BRAND = '#1B5E20';
 const BRAND_MED = '#2E7D32';
 const BRAND_LIGHT = '#E8F5E9';
@@ -248,7 +261,10 @@ export default function ProfileScreen() {
 
   const initial = (form.name || 'U').charAt(0).toUpperCase();
   const currencyLabel = getCurrencyByCode(currency);
-  const currencyDisplay = currencyLabel ? `${currency} - ${currencyLabel.name}` : currency;
+  const currencyDisplay = currencyLabel ? `${currencyLabel.flag}  ${currency}` : currency;
+  const incomeDisplay = form.monthly_income > 0
+    ? `${currencyLabel?.symbol ?? currency}${formatCompact(form.monthly_income, currency)} / month`
+    : '—';
 
   return (
     <>
@@ -261,9 +277,6 @@ export default function ProfileScreen() {
       <LinearGradient colors={[BRAND, BRAND_MED]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.hero, { paddingTop: 16 + webTop + insets.top }]}>
         <View style={styles.heroTopRow}>
           <Text style={styles.heroTitle}>Profile</Text>
-          <TouchableOpacity onPress={() => setEditMode(e => !e)} accessibilityRole="button" accessibilityLabel="Settings">
-            <MaterialCommunityIcons name={editMode ? 'close' : 'cog-outline'} size={24} color="rgba(255,255,255,0.9)" />
-          </TouchableOpacity>
         </View>
 
         <View style={styles.heroBody}>
@@ -355,10 +368,10 @@ export default function ProfileScreen() {
           ) : (
             /* View mode — display rows */
             <>
-              <InfoRow icon="👤" label="Full Name" value={form.name || '—'} />
-              <InfoRow icon="📅" label="Date of Birth" value={form.dob || '—'} />
-              <InfoRow icon="₹" label="Monthly Income" value={form.monthly_income > 0 ? `${formatCurrencyFull(form.monthly_income, currency)} / month` : '—'} />
-              <InfoRow icon="🌐" label="Currency" value={currencyDisplay} />
+              <InfoRow icon="account-outline" label="Full Name" value={form.name || '—'} />
+              <InfoRow icon="calendar-outline" label="Date of Birth" value={form.dob || '—'} />
+              <InfoRow icon="cash-multiple" label="Monthly Income" value={incomeDisplay} />
+              <InfoRow icon="earth" label="Currency" value={currencyDisplay} />
             </>
           )}
 
@@ -531,7 +544,7 @@ export default function ProfileScreen() {
 function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
     <View style={infoStyles.row}>
-      <Text style={infoStyles.icon}>{icon}</Text>
+      <MaterialCommunityIcons name={icon as any} size={18} color="#888" style={infoStyles.icon} />
       <Text style={infoStyles.label}>{label}</Text>
       <Text style={infoStyles.value} numberOfLines={1}>{value}</Text>
     </View>
@@ -627,7 +640,7 @@ const styles = StyleSheet.create({
 
 const infoStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#F0F0F0', gap: 10 },
-  icon: { fontSize: 16, width: 24, textAlign: 'center' },
+  icon: { width: 24, textAlign: 'center' },
   label: { fontSize: 14, color: '#888', flex: 1 },
   value: { fontSize: 15, fontWeight: '600', color: '#1A1A1A', maxWidth: '55%', textAlign: 'right' },
 });
