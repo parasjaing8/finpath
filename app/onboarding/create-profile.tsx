@@ -206,24 +206,22 @@ export default function CreateProfile() {
     );
   }
 
-  // ─── Fixed bottom button bar ───────────────────────────────────────────────
+  // ─── Shared step button ───────────────────────────────────────────────────
 
-  function BottomBar({ label, onPress, loading: btnLoading }: { label: string; onPress: () => void; loading?: boolean }) {
+  function StepButton({ label, onPress, loading: btnLoading }: { label: string; onPress: () => void; loading?: boolean }) {
     return (
-      <View style={styles.bottomBar}>
-        <Button
-          mode="contained"
-          onPress={onPress}
-          loading={btnLoading}
-          disabled={btnLoading}
-          style={styles.bottomBtn}
-          contentStyle={styles.bottomBtnContent}
-          buttonColor={BRAND}
-          labelStyle={styles.bottomBtnLabel}
-        >
-          {label}
-        </Button>
-      </View>
+      <Button
+        mode="contained"
+        onPress={onPress}
+        loading={btnLoading}
+        disabled={btnLoading}
+        style={styles.stepBtn}
+        contentStyle={styles.stepBtnContent}
+        buttonColor={BRAND}
+        labelStyle={styles.stepBtnLabel}
+      >
+        {label}
+      </Button>
     );
   }
 
@@ -231,41 +229,36 @@ export default function CreateProfile() {
 
   function StepHero() {
     return (
-      <View style={styles.heroContainer}>
-        <ScrollView
-          contentContainerStyle={styles.heroScroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.logoCircle}>
-            <MaterialCommunityIcons name="leaf" size={48} color="#FFF" />
-          </View>
-          <Text style={styles.heroHeadline}>Your Path to{'\n'}Financial Freedom</Text>
-          <Text style={styles.heroSubtext}>Track assets · Plan FIRE · Zero compromise</Text>
-          <View style={styles.pillsRow}>
-            {['🏠 Net Worth', '📈 FIRE Date', '🔒 Private'].map(label => (
-              <View key={label} style={styles.pill}>
-                <Text style={styles.pillText}>{label}</Text>
-              </View>
-            ))}
-          </View>
-        </ScrollView>
-
-        <View style={styles.heroBottom}>
-          <BottomBar label="Get Started" onPress={() => setStep(1)} />
-          <TouchableOpacity
-            onPress={pickBackup}
-            disabled={backupPickLoading}
-            style={styles.restoreLink}
-            accessibilityRole="button"
-            accessibilityLabel="Returning user? Restore from backup"
-          >
-            <Text style={styles.restoreLinkText}>
-              {backupPickLoading ? 'Opening…' : 'Returning user? Restore from backup →'}
-            </Text>
-          </TouchableOpacity>
+      <ScrollView
+        contentContainerStyle={styles.centeredScroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.logoCircle}>
+          <MaterialCommunityIcons name="leaf" size={48} color="#FFF" />
         </View>
-      </View>
+        <Text style={styles.heroHeadline}>Your Path to{'\n'}Financial Freedom</Text>
+        <Text style={styles.heroSubtext}>Track assets · Plan FIRE · Zero compromise</Text>
+        <View style={styles.pillsRow}>
+          {['🏠 Net Worth', '📈 FIRE Date', '🔒 Private'].map(label => (
+            <View key={label} style={styles.pill}>
+              <Text style={styles.pillText}>{label}</Text>
+            </View>
+          ))}
+        </View>
+        <StepButton label="Get Started" onPress={() => setStep(1)} />
+        <TouchableOpacity
+          onPress={pickBackup}
+          disabled={backupPickLoading}
+          style={styles.restoreLink}
+          accessibilityRole="button"
+          accessibilityLabel="Returning user? Restore from backup"
+        >
+          <Text style={styles.restoreLinkText}>
+            {backupPickLoading ? 'Opening…' : 'Returning user? Restore from backup →'}
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
     );
   }
 
@@ -273,40 +266,37 @@ export default function CreateProfile() {
 
   function StepMission() {
     return (
-      <View style={styles.stepContainer}>
-        <ScrollView
-          contentContainerStyle={styles.stepScroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.missionIconWrap}>
-            <MaterialCommunityIcons name="hand-heart" size={64} color={AMBER} />
-          </View>
-          <Text style={styles.stepTitle}>Built with Purpose</Text>
-          <Text style={styles.missionBody}>
-            <Text style={styles.highlight51}>51%</Text>
-            {' '}of FinPath's profits go toward food and education for underprivileged children in rural India.
-          </Text>
+      <ScrollView
+        contentContainerStyle={styles.centeredScroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.missionIconWrap}>
+          <MaterialCommunityIcons name="hand-heart" size={64} color={AMBER} />
+        </View>
+        <Text style={styles.stepTitle}>Built with Purpose</Text>
+        <Text style={styles.missionBody}>
+          <Text style={styles.highlight51}>51%</Text>
+          {' '}of FinPath's profits go toward food and education for underprivileged children in rural India.
+        </Text>
 
-          <View style={styles.statsRow}>
-            {[
-              { icon: '🍱', label: 'Meals funded', value: '2,400+' },
-              { icon: '📚', label: 'Kids supported', value: '180+' },
-              { icon: '🌱', label: 'Since', value: '2025' },
-            ].map(stat => (
-              <View key={stat.label} style={styles.statCard}>
-                <Text style={styles.statIcon}>{stat.icon}</Text>
-                <Text style={styles.statValue}>{stat.value}</Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
-              </View>
-            ))}
-          </View>
+        <View style={styles.statsRow}>
+          {[
+            { icon: '🍱', label: 'Meals funded', value: '2,400+' },
+            { icon: '📚', label: 'Kids supported', value: '180+' },
+            { icon: '🌱', label: 'Since', value: '2025' },
+          ].map(stat => (
+            <View key={stat.label} style={styles.statCard}>
+              <Text style={styles.statIcon}>{stat.icon}</Text>
+              <Text style={styles.statValue}>{stat.value}</Text>
+              <Text style={styles.statLabel}>{stat.label}</Text>
+            </View>
+          ))}
+        </View>
 
-          <Text style={styles.missionQuote}>"Your plan. Their future."</Text>
-        </ScrollView>
-
-        <BottomBar label="Next →" onPress={() => setStep(2)} />
-      </View>
+        <Text style={styles.missionQuote}>"Your plan. Their future."</Text>
+        <StepButton label="Next →" onPress={() => setStep(2)} />
+      </ScrollView>
     );
   }
 
@@ -314,9 +304,9 @@ export default function CreateProfile() {
 
   function renderStepBaseline() {
     return (
-      <KeyboardAvoidingView style={styles.stepContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          contentContainerStyle={styles.stepScroll}
+          contentContainerStyle={styles.centeredScroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -361,11 +351,8 @@ export default function CreateProfile() {
             <CurrencyPicker value={currency} onChange={setCurrency} />
           </View>
 
-          {/* Spacer so content doesn't hide behind the fixed button */}
-          <View style={{ height: 24 }} />
+          <StepButton label="Next →" onPress={goNext} />
         </ScrollView>
-
-        <BottomBar label="Next →" onPress={goNext} />
       </KeyboardAvoidingView>
     );
   }
@@ -374,9 +361,9 @@ export default function CreateProfile() {
 
   function renderStepSecurity() {
     return (
-      <KeyboardAvoidingView style={styles.stepContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          contentContainerStyle={styles.stepScroll}
+          contentContainerStyle={styles.centeredScroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -439,14 +426,12 @@ export default function CreateProfile() {
             </View>
           )}
 
-          <View style={{ height: 24 }} />
+          <StepButton
+            label={backupPayload ? 'Set PIN & Restore' : 'Create Profile'}
+            onPress={handleSubmit}
+            loading={loading}
+          />
         </ScrollView>
-
-        <BottomBar
-          label={backupPayload ? 'Set PIN & Restore' : 'Create Profile'}
-          onPress={handleSubmit}
-          loading={loading}
-        />
       </KeyboardAvoidingView>
     );
   }
@@ -465,9 +450,11 @@ export default function CreateProfile() {
     <View style={styles.container}>
       <BackButton />
       <ProgressDots />
-      {step === 1 && <StepMission />}
-      {step === 2 && renderStepBaseline()}
-      {step === 3 && renderStepSecurity()}
+      <View style={{ flex: 1 }}>
+        {step === 1 && <StepMission />}
+        {step === 2 && renderStepBaseline()}
+        {step === 3 && renderStepSecurity()}
+      </View>
     </View>
   );
 }
@@ -477,16 +464,16 @@ export default function CreateProfile() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
 
-  // ── Hero ──────────────────────────────────────────────────────────────────
-  heroContainer: { flex: 1 },
-  heroScroll: {
+  // ── Unified centered scroll (all steps, including hero) ───────────────────
+  centeredScroll: {
     flexGrow: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: 32,
-    paddingTop: 60,
-    paddingBottom: 24,
+    paddingVertical: 40,
   },
+
+  // ── Hero only ─────────────────────────────────────────────────────────────
   logoCircle: {
     width: 96, height: 96, borderRadius: 48,
     backgroundColor: BRAND,
@@ -497,11 +484,10 @@ const styles = StyleSheet.create({
   },
   heroHeadline: { fontSize: 28, fontWeight: 'bold', color: BRAND, textAlign: 'center', marginBottom: 10, lineHeight: 36 },
   heroSubtext: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 28 },
-  pillsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
+  pillsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 8 },
   pill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: '#E8F5E9', borderWidth: 1, borderColor: BRAND_LIGHT },
   pillText: { fontSize: 13, color: BRAND, fontWeight: '500' },
-  heroBottom: { paddingBottom: 32 },
-  restoreLink: { alignItems: 'center', paddingVertical: 12 },
+  restoreLink: { alignItems: 'center', paddingVertical: 10 },
   restoreLinkText: { fontSize: 13, color: BRAND, textDecorationLine: 'underline' },
 
   // ── Progress dots ─────────────────────────────────────────────────────────
@@ -518,29 +504,19 @@ const styles = StyleSheet.create({
   },
   backText: { fontSize: 15, color: BRAND, fontWeight: '500' },
 
-  // ── Step layout ───────────────────────────────────────────────────────────
-  stepContainer: { flex: 1 },
-  stepScroll: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 },
-  stepTitle: { fontSize: 24, fontWeight: 'bold', color: BRAND, marginBottom: 8, marginTop: 8 },
-  stepSubtext: { fontSize: 14, color: '#666', marginBottom: 20, lineHeight: 20 },
+  // ── Step titles ───────────────────────────────────────────────────────────
+  stepTitle: { fontSize: 24, fontWeight: 'bold', color: BRAND, marginBottom: 8, textAlign: 'center', alignSelf: 'stretch' },
+  stepSubtext: { fontSize: 14, color: '#666', marginBottom: 20, lineHeight: 20, textAlign: 'center', alignSelf: 'stretch' },
 
-  // ── Fixed bottom bar ──────────────────────────────────────────────────────
-  bottomBar: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-    backgroundColor: BG,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E0E0E0',
-  },
-  bottomBtn: { borderRadius: 10, width: '100%' },
-  bottomBtnContent: { paddingVertical: 10 },
-  bottomBtnLabel: { fontSize: 17, fontWeight: '700', letterSpacing: 0.3 },
+  // ── Shared step button ────────────────────────────────────────────────────
+  stepBtn: { borderRadius: 10, width: '100%', alignSelf: 'stretch', marginTop: 24 },
+  stepBtnContent: { paddingVertical: 10 },
+  stepBtnLabel: { fontSize: 17, fontWeight: '700', letterSpacing: 0.3 },
 
   // ── Input ─────────────────────────────────────────────────────────────────
-  input: { marginBottom: 4, backgroundColor: '#FFFFFF' },
-  currencyWrap: { marginTop: 8 },
-  fieldHint: { fontSize: 11, color: '#999', marginTop: 4, marginBottom: 10, lineHeight: 16 },
+  input: { marginBottom: 4, backgroundColor: '#FFFFFF', alignSelf: 'stretch' },
+  currencyWrap: { marginTop: 8, alignSelf: 'stretch' },
+  fieldHint: { fontSize: 11, color: '#999', marginTop: 4, marginBottom: 10, lineHeight: 16, alignSelf: 'stretch' },
 
   // ── Mission ───────────────────────────────────────────────────────────────
   missionIconWrap: { alignItems: 'center', marginBottom: 16, marginTop: 8 },
