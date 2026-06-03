@@ -43,7 +43,6 @@ export default function DashboardScreen() {
   const [retryKey, setRetryKey] = useState(0);
   const [fxRates, setFxRates] = useState<FxRates | undefined>(undefined);
   const [showOnboardingStrip, setShowOnboardingStrip] = useState(false);
-  const [showTable, setShowTable] = useState(false);
 
   // Track the goals snapshot that was used for the last SIP auto-set.
   // Auto-set only fires again when goals actually change, not on every tab focus.
@@ -114,27 +113,6 @@ export default function DashboardScreen() {
       sipGap,
     };
   }, [result, sipAmount, expenses, currentProfile]);
-
-  // Plan Simulator: 4 SIP scenarios showing resulting FIRE age
-  const planScenarios = useMemo(() => {
-    if (!currentProfile || !goals || !isLoaded || sipAmount <= 0) return [];
-    const r5 = (v: number) => Math.max(0, Math.round(v / 5000) * 5000);
-    const levels = [
-      r5(sipAmount * 0.65),
-      r5(sipAmount * 0.85),
-      sipAmount,
-      r5(sipAmount * 1.3),
-    ].filter((v, i, arr) => arr.indexOf(v) === i && v > 0);
-
-    return levels.map(sip => {
-      try {
-        const r = calculateProjections({ profile: currentProfile, assets, expenses, goals, sipAmount: sip, sipReturnRate, postSipReturnRate, stepUpRate: stepUpEnabled ? stepUpRate : 0, fxRates });
-        return { sip, fireAge: r.fireAchievedAge > 0 ? r.fireAchievedAge : null, isCurrent: sip === sipAmount };
-      } catch {
-        return { sip, fireAge: null, isCurrent: sip === sipAmount };
-      }
-    });
-  }, [currentProfile, assets, expenses, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpEnabled, stepUpRate, isLoaded, fxRates]);
 
   // Auto-set SIP when goals change (not on every tab focus)
   useEffect(() => {
@@ -240,26 +218,6 @@ export default function DashboardScreen() {
     return { title: "You're on track", subtitle: `Money lasts till ${targetAge}`, color: '#1B5E20' };
   })();
 
-  // Safety margin: how much more projected corpus vs required
-  const safetyMargin = result.fireCorpus > 0
-    ? ((result.netWorthAtRetirement - result.fireCorpus) / result.fireCorpus) * 100
-    : null;
-
-  // Key insights extracted from projections
-  const keyInsights = (() => {
-    const projs = result.projections;
-    if (projs.length === 0) return null;
-    // Peak corpus
-    let peak = projs[0];
-    for (const p of projs) if (p.netWorthEOY > peak.netWorthEOY) peak = p;
-    // Highest expense year (post-retirement)
-    const retProjs = projs.filter(p => p.age >= retirementAge);
-    let maxExpYear = retProjs[0] ?? null;
-    for (const p of retProjs) if ((p.plannedExpenses ?? 0) > (maxExpYear?.plannedExpenses ?? 0)) maxExpYear = p;
-    // Sustainability
-    const sustainable = result.failureAge === 0 || result.failureAge < 0 || result.failureAge > (goals.fire_target_age ?? 100);
-    return { peak, maxExpYear, sustainable };
-  })();
 
   const sipBurdenInsight: { type: 'critical' | 'warning' | 'info'; title: string } | null = (() => {
     if (!result.sipBurdenWarning) return null;
@@ -416,26 +374,6 @@ export default function DashboardScreen() {
         onStepUpCommit={setStepUpRate}
       />
 
-      {/* Plan Simulator — 4 SIP scenarios */}
-      {planScenarios.length > 1 && (
-        <Card style={styles.simCard}>
-          <Card.Content>
-            <Text variant="titleSmall" style={styles.simTitle}>Plan Simulator</Text>
-            <Text variant="bodySmall" style={styles.simSubtitle}>How your FIRE age changes with SIP</Text>
-            {planScenarios.map(s => (
-              <View key={s.sip} style={[styles.simRow, s.isCurrent && styles.simRowHighlight]}>
-                <Text style={[styles.simSIP, s.isCurrent && styles.simSIPHighlight]}>
-                  {formatCurrency(s.sip, currency)}/mo{s.isCurrent ? ' ←' : ''}
-                </Text>
-                <Text style={[styles.simAge, s.isCurrent && styles.simAgeHighlight]}>
-                  {s.fireAge ? `FI @ ${s.fireAge}` : '—'}
-                </Text>
-              </View>
-            ))}
-          </Card.Content>
-        </Card>
-      )}
-
       {/* Section C — Net Worth Projection Graph 2.0 */}
       <Card style={styles.chartCard}>
         <Card.Content>
@@ -453,90 +391,42 @@ export default function DashboardScreen() {
         </Card.Content>
       </Card>
 
-      {/* Key Insights — replaces 71-row table at first glance */}
-      {keyInsights && (
-        <Card style={styles.insightsCard}>
-          <Card.Content>
-            <Text variant="titleSmall" style={styles.simTitle}>Key Insights</Text>
-            <View style={styles.insightRow}>
-              <MaterialCommunityIcons name="chart-line-variant" size={16} color="#1B5E20" style={styles.insightIcon} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.insightLabel}>Peak corpus</Text>
-                <Text style={styles.insightValue}>
-                  {formatCurrency(keyInsights.peak.netWorthEOY, currency)} at age {keyInsights.peak.age}
-                </Text>
-              </View>
-            </View>
-            {keyInsights.maxExpYear && (
-              <View style={styles.insightRow}>
-                <MaterialCommunityIcons name="calendar-alert" size={16} color="#F57C00" style={styles.insightIcon} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.insightLabel}>Highest expense year</Text>
-                  <Text style={styles.insightValue}>
-                    {formatCurrency(keyInsights.maxExpYear.plannedExpenses, currency)} at age {keyInsights.maxExpYear.age}
-                  </Text>
-                </View>
-              </View>
-            )}
-            <View style={styles.insightRow}>
-              <MaterialCommunityIcons
-                name={keyInsights.sustainable ? 'check-circle-outline' : 'alert-circle-outline'}
-                size={16}
-                color={keyInsights.sustainable ? '#1B5E20' : '#C62828'}
-                style={styles.insightIcon}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.insightLabel}>Corpus sustainability</Text>
-                <Text style={[styles.insightValue, { color: keyInsights.sustainable ? '#1B5E20' : '#C62828' }]}>
-                  {keyInsights.sustainable
-                    ? `Lasts past age ${goals.fire_target_age ?? 100} ✓`
-                    : `Depletes at age ${result.failureAge}`}
-                </Text>
-              </View>
-            </View>
-          </Card.Content>
-        </Card>
-      )}
-
-      {/* Section D — Year-by-Year Table (collapsible) */}
+      {/* Section D — Year-by-Year Table */}
       <Card style={styles.tableCard}>
         <Card.Content>
           <View style={styles.tableHeader}>
-            <TouchableOpacity
-              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}
-              onPress={() => setShowTable(t => !t)}
-              accessibilityRole="button"
-              accessibilityLabel="Toggle projection table"
-            >
-              <Text variant="titleMedium" style={styles.chartTitle}>Year-by-Year Projection</Text>
-              <MaterialCommunityIcons name={showTable ? 'chevron-up' : 'chevron-down'} size={20} color="#666" />
-            </TouchableOpacity>
-            <Button mode="text" icon="download" compact
+            <Text variant="titleMedium" style={[styles.chartTitle, { flex: 1 }]}>Year-by-Year Projection</Text>
+            <Button
+              mode={isPro ? 'text' : 'outlined'}
+              icon="download"
+              compact
+              textColor={isPro ? '#1B5E20' : '#F9A825'}
+              style={!isPro ? styles.reportBtnOutlined : undefined}
               onPress={() => {
                 if (!isPro) { setShowPaywall(true); return; }
                 exportToCSV(currentProfile, assets, expenses, projections, result ?? undefined);
               }}>
-              {isPro ? 'CSV' : '👑 CSV'}
+              {isPro ? 'CSV' : '⭐ CSV'}
             </Button>
-            <Button mode="text" icon="file-pdf-box" compact
+            <Button
+              mode={isPro ? 'text' : 'outlined'}
+              icon="file-pdf-box"
+              compact
+              textColor={isPro ? '#1B5E20' : '#F9A825'}
+              style={!isPro ? styles.reportBtnOutlined : undefined}
               onPress={() => {
                 if (!isPro) { setShowPaywall(true); return; }
                 if (result) exportToPDF(currentProfile, assets, expenses, projections, result, goals, sipAmount, sipReturnRate, postSipReturnRate, stepUpEnabled ? stepUpRate : 0, fxRates);
               }}>
-              {isPro ? 'PDF' : '👑 PDF'}
+              {isPro ? 'PDF' : '⭐ PDF'}
             </Button>
-            <ProPaywall visible={showPaywall} onDismiss={() => setShowPaywall(false)} />
+            <ProPaywall visible={showPaywall} onDismiss={() => setShowPaywall(false)} currency={currency} />
           </View>
-          {showTable && (
-            <ProjectionTable
-              projections={projections}
-              currency={currency}
-              firstFireYear={firstFireYear}
-            />
-          )}
-          {!showTable && (
-            <Text style={styles.tableHint}>Tap title to expand full projection</Text>
-          )}
+          <ProjectionTable
+            projections={projections}
+            currency={currency}
+            firstFireYear={firstFireYear}
+          />
         </Card.Content>
       </Card>
 
@@ -661,7 +551,8 @@ const styles = StyleSheet.create({
   chartTitle: { fontWeight: 'bold', marginBottom: 2 },
   chartSubtitle: { color: '#6B7A6B', marginBottom: 12, marginTop: 2 },
   tableCard: { marginBottom: 16, borderRadius: 12 },
-  tableHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  tableHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  reportBtnOutlined: { borderColor: '#F9A825', borderWidth: 1, borderRadius: 6, marginLeft: 4 },
   quoteCard: {
     backgroundColor: '#F9FBE7',
     borderRadius: 12,
