@@ -136,7 +136,7 @@ export default function CreateProfile() {
 
   function validateStep2(): boolean {
     const errs: Record<string, string> = {};
-    if (!name.trim()) errs.name = 'Name is required';
+    // name is optional — default applied at submit
     if (!dob.match(/^\d{4}-\d{2}-\d{2}$/)) {
       errs.dob = 'Enter date as YYYY-MM-DD';
     } else {
@@ -189,8 +189,9 @@ export default function CreateProfile() {
         salt + pin
       );
       const hashedPin = `${salt}$${hash}`;
+      const displayName = name.trim() || 'My Profile';
       const profileId = await createProfile(
-        name.trim(),
+        displayName,
         dob,
         parseFloat(monthlyIncome),
         currency,
@@ -203,7 +204,7 @@ export default function CreateProfile() {
         await importAll(backupPayload, profileId);
         await setAppProfile({
           id: String(profileId),
-          name: name.trim(),
+          name: displayName,
           dob,
           currency,
           monthly_income: parseFloat(monthlyIncome) || 0,
@@ -212,7 +213,7 @@ export default function CreateProfile() {
         try {
           await setAppProfile({
             id: String(profileId),
-            name: name.trim(),
+            name: displayName,
             dob,
             currency,
             monthly_income: parseFloat(monthlyIncome) || 0,
@@ -371,15 +372,15 @@ export default function CreateProfile() {
           <Text style={styles.stepTitle}>Tell us about yourself</Text>
 
           <TextInput
-            label="Full Name"
+            label="Your name (optional)"
             value={name}
             onChangeText={setName}
             mode="outlined"
             style={styles.input}
-            error={!!errors.name}
             maxLength={100}
+            placeholder="e.g. Paras"
           />
-          {errors.name && <HelperText type="error">{errors.name}</HelperText>}
+          <Text style={styles.fieldHint}>Only used to identify this profile on the login screen. Never sent anywhere.</Text>
 
           <DateInput
             label="Date of Birth"
@@ -390,6 +391,7 @@ export default function CreateProfile() {
             maximumDate={new Date()}
           />
           {errors.dob && <HelperText type="error">{errors.dob}</HelperText>}
+          <Text style={styles.fieldHint}>Used to calculate your FIRE date and years to retirement.</Text>
 
           <View style={styles.currencyWrap}>
             <CurrencyPicker value={currency} onChange={setCurrency} />
@@ -432,6 +434,7 @@ export default function CreateProfile() {
             error={!!errors.income}
           />
           {errors.income && <HelperText type="error">{errors.income}</HelperText>}
+          <Text style={styles.fieldHint}>Used only to model your savings capacity. Stored on your device, never transmitted.</Text>
 
           <Button
             mode="contained"
@@ -465,6 +468,11 @@ export default function CreateProfile() {
               </TouchableOpacity>
             </View>
           )}
+
+          <View style={styles.trustRow}>
+            <MaterialCommunityIcons name="shield-lock-outline" size={16} color={BRAND} />
+            <Text style={styles.trustText}>Everything you enter stays on this device. FinPath has no servers, no accounts, and no way to receive your data.</Text>
+          </View>
 
           <TextInput
             label="Set PIN (6 digits)"
@@ -710,6 +718,19 @@ const styles = StyleSheet.create({
   biometricText: { flex: 1 },
   biometricLabel: { color: BRAND },
   biometricSub: { color: '#888', marginTop: 2 },
+
+  // Privacy hints and trust row
+  fieldHint: { fontSize: 11, color: '#999', marginTop: 4, marginBottom: 8, lineHeight: 16 },
+  trustRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  trustText: { flex: 1, fontSize: 12, color: '#2E7D32', lineHeight: 18 },
 
   // Backup banner
   backupBanner: {
