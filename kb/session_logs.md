@@ -2,6 +2,59 @@
 
 ---
 
+## 2026-06-03 — feat(onboarding): 5-step wizard (commit f1e9e1d)
+
+**Branch:** finpath-v2
+
+**`app/onboarding/create-profile.tsx`:** Rewrote 330-line single-scroll form into a 5-step wizard. Step 0=hero (logo, tagline, feature pills, backup restore link), Step 1=mission (51% pledge, impact stats, quote), Step 2=about you (name, DOB, currency), Step 3=income (single field), Step 4=security (PIN, confirm PIN, biometrics). Progress dots visible steps 1–4. Back button on steps 1–4. Backup restore on step 0 pre-fills and jumps to step 4 with a green banner. All existing logic preserved: PIN hashing, SQLite write, biometrics, importAll for backup. TypeScript clean (only pre-existing error in storage/secure.ts, unrelated).
+
+---
+
+## 2026-06-03 — fix(slider): throttle onValueChange + decouple display from form state (commit 1154d4d)
+
+**Branch:** finpath-v2
+
+**`components/CustomSlider.tsx`:** Added `lastValueChangeTime` ref and `fireValueChange()` helper that gates `onValueChangeRef.current?.()` calls to a 16ms minimum interval (~60fps). Grant and Move PanResponder handlers now call `fireValueChange()` instead of calling the ref directly. Release handler bypasses throttle and fires both `onValueChangeRef` and `onSlidingCompleteRef` unconditionally.
+
+**`app/(tabs)/goals.tsx`:** Added `sliderDisplay: Partial<Goals>` state for lightweight per-frame label updates. All four sliders (retirement_age, sip_stop_age, inflation_rate, fire_target_age) now do `setSliderDisplay` in `onValueChange` and `setForm` only in `onSlidingComplete`. Display labels read from `sliderDisplay.field ?? form.field`. This eliminates full Goals screen re-renders during drag; the heavy `setForm` only fires on finger-up.
+
+**No build produced** — code + TS check only (node_modules not installed; tsc unavailable).
+
+---
+
+## 2026-04-30 — G3/G4 encrypted backup export/import (commit b05273a)
+
+**New file:** `utils/backupCrypto.ts` — `encryptBackup`, `decryptBackup`, `isEncryptedBackup`. Key derivation: `SHA256(passphrase || salt || label)`. AES-256-CBC + HMAC-SHA256. Output format: `{ v: 'fp-bk1', salt, iv, ct, mac }`.
+
+**`profile.tsx`:** Export now shows passphrase dialog (Portal/Dialog) before sharing. "Encrypt & Export" if passphrase given, "No encryption" to skip. Import detects encrypted file, shows unlock dialog.
+
+**`_layout.tsx`:** Share-intent path detects encrypted backup, shows passphrase modal. After unlock, proceeds to existing PIN/biometric confirmation.
+
+---
+
+## 2026-04-30 — F6 expense date inversion check (commit c960f78)
+
+`expenses.tsx handleSave`: reject save when `FUTURE_RECURRING` expense has `start_date >= end_date`. String comparison works because dates are ISO-format (YYYY-MM-DD).
+
+---
+
+## 2026-04-30 — F3 numeric input validation (commit 7c98662)
+
+**Changes:** `assets.tsx` + `expenses.tsx` `handleSave`:
+- Strip commas before parseFloat (accepts "30,000")
+- Reject `NaN`, `Infinity`, `> 1e12` with explicit Alert
+- Cap `expected_roi` at 200%, `inflation_rate` at 100%
+- ESOP vesting amount checked for same bounds
+
+---
+
+## 2026-04-30 — Physical device validation
+
+**Bug 2 (keyboard hiding BottomSheet inputs) validated on physical Android device — confirmed fixed.**
+KeyboardAwareScrollView scrolls to focused input correctly. No further action needed.
+
+---
+
 ## 2026-04-30 — BottomSheet tab bar + keyboard fixes (commit 1543c64)
 
 **Commit:** `1543c64` | Branch: `beyondv33` | APK: versionCode 40 (rebuilt)
@@ -1563,3 +1616,17 @@ fix(pdf): age labels and legend overlapped in net worth SVG chart. Increased H t
 
 ## 2026-04-30 (build)
 AAB versionCode 38 rebuilt with correct release key (FC:E2:6E...). keystore.properties was missing — build had fallen back to debug key. Created android/keystore.properties pointing to finpath-release.jks (alias: finpath). AAB at FinPath-v1.0.1-r38.aab (111MB).
+
+## 2026-06-03 — finpath-v2: slider fix, 5-step onboarding, Play Store assets, vC43 APK
+
+**Branch:** `finpath-v2` (from `beyondv33`) | **Commits:** `1154d4d`, `f1e9e1d`, `d082d80`, `a8ad950`
+
+**Changes:**
+- `fix(slider)` — CustomSlider: 16ms throttle on onValueChange via `fireValueChange()`. goals.tsx: `sliderDisplay` state decouples per-frame label from full `setForm` — eliminates Play Store lag/fluctuation
+- `feat(onboarding)` — create-profile.tsx rewritten 330→495 lines as 5-step wizard: Step 0 hero (brand, feature pills, "Get Started"), Step 1 mission (51% pledge, impact stats, amber icon), Step 2 about you, Step 3 income, Step 4 security. Backup restore on Step 0 pre-fills and jumps to Step 4
+- `docs(marketing)` — docs/playstore_assets.md: 3 short descriptions, full 4000-char long description, 6 screenshot briefs (1080×1920), feature graphic brief (1024×500), ASO keyword list, competitive research (Groww/INDmoney/ETMoney gap analysis)
+- `chore` — versionCode 43, gradle.properties fix for AGP 8.11.0 stale autolinking cache
+
+**Build:** APK at `android/app/build/outputs/apk/release/app-release-v43.apk` (153MB, arm64+x86+armeabi-v7a+x86_64)
+**Tests:** 70/70 pass
+**Root cause fixed:** Gradle was using stale `autolinking.json` pointing to old `~/dev/apps/finpath/` path — deleted and rebuilt clean
