@@ -1651,3 +1651,34 @@ AAB versionCode 38 rebuilt with correct release key (FC:E2:6E...). keystore.prop
 - No missing @/ aliased imports
 - No leftover unused variables (safetyMargin, planScenarios, keyInsights, showTable all cleaned)
 - 4 duplicate release signingConfig blocks cleaned from build.gradle (caused by multiple prebuild runs)
+
+## 2026-06-04 — Play Store automation + listing full update
+
+**Branch:** `finpath-v2` | **Commits:** d4398f0 (upload scripts), multiple
+
+### Play Store API setup
+- Service account: `cpclaudem1@aqueous-abbey-498320-j5.iam.gserviceaccount.com`
+- Key stored: `~/.secrets/finpath-play-key.json` (chmod 600, gitignored)
+- Auth confirmed working — `google-api-python-client` + `google-auth`
+- Scripts: `scripts/upload_to_play.py` + `scripts/release.sh`
+- Modern workflow: Cloud Console service account → invite to Play Console (no legacy API Access tab)
+
+### Play Store listing updated via API
+- App icon: F-logo (512×512)
+- Short desc: "Know your FIRE date. Track net worth. Plan early retirement. India-first."
+- Long desc: New hook-first copy (~2850 chars, India-focused, privacy + charity)
+- 7 languages: en-US, hi-IN, ar, zh-CN, cs-CZ, da-DK, id
+- 6 screenshots: welcome, mission, financial baseline, assets (₹75.36L), dashboard, profile
+- All screenshots captured from emulator with Jon Snow fictional test data
+
+### Screenshot capture process (complex)
+1. Added `debuggable true` to release buildType (TEMP — already removed)
+2. Completed onboarding on emulator with Jon Snow (1990-01-15, ₹3.5L, INR)
+3. DB injected via: base64 -i /tmp/jonsnow.db | adb shell "run-as pkg sh -c 'base64 -d > finpath.db'"
+4. Emulator storage freed by clearing Chrome + GMS caches
+5. Tab coordinates on 1080x2400: Assets(108,2273) Expenses(324,2273) Goals(540,2273) Dashboard(756,2273) Profile(972,2273)
+
+### Current state
+- vC60 live on all Play Store tracks (internal, production)
+- finpath-v2 branch: 38+ commits ahead of beyondv33
+- `debuggable true` removed from build.gradle
