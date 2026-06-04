@@ -59,3 +59,9 @@ node_modules/
 CLAUDE.md
 graphify-out/cache/
 test-backup.json
+
+# Android builds
+android/app/build/
+*.apk
+*.aab
+.secrets/
