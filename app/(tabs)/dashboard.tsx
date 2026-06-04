@@ -17,7 +17,6 @@ import { SnapshotTiles } from '../../components/SnapshotTiles';
 import { InsightCard } from '../../components/InsightCard';
 import { SIPControls } from '../../components/SIPControls';
 import { ProjectionTable } from '../../components/ProjectionTable';
-import { getContextualQuote } from '../../constants/quotes';
 
 export default function DashboardScreen() {
   const { profile: currentProfile, assets, expenses, goals, isLoaded } = useApp();
@@ -337,22 +336,6 @@ export default function DashboardScreen() {
         />
       )}
 
-      {/* Finance wisdom — Pro only, context-matched daily quote */}
-      {isPro && goals && (() => {
-        const q = getContextualQuote(result, currentProfile, goals, currentProfile.id as number);
-        return (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => setShowPaywall(false)}
-            style={styles.quoteCard}
-          >
-            <Text style={styles.quoteIcon}>"</Text>
-            <Text style={styles.quoteText}>{q.text}</Text>
-            <Text style={styles.quoteAttrib}>— {q.author}</Text>
-            <Text style={styles.quoteBook}>{q.book}</Text>
-          </TouchableOpacity>
-        );
-      })()}
 
       <SIPControls
         sipAmountDisplay={sipAmountDisplay}
@@ -552,19 +535,6 @@ const styles = StyleSheet.create({
   tableCard: { marginBottom: 16, borderRadius: 12 },
   tableHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   reportBtnOutlined: { borderColor: '#F9A825', borderWidth: 1, borderRadius: 6, marginLeft: 4 },
-  quoteCard: {
-    backgroundColor: '#F9FBE7',
-    borderRadius: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: '#558B2F',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 16,
-  },
-  quoteIcon: { fontSize: 32, color: '#AED581', lineHeight: 32, marginBottom: 2 },
-  quoteText: { fontSize: 13, color: '#33691E', lineHeight: 20, fontStyle: 'italic', marginBottom: 8 },
-  quoteAttrib: { fontSize: 12, color: '#558B2F', fontWeight: '600' },
-  quoteBook: { fontSize: 11, color: '#7CB342', marginTop: 2 },
 
   // Plan Simulator
   simCard: { marginBottom: 16, borderRadius: 12 },
