@@ -27,25 +27,42 @@ def get_version_info():
     return (int(code.group(1)) if code else 0), (name.group(1) if name else "1.0")
 
 def get_service(key_file):
+    import socket
+    import httplib2
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
+    socket.setdefaulttimeout(600)
     creds = service_account.Credentials.from_service_account_file(
         key_file,
         scopes=["https://www.googleapis.com/auth/androidpublisher"]
     )
+    http = httplib2.Http(timeout=600)
     return build("androidpublisher", "v3", credentials=creds, cache_discovery=False)
 
 def upload_aab(service, edit_id, aab_path):
     from googleapiclient.http import MediaFileUpload
-    print(f"  Uploading {Path(aab_path).name} ({Path(aab_path).stat().st_size // 1024 // 1024}MB)...")
-    media = MediaFileUpload(str(aab_path), mimetype="application/octet-stream", resumable=True)
-    result = service.edits().bundles().upload(
+    import time
+    size_mb = Path(aab_path).stat().st_size // 1024 // 1024
+    print(f"  Uploading {Path(aab_path).name} ({size_mb}MB) in 10MB chunks...")
+    media = MediaFileUpload(
+        str(aab_path),
+        mimetype="application/octet-stream",
+        resumable=True,
+        chunksize=10 * 1024 * 1024,  # 10MB chunks
+    )
+    request = service.edits().bundles().upload(
         packageName=PACKAGE_NAME,
         editId=edit_id,
-        media_body=media
-    ).execute()
-    print(f"  Uploaded: versionCode {result['versionCode']}")
-    return result["versionCode"]
+        media_body=media,
+    )
+    response = None
+    while response is None:
+        status, response = request.next_chunk()
+        if status:
+            pct = int(status.progress() * 100)
+            print(f"  ... {pct}%", end="\r", flush=True)
+    print(f"  Uploaded: versionCode {response['versionCode']}")
+    return response["versionCode"]
 
 def update_track(service, edit_id, track, version_codes, release_notes=None):
     notes = release_notes or [{"language": "en-US", "text": f"Bug fixes and improvements (build {version_codes[0]})"}]
