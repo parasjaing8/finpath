@@ -1682,3 +1682,10 @@ AAB versionCode 38 rebuilt with correct release key (FC:E2:6E...). keystore.prop
 - vC60 live on all Play Store tracks (internal, production)
 - finpath-v2 branch: 38+ commits ahead of beyondv33
 - `debuggable true` removed from build.gradle
+
+## 2026-06-04 (continued) — Final listing polish
+
+- Dashboard: removed financial quote tile (commit 35e11a6) — dashboard is for results/planning only
+- Play Store: hero marketing graphic added as screenshot #1 ("Plan Today. Retire Early.")
+- Play Store: title updated to "FinPath: Financial Freedom" (30-char limit — "Tracker" didn't fit)
+- Note: Play Store CDN propagation takes 6-24 hrs for icon/screenshots — normal delay
