@@ -38,9 +38,20 @@ function computeHealthScore(
 ): { score: number; label: string; color: string } {
   let score = 0;
 
-  // Corpus progress (0–25)
-  const progress = calc.fireCorpus > 0 ? Math.min(1, calc.totalNetWorth / calc.fireCorpus) : 0;
-  score += Math.round(progress * 25);
+  const age = getAge(profile.dob);
+
+  // Corpus progress — age-adjusted (0–25)
+  // Compares actual progress to expected progress at this age on a linear glide path.
+  // A 25yr old with 5% of corpus scores well; a 50yr old with 5% scores poorly.
+  const START_WORK_AGE = 22;
+  const totalWorkingYears = Math.max(1, goals.retirement_age - START_WORK_AGE);
+  const yearsWorked = Math.max(0, age - START_WORK_AGE);
+  const expectedFraction = yearsWorked / totalWorkingYears;
+  const actualFraction = calc.fireCorpus > 0 ? calc.totalNetWorth / calc.fireCorpus : 0;
+  const onTrackRatio = expectedFraction > 0
+    ? Math.min(1, actualFraction / expectedFraction)
+    : (actualFraction > 0 ? 1 : 0);
+  score += Math.round(onTrackRatio * 25);
 
   // Plan viability (0–40)
   if (!calc.failureAge || calc.failureAge === 0) score += 40;
@@ -54,7 +65,6 @@ function computeHealthScore(
   else if (burden < 0.7) score += 6;
 
   // Time to FIRE buffer (0–15)
-  const age = getAge(profile.dob);
   const yearsLeft = goals.retirement_age - age;
   if (yearsLeft <= 10) score += 15;
   else if (yearsLeft <= 20) score += 12;
@@ -581,12 +591,18 @@ ${sensitivityTable}
   <tr>
     <td><strong>Corpus Progress</strong></td>
     <td style="text-align:center">25</td>
-    <td>How far along you are toward your FIRE target today</td>
+    <td>Are you on track <em>for your age</em>? A 25yr old with 5% of corpus scores well; a 50yr old with 5% does not.</td>
     <td>${(() => {
-      const progress = calc.fireCorpus > 0 ? Math.min(1, calc.totalNetWorth / calc.fireCorpus) : 0;
-      const pts = Math.round(progress * 25);
-      const pct = Math.round(progress * 100);
-      return `${fmt(calc.totalNetWorth, cur)} of ${fmt(calc.fireCorpus, cur)} target = ${pct}% → <strong>${pts} pts</strong>`;
+      const START = 22;
+      const totalYrs = Math.max(1, goals.retirement_age - START);
+      const worked = Math.max(0, age - START);
+      const expected = worked / totalYrs;
+      const actual = calc.fireCorpus > 0 ? calc.totalNetWorth / calc.fireCorpus : 0;
+      const ratio = expected > 0 ? Math.min(1, actual / expected) : (actual > 0 ? 1 : 0);
+      const pts = Math.round(ratio * 25);
+      const actualPct = Math.round(actual * 100);
+      const expectedPct = Math.round(expected * 100);
+      return `Have ${actualPct}% of corpus; expected ${expectedPct}% at age ${age} → ${Math.round(ratio * 100)}% on track → <strong>${pts} pts</strong>`;
     })()}</td>
   </tr>
   <tr style="background:#fafafa">
@@ -632,6 +648,7 @@ ${sensitivityTable}
 </table>
 <p style="font-size:9px;color:#aaa;margin-top:6px">
   Score bands: 80–100 = Excellent · 60–79 = Good · 40–59 = Fair · 0–39 = Needs Work.
+  Corpus Progress is age-adjusted — someone just starting out is compared to peers their age, not to someone near retirement.
   Plan Viability carries the most weight (40 pts) — a plan where corpus runs out will never score above 60 even if everything else is perfect.
 </p>
 
