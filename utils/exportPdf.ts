@@ -40,36 +40,49 @@ function computeHealthScore(
 
   const age = getAge(profile.dob);
 
-  // Corpus progress — age-adjusted (0–25)
-  // Compares actual progress to expected progress at this age on a linear glide path.
-  // A 25yr old with 5% of corpus scores well; a 50yr old with 5% scores poorly.
+  // 1. Corpus progress — age-adjusted, exponential glide path (0–25)
+  // Expected fraction uses compound accumulation curve (constant SIP at 7% real return),
+  // not a linear path. Early years are weighted lower because contributions haven't compounded.
   const START_WORK_AGE = 22;
-  const totalWorkingYears = Math.max(1, goals.retirement_age - START_WORK_AGE);
-  const yearsWorked = Math.max(0, age - START_WORK_AGE);
-  const expectedFraction = yearsWorked / totalWorkingYears;
+  const REAL_RETURN = 0.07;
+  const worked = Math.max(0, age - START_WORK_AGE);
+  const totalYears = Math.max(1, goals.retirement_age - START_WORK_AGE);
+  const expNumer = Math.pow(1 + REAL_RETURN, worked) - 1;
+  const expDenom = Math.pow(1 + REAL_RETURN, totalYears) - 1;
+  const expectedFraction = expDenom > 0 ? expNumer / expDenom : 0;
   const actualFraction = calc.fireCorpus > 0 ? calc.totalNetWorth / calc.fireCorpus : 0;
   const onTrackRatio = expectedFraction > 0
     ? Math.min(1, actualFraction / expectedFraction)
     : (actualFraction > 0 ? 1 : 0);
   score += Math.round(onTrackRatio * 25);
 
-  // Plan viability (0–40)
-  if (!calc.failureAge || calc.failureAge === 0) score += 40;
-  else if (calc.failureAge > (goals.fire_target_age ?? 100) - 5) score += 20;
+  // 2. Plan viability — continuous (0–40)
+  // Proportional to how many retirement years the corpus sustains vs. how many are needed.
+  // Corpus never depletes = 40. Depletes at halfway through retirement = 20. At year 1 = 0.
+  const retirementYearsNeeded = Math.max(1, (goals.fire_target_age ?? 100) - goals.retirement_age);
+  let planPts: number;
+  if (!calc.failureAge || calc.failureAge === 0) {
+    planPts = 40;
+  } else {
+    const yearsSustained = Math.max(0, calc.failureAge - goals.retirement_age);
+    planPts = Math.round((yearsSustained / retirementYearsNeeded) * 40);
+  }
+  score += planPts;
 
-  // SIP affordability (0–20)
+  // 3. SIP affordability (0–20)
   const income = profile.monthly_income ?? 0;
   const burden = income > 0 ? sipAmount / income : 0;
   if (burden < 0.3) score += 20;
   else if (burden < 0.5) score += 12;
   else if (burden < 0.7) score += 6;
 
-  // Time to FIRE buffer (0–15)
-  const yearsLeft = goals.retirement_age - age;
-  if (yearsLeft <= 10) score += 15;
-  else if (yearsLeft <= 20) score += 12;
-  else if (yearsLeft <= 30) score += 8;
-  else score += 4;
+  // 4. Income coverage ratio (0–15)
+  // Projected net worth at retirement vs. required FIRE corpus — forward-looking adequacy.
+  // Replaces "time buffer" which penalised young users for having time left.
+  const coverage = calc.fireCorpus > 0
+    ? Math.min(1, calc.netWorthAtRetirement / calc.fireCorpus)
+    : (calc.netWorthAtRetirement > 0 ? 1 : 0);
+  score += Math.round(coverage * 15);
 
   const capped = Math.min(100, Math.max(0, score));
   let label: string;
@@ -591,35 +604,38 @@ ${sensitivityTable}
   <tr>
     <td><strong>Corpus Progress</strong></td>
     <td style="text-align:center">25</td>
-    <td>Are you on track <em>for your age</em>? A 25yr old with 5% of corpus scores well; a 50yr old with 5% does not.</td>
+    <td>Are you on track <em>for your age</em>? Uses an exponential accumulation curve (7% real return) — early years are weighted lower because contributions haven't compounded yet.</td>
     <td>${(() => {
       const START = 22;
-      const totalYrs = Math.max(1, goals.retirement_age - START);
-      const worked = Math.max(0, age - START);
-      const expected = worked / totalYrs;
+      const R = 0.07;
+      const w = Math.max(0, age - START);
+      const t = Math.max(1, goals.retirement_age - START);
+      const expFrac = (Math.pow(1 + R, t) - 1) > 0
+        ? (Math.pow(1 + R, w) - 1) / (Math.pow(1 + R, t) - 1) : 0;
       const actual = calc.fireCorpus > 0 ? calc.totalNetWorth / calc.fireCorpus : 0;
-      const ratio = expected > 0 ? Math.min(1, actual / expected) : (actual > 0 ? 1 : 0);
+      const ratio = expFrac > 0 ? Math.min(1, actual / expFrac) : (actual > 0 ? 1 : 0);
       const pts = Math.round(ratio * 25);
-      const actualPct = Math.round(actual * 100);
-      const expectedPct = Math.round(expected * 100);
-      return `Have ${actualPct}% of corpus; expected ${expectedPct}% at age ${age} → ${Math.round(ratio * 100)}% on track → <strong>${pts} pts</strong>`;
+      return `Have ${Math.round(actual * 100)}% of corpus; expected ${Math.round(expFrac * 100)}% at age ${age} (exp. curve) → ${Math.round(ratio * 100)}% on track → <strong>${pts} pts</strong>`;
     })()}</td>
   </tr>
   <tr style="background:#fafafa">
     <td><strong>Plan Viability</strong></td>
     <td style="text-align:center">40</td>
-    <td>Will your corpus last through your target age without running out?</td>
+    <td>How many retirement years does the corpus sustain? Proportional — depleting at age 80 on a 90-yr plan scores better than depleting at 70.</td>
     <td>${(() => {
-      if (!calc.failureAge || calc.failureAge === 0) return `Corpus sustains through age ${goals.fire_target_age ?? 100} → <strong>40 pts</strong>`;
-      const gap = calc.failureAge - (goals.fire_target_age ?? 100);
-      if (gap > -5) return `Corpus depletes at age ${calc.failureAge} (within 5 yrs of target) → <strong>20 pts</strong>`;
-      return `Corpus depletes at age ${calc.failureAge} (well before target) → <strong>0 pts</strong>. Increase SIP to improve.`;
+      const targetAge = goals.fire_target_age ?? 100;
+      const retYearsNeeded = Math.max(1, targetAge - goals.retirement_age);
+      if (!calc.failureAge || calc.failureAge === 0)
+        return `Corpus sustains through age ${targetAge} → <strong>40 pts</strong>`;
+      const sustained = Math.max(0, calc.failureAge - goals.retirement_age);
+      const pts = Math.round((sustained / retYearsNeeded) * 40);
+      return `Corpus sustains ${sustained} of ${retYearsNeeded} retirement years (depletes age ${calc.failureAge}) → <strong>${pts} pts</strong>`;
     })()}</td>
   </tr>
   <tr>
     <td><strong>SIP Affordability</strong></td>
     <td style="text-align:center">20</td>
-    <td>SIP as a % of your monthly income — lower burden = more sustainable</td>
+    <td>SIP as a % of monthly income — lower burden = more sustainable plan</td>
     <td>${(() => {
       const income = profile.monthly_income ?? 0;
       const burden = income > 0 ? sipAmount / income : 0;
@@ -633,23 +649,23 @@ ${sensitivityTable}
     })()}</td>
   </tr>
   <tr style="background:#fafafa">
-    <td><strong>Time Buffer</strong></td>
+    <td><strong>Income Coverage</strong></td>
     <td style="text-align:center">15</td>
-    <td>Years left to retirement — fewer years means less room for error</td>
+    <td>Projected net worth at retirement vs. required FIRE corpus — are you on course to fully fund your plan?</td>
     <td>${(() => {
-      const yearsLeft = goals.retirement_age - age;
-      let pts = 4;
-      if (yearsLeft <= 10) pts = 15;
-      else if (yearsLeft <= 20) pts = 12;
-      else if (yearsLeft <= 30) pts = 8;
-      return `${yearsLeft} years to retirement (age ${goals.retirement_age}) → <strong>${pts} pts</strong>`;
+      const cov = calc.fireCorpus > 0
+        ? Math.min(1, calc.netWorthAtRetirement / calc.fireCorpus)
+        : (calc.netWorthAtRetirement > 0 ? 1 : 0);
+      const pts = Math.round(cov * 15);
+      const covPct = Math.round(cov * 100);
+      return `${fmt(calc.netWorthAtRetirement, cur)} projected vs. ${fmt(calc.fireCorpus, cur)} needed = ${covPct}% funded → <strong>${pts} pts</strong>`;
     })()}</td>
   </tr>
 </table>
 <p style="font-size:9px;color:#aaa;margin-top:6px">
   Score bands: 80–100 = Excellent · 60–79 = Good · 40–59 = Fair · 0–39 = Needs Work.
-  Corpus Progress is age-adjusted — someone just starting out is compared to peers their age, not to someone near retirement.
-  Plan Viability carries the most weight (40 pts) — a plan where corpus runs out will never score above 60 even if everything else is perfect.
+  Corpus Progress uses an exponential glide path — a 25yr old is expected to have far less than a 50yr old relative to their FIRE target.
+  Plan Viability (40 pts) is fully continuous — every additional year your corpus sustains adds to the score.
 </p>
 
 <h2>Assets (${assets.length})</h2>
