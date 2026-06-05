@@ -93,6 +93,10 @@ export default function LoginScreen() {
       } catch {
         Alert.alert('Load failed', 'Could not load profile data. Please try again.');
       }
+    } else {
+      // Dialog closed without success — Android window needs time to regain focus
+      // before keyboard can be invoked, hence the delay.
+      setTimeout(() => pinInputRef.current?.focus(), 600);
     }
   }
 
@@ -237,7 +241,7 @@ export default function LoginScreen() {
             {/* Dot indicators — tap to focus hidden input */}
             <TouchableOpacity
               style={styles.dotsRow}
-              onPress={() => pinInputRef.current?.focus()}
+              onPress={() => setTimeout(() => pinInputRef.current?.focus(), 100)}
               activeOpacity={1}
             >
               {Array.from({ length: PIN_LENGTH }).map((_, i) => (
@@ -497,7 +501,7 @@ const styles = StyleSheet.create({
   },
   hiddenInput: {
     position: 'absolute',
-    opacity: 0,
+    left: -9999,
     width: 1,
     height: 1,
   },
