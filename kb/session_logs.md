@@ -1760,3 +1760,11 @@ AAB versionCode 38 rebuilt with correct release key (FC:E2:6E...). keystore.prop
 **Build:** vC61 (versionName 1.0.1) — APK 153MB, AAB 111MB
 **Upload:** vC61 AAB → internal track ✓
 **Fix:** upload_to_play.py now uses 10MB chunks + 600s timeout (was timing out on 111MB)
+
+---
+
+## 2026-06-05 — fix: PIN keyboard overlay approach + vC64 shipped (commits 7eeaf51, 7a87447)
+
+**Branch:** finpath-v2 | **Build:** vC64 / versionName 1.0.1 | **AAB:** app-release-v64.aab (111MB)
+
+Root cause: `left:-9999` off-screen input doesn't reliably invoke IME on all Android versions. Fix: transparent `RNTextInput` with `StyleSheet.absoluteFillObject` overlaid on the dots container (`pointerEvents="none"` on the dots View). Any tap in the dots area now hits the input directly — no manual focus() needed. Also added try-catch to `triggerBiometric` (some Android versions throw on cancel instead of returning {success:false}). Verified on emulator: keyboard appeared automatically on login screen load; PIN 1234 auto-submitted. vC64 uploaded to internal and promoted to all tracks.
