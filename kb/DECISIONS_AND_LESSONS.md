@@ -73,6 +73,18 @@ When creating a new `CURRENT_RECURRING` expense, the end date pre-fills to the u
 
 ---
 
+## 2026-06-05 -- PIN keyboard hidden input must be on-screen, not off-screen
+
+**Problem:** Hidden `RNTextInput` for PIN entry placed at `left: -9999` (off-screen) fails to invoke the soft keyboard on some Android versions. `focus()` calls appear to succeed but the IME never appears.
+
+**Root cause:** Android's InputMethodManager only shows the keyboard for inputs within the visible viewport. An input 9999px off-screen is not considered "visible" on several Android 12/13 OEM builds.
+
+**Fix (vC64):** Use `StyleSheet.absoluteFillObject` to overlay the input directly on top of the dots row. Apply `pointerEvents="none"` to the dots `View` so taps pass through to the input. The keyboard appears on any tap in the dots area with no `focus()` call required.
+
+**Second fix:** `LocalAuthentication.authenticateAsync` can throw on cancel on some Android OEM builds instead of returning `{success: false}`. Always wrap in try-catch and handle the catch identically to the `else` branch.
+
+---
+
 ## 2026-04-06 -- Biometric login is per-profile, opt-in
 
 Each profile independently stores a biometric opt-in flag in SecureStore.
