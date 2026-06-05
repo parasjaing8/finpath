@@ -3,6 +3,19 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Card, Switch } from 'react-native-paper';
 import { Slider } from '@miblanchard/react-native-slider';
 import { formatCurrency } from '../engine/calculator';
+import { CustomSlider, GradientStop } from './CustomSlider';
+
+const PRE_RETIREMENT_GRADIENT: GradientStop[] = [
+  { from: 5,  to: 12, color: '#388E3C' },
+  { from: 12, to: 15, color: '#F9A825' },
+  { from: 15, to: 20, color: '#D32F2F' },
+];
+
+const POST_RETIREMENT_GRADIENT: GradientStop[] = [
+  { from: 3, to: 9,  color: '#388E3C' },
+  { from: 9, to: 12, color: '#F9A825' },
+  { from: 12, to: 15, color: '#D32F2F' },
+];
 
 interface Props {
   sipAmountDisplay: number;
@@ -82,22 +95,22 @@ export function SIPControls({
             <Text variant="labelMedium" style={styles.sliderLabel}>
               Return While Investing (until age {sipStopAge}): {sipReturnRateDisplay}%
             </Text>
-            <Slider
+            <CustomSlider
               value={sipReturnRateDisplay}
-              onValueChange={(v: number[]) => onReturnChange(Math.round(v[0]))}
-              onSlidingComplete={(v: number[]) => onReturnCommit(Math.round(v[0]))}
+              onValueChange={v => onReturnChange(v)}
+              onSlidingComplete={v => onReturnCommit(v)}
               minimumValue={5} maximumValue={20} step={1}
-              minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
+              gradientStops={PRE_RETIREMENT_GRADIENT}
             />
             <Text variant="labelMedium" style={styles.sliderLabel}>
               Return After SIP Stops (from age {sipStopAge}): {postSipReturnRateDisplay}%
             </Text>
-            <Slider
+            <CustomSlider
               value={postSipReturnRateDisplay}
-              onValueChange={(v: number[]) => onPostReturnChange(Math.round(v[0]))}
-              onSlidingComplete={(v: number[]) => onPostReturnCommit(Math.round(v[0]))}
+              onValueChange={v => onPostReturnChange(v)}
+              onSlidingComplete={v => onPostReturnCommit(v)}
               minimumValue={3} maximumValue={15} step={1}
-              minimumTrackTintColor="#1B5E20" thumbTintColor="#1B5E20"
+              gradientStops={POST_RETIREMENT_GRADIENT}
             />
             <Text variant="bodySmall" style={styles.infoText}>
               Only withdrawn amounts are taxed. Remaining corpus compounds at gross return rate.

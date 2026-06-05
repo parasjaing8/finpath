@@ -3,6 +3,12 @@ import { View, StyleSheet, PanResponder, LayoutChangeEvent, Platform, StyleProp,
 import { useColors } from '@/hooks/useColors';
 import { shadow } from '@/constants/theme';
 
+export interface GradientStop {
+  from: number;
+  to: number;
+  color: string;
+}
+
 interface Props {
   value: number;
   onValueChange?: (value: number) => void;
@@ -14,6 +20,13 @@ interface Props {
   thumbTintColor?: string;
   maximumTrackTintColor?: string;
   style?: StyleProp<ViewStyle>;
+  gradientStops?: GradientStop[];
+}
+
+// Returns the color of the zone the value falls in (last stop wins for exact boundaries)
+function resolveZoneColor(value: number, stops: GradientStop[]): string {
+  const match = [...stops].reverse().find(s => value >= s.from);
+  return match?.color ?? stops[0]?.color ?? '#1B5E20';
 }
 
 export function CustomSlider({
@@ -27,11 +40,14 @@ export function CustomSlider({
   thumbTintColor,
   maximumTrackTintColor,
   style,
+  gradientStops,
 }: Props) {
   const colors = useColors();
   const trackColor = maximumTrackTintColor ?? colors.border;
   const fillColor = minimumTrackTintColor ?? colors.primary;
   const thumbColor = thumbTintColor ?? colors.primary;
+  const isGradient = !!gradientStops && gradientStops.length > 0;
+  const zoneColor = isGradient ? resolveZoneColor(value, gradientStops!) : thumbColor;
 
   const containerWidth = useRef(0);
 
@@ -152,10 +168,39 @@ export function CustomSlider({
       onLayout={handleLayout}
       {...panResponder.panHandlers}
     >
-      <View style={[styles.track, { backgroundColor: trackColor }]}>
-        <View style={[styles.fill, { backgroundColor: fillColor, width: (`${percent}%` as DimensionValue) }]} />
-      </View>
-      <View style={[styles.thumb, { backgroundColor: thumbColor, left: (`${percent}%` as DimensionValue) }]} />
+      {isGradient ? (
+        <View style={[styles.track, { backgroundColor: '#e0e0e0' }]}>
+          {gradientStops!.map((stop, i) => {
+            const range = maximumValue - minimumValue;
+            const leftPct = ((stop.from - minimumValue) / range) * 100;
+            const widthPct = ((stop.to - stop.from) / range) * 100;
+            return (
+              <View
+                key={i}
+                style={{
+                  position: 'absolute',
+                  left: `${leftPct}%` as DimensionValue,
+                  width: `${widthPct}%` as DimensionValue,
+                  height: '100%',
+                  backgroundColor: stop.color,
+                  opacity: 0.85,
+                }}
+              />
+            );
+          })}
+        </View>
+      ) : (
+        <View style={[styles.track, { backgroundColor: trackColor }]}>
+          <View style={[styles.fill, { backgroundColor: fillColor, width: (`${percent}%` as DimensionValue) }]} />
+        </View>
+      )}
+      <View style={[
+        styles.thumb,
+        isGradient
+          ? { backgroundColor: '#fff', borderWidth: 2.5, borderColor: zoneColor }
+          : { backgroundColor: thumbColor },
+        { left: (`${percent}%` as DimensionValue) },
+      ]} />
     </View>
   );
 }
