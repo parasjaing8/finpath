@@ -402,7 +402,7 @@ export default function DashboardScreen() {
               }}>
               {isPro ? 'PDF' : '⭐ PDF'}
             </Button>
-            <ProPaywall visible={showPaywall} onDismiss={() => setShowPaywall(false)} currency={currency} />
+            <ProPaywall visible={showPaywall} onDismiss={() => setShowPaywall(false)} />
           </View>
           <ProjectionTable
             projections={projections}

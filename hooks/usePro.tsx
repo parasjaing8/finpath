@@ -21,6 +21,8 @@ interface ProContextType {
   loading: boolean;
   purchasing: boolean;
   errorMessage: string | null;
+  productPrice: string | null;
+  priceLoading: boolean;
   purchasePro: () => Promise<void>;
   restorePurchases: () => Promise<void>;
   clearError: () => void;
@@ -31,6 +33,8 @@ const ProContext = createContext<ProContextType>({
   loading: true,
   purchasing: false,
   errorMessage: null,
+  productPrice: null,
+  priceLoading: true,
   purchasePro: async () => {},
   restorePurchases: async () => {},
   clearError: () => {},
@@ -41,6 +45,8 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [productPrice, setProductPrice] = useState<string | null>(null);
+  const [priceLoading, setPriceLoading] = useState(true);
   const purchaseListenerRef = useRef<any>(null);
   const errorListenerRef = useRef<any>(null);
 
@@ -64,6 +70,17 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
         // Connect to Play Store
         await initConnection();
 
+        // Fetch product details to get live price from Play Console
+        try {
+          const products = await fetchProducts({ skus: [PRO_PRODUCT_ID], type: 'in-app' });
+          const product = (products ?? []).find(p => p.id === PRO_PRODUCT_ID);
+          if (product?.displayPrice && active) setProductPrice(product.displayPrice);
+        } catch {
+          // Non-fatal — price stays null, Play's own purchase dialog shows it
+        } finally {
+          if (active) setPriceLoading(false);
+        }
+
         // Listen for purchase updates
         purchaseListenerRef.current = purchaseUpdatedListener(async (purchase: Purchase) => {
           if (purchase.productId === PRO_PRODUCT_ID) {
@@ -83,6 +100,7 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
         if (hasPro && active) await unlockPro();
       } catch (e) {
         if (__DEV__) console.error('IAP init error:', e);
+        if (active) setPriceLoading(false);
       } finally {
         if (active) setLoading(false);
       }
@@ -101,7 +119,6 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
   const purchasePro = useCallback(async () => {
     setPurchasing(true);
     try {
-      await fetchProducts({ skus: [PRO_PRODUCT_ID], type: "in-app" });
       await requestPurchase({
         request: {
           google: {
@@ -133,7 +150,7 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
   }, [unlockPro]);
 
   return (
-    <ProContext.Provider value={{ isPro, loading, purchasing, errorMessage, purchasePro, restorePurchases, clearError }}>
+    <ProContext.Provider value={{ isPro, loading, purchasing, errorMessage, productPrice, priceLoading, purchasePro, restorePurchases, clearError }}>
       {children}
     </ProContext.Provider>
   );

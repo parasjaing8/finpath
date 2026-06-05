@@ -7,38 +7,6 @@ import { usePro } from '../hooks/usePro';
 interface ProPaywallProps {
   visible: boolean;
   onDismiss: () => void;
-  currency?: string;
-}
-
-// Regional pricing map — amounts are app store equivalents
-const PRICE_MAP: Record<string, { display: string }> = {
-  INR: { display: '₹199' },
-  USD: { display: '$4.99' },
-  EUR: { display: '€4.99' },
-  GBP: { display: '£3.99' },
-  AUD: { display: 'A$7.99' },
-  CAD: { display: 'C$6.99' },
-  SGD: { display: 'S$6.99' },
-  AED: { display: 'AED 18' },
-  CHF: { display: 'CHF 4.99' },
-  JPY: { display: '¥749' },
-  NZD: { display: 'NZ$7.99' },
-  MYR: { display: 'RM 19' },
-  THB: { display: '฿169' },
-  IDR: { display: 'Rp 79,000' },
-  PHP: { display: '₱289' },
-  ZAR: { display: 'R 89' },
-  BRL: { display: 'R$24.90' },
-  MXN: { display: 'MX$99' },
-  HKD: { display: 'HK$39' },
-  SEK: { display: 'kr 54' },
-  NOK: { display: 'kr 54' },
-  DKK: { display: 'kr 37' },
-};
-
-function getPrice(currency?: string): string {
-  if (!currency) return '$4.99';
-  return PRICE_MAP[currency]?.display ?? '$4.99';
 }
 
 const FEATURES = [
@@ -46,11 +14,10 @@ const FEATURES = [
   { icon: 'file-pdf-box', text: 'PDF report with net worth chart and FIRE summary' },
 ];
 
-export function ProPaywall({ visible, onDismiss, currency }: ProPaywallProps) {
-  const { purchasePro, restorePurchases, purchasing, errorMessage, clearError } = usePro();
+export function ProPaywall({ visible, onDismiss }: ProPaywallProps) {
+  const { purchasePro, restorePurchases, purchasing, errorMessage, clearError, productPrice, priceLoading } = usePro();
 
   const handleDismiss = () => { clearError(); onDismiss(); };
-  const priceDisplay = getPrice(currency);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleDismiss}>
@@ -76,9 +43,11 @@ export function ProPaywall({ visible, onDismiss, currency }: ProPaywallProps) {
           ))}
         </View>
 
-        {/* Price — regional */}
+        {/* Price — fetched live from Play Console */}
         <View style={styles.priceRow}>
-          <Text variant="headlineMedium" style={styles.price}>{priceDisplay}</Text>
+          <Text variant="headlineMedium" style={styles.price}>
+            {priceLoading ? '—' : (productPrice ?? '—')}
+          </Text>
           <Text style={styles.priceSub}> · One-time</Text>
         </View>
 
