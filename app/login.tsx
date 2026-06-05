@@ -354,15 +354,9 @@ export default function LoginScreen() {
             <MaterialCommunityIcons name="shield-check-outline" size={14} color="#888" />
             <Text style={styles.trustText}>Your data is safe and encrypted</Text>
           </View>
-          <View style={styles.linksRow}>
-            <TouchableOpacity onPress={() => Linking.openURL('https://aihomecloud.com/finpath/privacy')}>
-              <Text style={styles.linkText}>Privacy Policy</Text>
-            </TouchableOpacity>
-            <Text style={styles.linkSep}> • </Text>
-            <TouchableOpacity onPress={() => Linking.openURL('https://aihomecloud.com/finpath/support')}>
-              <Text style={styles.linkText}>Terms of Service</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={() => Linking.openURL('https://aihomecloud.com/finpath/privacy')}>
+            <Text style={styles.linkText}>Privacy Policy</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -583,16 +577,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
   },
-  linksRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   linkText: {
     fontSize: 12,
     color: '#999',
-  },
-  linkSep: {
-    fontSize: 12,
-    color: '#CCC',
   },
 });
