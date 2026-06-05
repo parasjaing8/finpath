@@ -2,6 +2,64 @@
 
 ---
 
+## 2026-06-05 — fix: PIN keyboard after biometric cancel + vC63 shipped (commits e423e5b, 27a20cc)
+
+**Branch:** finpath-v2 | **Build:** vC63 / versionName 1.0.1 | **AAB:** app-release-v63.aab (111MB)
+
+Bug: PIN keyboard not invoked after fingerprint dialog was canceled. Fixed: (1) added else branch in triggerBiometric with 600ms re-focus delay; (2) hidden input moved off-screen (left:-9999) for reliable Android keyboard; (3) 100ms delay on dots onPress. vC63 uploaded to internal, promoted to alpha → beta → production.
+
+---
+
+## 2026-06-05 — feat(login): redesign + vC62 shipped to all tracks (commits 796ad95, a3dd626, 026c423)
+
+**Branch:** finpath-v2 | **Build:** vC62 / versionName 1.0.1 | **AAB:** app-release-v62.aab (111MB)
+
+Login screen redesigned per reference UI. Verified on emulator (screenshot taken). vC62 uploaded to internal and promoted to alpha → beta → production.
+
+---
+
+## 2026-06-05 — feat(login): redesign login screen (commit 796ad95)
+
+**Branch:** finpath-v2
+
+**`app/login.tsx`:** Full UI redesign matching reference screenshot.
+- F-road logo image replaces leaf icon circle
+- "Welcome back, [name] 👋" personalised subtitle (auto from selected profile)
+- Profile as horizontal pill card (avatar + name + green checkmark)
+- Visual PIN dots (4×) replacing TextInput; hidden RNTextInput handles input; auto-submits on 4th digit
+- Unlock button: lock icon + "Unlock" + arrow right; muted green when disabled
+- Biometric: outlined pill "Unlock with Fingerprint" with "or" separator
+- Forgot PIN? restyled to green link (was red/underline)
+- Footer: shield + "Your data is safe and encrypted" + Privacy Policy • Terms of Service row
+- All logic unchanged (lockout, biometric, forgot PIN, legacy hash)
+
+---
+
+## 2026-06-05 — feat(icon): green F-road logo + vC61 build + full track promotion
+
+**Branch:** finpath-v2
+
+**Icon update (all surfaces):**
+- `assets/icon.png`, `assets/adaptive-icon.png`, `assets/splash-icon.png` — 1024×1024 green F-road logo
+- All 15 mipmap files (ic_launcher / ic_launcher_foreground / ic_launcher_round × 5 densities)
+- All 5 splashscreen logo drawables (mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi)
+- Onboarding `create-profile.tsx:239` uses `require('../../assets/icon.png')` directly — updated via assets replacement
+- Play Store listing icon also uploaded via androidpublisher API
+
+**Play Store screenshots (5 new via API):**
+Order: Dream → Wealth → Planning → Trust → Mission  
+Uploaded + committed via `scripts/upload_screenshots.py`. Replaced en-US phoneScreenshots.
+
+**Build:** versionCode bumped 60 → 61. APK: `app-release-v61.apk`. AAB: `app-release-v61.aab`.
+
+**Track promotion:** vC61 promoted internal → alpha → beta → production via `upload_to_play.py --promote`.
+
+**AAB upload fix:** Large AAB (111MB) was timing out. Fixed with `socket.setdefaulttimeout(600)` + `MediaFileUpload(chunksize=10MB, resumable=True)` + `request.next_chunk()` loop.
+
+**Listing note:** Google content review takes 1-3 days. New icon/screenshots not immediately visible — normal.
+
+---
+
 ## 2026-06-03 — feat(onboarding): 5-step wizard (commit f1e9e1d)
 
 **Branch:** finpath-v2
@@ -1689,3 +1747,16 @@ AAB versionCode 38 rebuilt with correct release key (FC:E2:6E...). keystore.prop
 - Play Store: hero marketing graphic added as screenshot #1 ("Plan Today. Retire Early.")
 - Play Store: title updated to "FinPath: Financial Freedom" (30-char limit — "Tracker" didn't fit)
 - Note: Play Store CDN propagation takes 6-24 hrs for icon/screenshots — normal delay
+
+---
+## 2026-06-05 — Icon update + vC61 build
+**Commits:** 8ab604b (icon assets), fbe89ce (upload fix)
+**What:** Updated app icon to green F-road logo across all surfaces:
+- assets/icon.png, adaptive-icon.png, splash-icon.png (1024×1024)
+- All 15 mipmap webps (ic_launcher, ic_launcher_round, ic_launcher_foreground × 5 densities)
+- All 5 splashscreen_logo.png densities
+- Play Store listing icon (512×512) uploaded via API
+- Play Store screenshots updated (5-image Dream→Wealth→Planning→Trust→Mission set)
+**Build:** vC61 (versionName 1.0.1) — APK 153MB, AAB 111MB
+**Upload:** vC61 AAB → internal track ✓
+**Fix:** upload_to_play.py now uses 10MB chunks + 600s timeout (was timing out on 111MB)

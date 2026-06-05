@@ -1,12 +1,12 @@
-Latest commit: d4398f0 (feat: automated Play Store upload scripts) [finpath-v2]
-Latest APK/AAB: app-release-v60.apk / app-release-v60.aab (versionCode 60, versionName 1.0.1)
-Branch: finpath-v2 (38+ commits ahead of beyondv33)
-Play Store: vC60 live on all tracks (internal + production)
+Latest commit: 27a20cc (chore: bump versionCode 63) [finpath-v2]
+Latest APK/AAB: app-release-v63.aab (versionCode 63, versionName 1.0.1)
+Branch: finpath-v2 (42+ commits ahead of beyondv33)
+Play Store: vC63 on all tracks (internal / alpha / beta / production) — promoted 2026-06-05
 
-Play Store listing: FULLY UPDATED 2026-06-04
-  - Icon: F-logo ✓
+Play Store listing: FULLY UPDATED 2026-06-05
+  - Icon: green F-road logo ✓ (updated from blue)
   - Short/Long desc: Updated ✓
   - 7 languages: en-US, hi-IN, ar, zh-CN, cs-CZ, da-DK, id ✓
-  - 6 screenshots ✓
+  - 5 screenshots: Dream→Wealth→Planning→Trust→Mission ✓
 
 beyondv33 (production base): b05273a | vC42 — untouched
