@@ -75,28 +75,32 @@ export default function LoginScreen() {
   }
 
   async function triggerBiometric(profile: Profile) {
-    const hasHardware = await LocalAuthentication.hasHardwareAsync();
-    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-    if (!hasHardware || !isEnrolled) return;
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: `Login as ${profile.name}`,
-      fallbackLabel: 'Use PIN instead',
-      cancelLabel: 'Cancel',
-    });
-    if (result.success) {
-      await resetFailedAttempts(profile.id);
-      await setCurrentProfileId(profile.id);
-      await refreshProfiles();
-      try {
-        await loadProfile(profile.id);
-        router.replace('/(tabs)/assets');
-      } catch {
-        Alert.alert('Load failed', 'Could not load profile data. Please try again.');
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!hasHardware || !isEnrolled) return;
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: `Login as ${profile.name}`,
+        fallbackLabel: 'Use PIN instead',
+        cancelLabel: 'Cancel',
+      });
+      if (result.success) {
+        await resetFailedAttempts(profile.id);
+        await setCurrentProfileId(profile.id);
+        await refreshProfiles();
+        try {
+          await loadProfile(profile.id);
+          router.replace('/(tabs)/assets');
+        } catch {
+          Alert.alert('Load failed', 'Could not load profile data. Please try again.');
+        }
+      } else {
+        // Dialog dismissed without success — focus PIN input after Android regains window focus
+        setTimeout(() => pinInputRef.current?.focus(), 800);
       }
-    } else {
-      // Dialog closed without success — Android window needs time to regain focus
-      // before keyboard can be invoked, hence the delay.
-      setTimeout(() => pinInputRef.current?.focus(), 600);
+    } catch {
+      // Some Android versions throw on cancel instead of returning success:false
+      setTimeout(() => pinInputRef.current?.focus(), 800);
     }
   }
 
@@ -238,38 +242,34 @@ export default function LoginScreen() {
           <View style={styles.pinSection}>
             <Text style={styles.pinLabel}>Enter your PIN</Text>
 
-            {/* Dot indicators — tap to focus hidden input */}
-            <TouchableOpacity
-              style={styles.dotsRow}
-              onPress={() => setTimeout(() => pinInputRef.current?.focus(), 100)}
-              activeOpacity={1}
-            >
-              {Array.from({ length: PIN_LENGTH }).map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.dot,
-                    pin.length > i && styles.dotFilled,
-                    isLocked && styles.dotLocked,
-                  ]}
-                />
-              ))}
-            </TouchableOpacity>
-
-            {/* Hidden real input */}
-            <RNTextInput
-              ref={pinInputRef}
-              value={pin}
-              onChangeText={text => {
-                setPin(text.replace(/\D/g, '').slice(0, PIN_LENGTH));
-                setError('');
-              }}
-              keyboardType="number-pad"
-              maxLength={PIN_LENGTH}
-              secureTextEntry
-              style={styles.hiddenInput}
-              editable={!isLocked && !loading}
-            />
+            {/* Dot indicators — transparent input overlaid so any tap directly hits it */}
+            <View style={styles.pinInputWrapper}>
+              <View style={styles.dotsRow} pointerEvents="none">
+                {Array.from({ length: PIN_LENGTH }).map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.dot,
+                      pin.length > i && styles.dotFilled,
+                      isLocked && styles.dotLocked,
+                    ]}
+                  />
+                ))}
+              </View>
+              <RNTextInput
+                ref={pinInputRef}
+                value={pin}
+                onChangeText={text => {
+                  setPin(text.replace(/\D/g, '').slice(0, PIN_LENGTH));
+                  setError('');
+                }}
+                keyboardType="number-pad"
+                maxLength={PIN_LENGTH}
+                secureTextEntry
+                style={styles.hiddenInput}
+                editable={!isLocked && !loading}
+              />
+            </View>
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -477,11 +477,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     fontWeight: '500',
   },
+  pinInputWrapper: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   dotsRow: {
     flexDirection: 'row',
     gap: 20,
-    marginBottom: 4,
-    paddingVertical: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
   },
   dot: {
     width: 16,
@@ -500,10 +505,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFCDD2',
   },
   hiddenInput: {
-    position: 'absolute',
-    left: -9999,
-    width: 1,
-    height: 1,
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0,
+    color: 'transparent',
   },
   errorText: {
     color: '#B71C1C',
