@@ -566,6 +566,75 @@ ${sensitivityTable}
   ${actions.map(a => `<li>${a}</li>`).join('')}
 </ol>
 
+<h2>How Your Financial Health Score Works</h2>
+<p style="font-size:11px;color:#444;margin-bottom:10px">
+  Your score of <strong style="color:${health.color}">${health.score}/100 (${health.label})</strong> is calculated from four components.
+  Each measures a different dimension of your plan's health.
+</p>
+<table style="font-size:10px">
+  <tr>
+    <th style="width:28%">Component</th>
+    <th style="width:8%;text-align:center">Max</th>
+    <th style="width:28%">What it measures</th>
+    <th style="width:36%">Your result</th>
+  </tr>
+  <tr>
+    <td><strong>Corpus Progress</strong></td>
+    <td style="text-align:center">25</td>
+    <td>How far along you are toward your FIRE target today</td>
+    <td>${(() => {
+      const progress = calc.fireCorpus > 0 ? Math.min(1, calc.totalNetWorth / calc.fireCorpus) : 0;
+      const pts = Math.round(progress * 25);
+      const pct = Math.round(progress * 100);
+      return `${fmt(calc.totalNetWorth, cur)} of ${fmt(calc.fireCorpus, cur)} target = ${pct}% → <strong>${pts} pts</strong>`;
+    })()}</td>
+  </tr>
+  <tr style="background:#fafafa">
+    <td><strong>Plan Viability</strong></td>
+    <td style="text-align:center">40</td>
+    <td>Will your corpus last through your target age without running out?</td>
+    <td>${(() => {
+      if (!calc.failureAge || calc.failureAge === 0) return `Corpus sustains through age ${goals.fire_target_age ?? 100} → <strong>40 pts</strong>`;
+      const gap = calc.failureAge - (goals.fire_target_age ?? 100);
+      if (gap > -5) return `Corpus depletes at age ${calc.failureAge} (within 5 yrs of target) → <strong>20 pts</strong>`;
+      return `Corpus depletes at age ${calc.failureAge} (well before target) → <strong>0 pts</strong>. Increase SIP to improve.`;
+    })()}</td>
+  </tr>
+  <tr>
+    <td><strong>SIP Affordability</strong></td>
+    <td style="text-align:center">20</td>
+    <td>SIP as a % of your monthly income — lower burden = more sustainable</td>
+    <td>${(() => {
+      const income = profile.monthly_income ?? 0;
+      const burden = income > 0 ? sipAmount / income : 0;
+      const pct = Math.round(burden * 100);
+      let pts = 0;
+      if (burden < 0.3) pts = 20;
+      else if (burden < 0.5) pts = 12;
+      else if (burden < 0.7) pts = 6;
+      const label = burden < 0.3 ? 'comfortable' : burden < 0.5 ? 'moderate' : burden < 0.7 ? 'high' : 'very high';
+      return `${fmt(sipAmount, cur)}/mo is ${pct}% of income (${label}) → <strong>${pts} pts</strong>`;
+    })()}</td>
+  </tr>
+  <tr style="background:#fafafa">
+    <td><strong>Time Buffer</strong></td>
+    <td style="text-align:center">15</td>
+    <td>Years left to retirement — fewer years means less room for error</td>
+    <td>${(() => {
+      const yearsLeft = goals.retirement_age - age;
+      let pts = 4;
+      if (yearsLeft <= 10) pts = 15;
+      else if (yearsLeft <= 20) pts = 12;
+      else if (yearsLeft <= 30) pts = 8;
+      return `${yearsLeft} years to retirement (age ${goals.retirement_age}) → <strong>${pts} pts</strong>`;
+    })()}</td>
+  </tr>
+</table>
+<p style="font-size:9px;color:#aaa;margin-top:6px">
+  Score bands: 80–100 = Excellent · 60–79 = Good · 40–59 = Fair · 0–39 = Needs Work.
+  Plan Viability carries the most weight (40 pts) — a plan where corpus runs out will never score above 60 even if everything else is perfect.
+</p>
+
 <h2>Assets (${assets.length})</h2>
 <table>
   <tr><th>Category</th><th>Name</th><th style="text-align:right">Value</th>${multiCurrency ? '<th>Currency</th>' : ''}<th style="text-align:right">ROI</th></tr>
