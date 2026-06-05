@@ -9,8 +9,10 @@ import {
   ScrollView,
   Linking,
   Alert,
+  Image,
+  TextInput as RNTextInput,
 } from 'react-native';
-import { Text, TextInput, Button } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -21,16 +23,16 @@ import { useProfile } from '../hooks/useProfile';
 import { useApp } from '../context/AppContext';
 import { runLegacyMigration } from '../storage/legacyMigration';
 
-const MAX_FREE_ATTEMPTS = 5; // lockout kicks in after this many failures
+const MAX_FREE_ATTEMPTS = 5;
+const PIN_LENGTH = 4;
 
 export default function LoginScreen() {
   const router = useRouter();
   const { setCurrentProfileId, refreshProfiles } = useProfile();
   const { loadProfile } = useApp();
   const insets = useSafeAreaInsets();
+  const pinInputRef = useRef<RNTextInput>(null);
 
-  // Run the one-time AsyncStorage→SQLite migration on mount.
-  // Idempotent — returns immediately if sentinel is already set.
   useEffect(() => {
     runLegacyMigration().catch(() => {});
   }, []);
@@ -47,9 +49,6 @@ export default function LoginScreen() {
   const loadProfiles = useCallback(async () => {
     const all = await getAllProfiles();
     setProfiles(all);
-    // Auto-select single profile for Groww-like experience.
-    // Use a ref instead of selectedProfile to avoid stale closure —
-    // the empty dep array would capture selectedProfile as null forever.
     if (all.length === 1 && !autoSelectedRef.current) {
       autoSelectedRef.current = true;
       selectProfile(all[0]);
@@ -66,14 +65,13 @@ export default function LoginScreen() {
     setSelectedProfile(profile);
     setPin('');
     setError('');
-    // Restore lockout countdown if profile is still locked out
     const remaining = Math.ceil((profile.lockout_until - Date.now()) / 1000);
     setLockoutSeconds(remaining > 0 ? remaining : 0);
-    // Check biometric setting and auto-trigger if enabled
     getBiometricEnabled(profile.id).then(enabled => {
       setBiometricEnabled(enabled);
       if (enabled && remaining <= 0) triggerBiometric(profile);
     });
+    setTimeout(() => pinInputRef.current?.focus(), 300);
   }
 
   async function triggerBiometric(profile: Profile) {
@@ -98,7 +96,6 @@ export default function LoginScreen() {
     }
   }
 
-  // Countdown ticker for lockout
   useEffect(() => {
     if (lockoutSeconds <= 0) return;
     const id = setInterval(() => {
@@ -112,12 +109,10 @@ export default function LoginScreen() {
 
   async function hashPin(pin: string, storedValue: string): Promise<boolean> {
     if (storedValue.includes('$')) {
-      // New format: salt$hash
       const [salt, expectedHash] = storedValue.split('$');
       const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, salt + pin);
       return hash === expectedHash;
     }
-    // Legacy format: bare SHA-256 (profiles created before this update)
     const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, pin);
     return hash === storedValue;
   }
@@ -125,16 +120,14 @@ export default function LoginScreen() {
   async function handleLogin() {
     if (!selectedProfile) return;
     if (lockoutSeconds > 0) return;
-    if (pin.length !== 4) {
+    if (pin.length !== PIN_LENGTH) {
       setError('Enter your 4-digit PIN');
       return;
     }
     setLoading(true);
     try {
       const storedPin = await getProfilePin(selectedProfile.id);
-      const isCorrect = storedPin
-        ? await hashPin(pin, storedPin)
-        : false;
+      const isCorrect = storedPin ? await hashPin(pin, storedPin) : false;
       if (isCorrect) {
         await resetFailedAttempts(selectedProfile.id);
         await setCurrentProfileId(selectedProfile.id);
@@ -155,7 +148,6 @@ export default function LoginScreen() {
           setError('Incorrect PIN. Try again.');
         }
         setPin('');
-        // Refresh profile list to get updated attempt counts
         const all = await getAllProfiles();
         setProfiles(all);
         const updated = all.find(p => p.id === selectedProfile.id) ?? null;
@@ -166,51 +158,61 @@ export default function LoginScreen() {
     }
   }
 
+  // Auto-submit when 4 digits entered
+  useEffect(() => {
+    if (pin.length === PIN_LENGTH && selectedProfile && lockoutSeconds <= 0) {
+      handleLogin();
+    }
+  }, [pin]);
+
+  const isLocked = lockoutSeconds > 0;
+  const canUnlock = pin.length === PIN_LENGTH && !loading && !isLocked;
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 16 }]}
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 24 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo / Title */}
+        {/* Logo */}
         <View style={styles.header}>
-          <View style={styles.logoCircle}>
-            <MaterialCommunityIcons name="leaf" size={36} color="#FFF" />
-          </View>
-          <Text variant="headlineMedium" style={styles.title}>FinPath</Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>
-            Select your profile to continue
+          <Image
+            source={require('../assets/icon.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.title}>FinPath</Text>
+          <Text style={styles.subtitle}>
+            {selectedProfile
+              ? `Welcome back, ${selectedProfile.name} 👋`
+              : 'Welcome back 👋'}
           </Text>
         </View>
 
-        {/* Profile Grid */}
-        <View style={styles.grid}>
+        {/* Profile pill */}
+        <View style={styles.profileSection}>
           {profiles.length === 0 ? (
             <View style={styles.emptyContainer}>
               <MaterialCommunityIcons name="account-off-outline" size={48} color="#CCC" />
               <Text style={styles.emptyText}>No profiles found</Text>
             </View>
           ) : (
-            <View style={styles.gridRow}>
+            <View style={styles.profileList}>
               {profiles.map(item => {
                 const isSelected = selectedProfile?.id === item.id;
                 return (
                   <TouchableOpacity
                     key={String(item.id)}
-                    style={[
-                      styles.profileCard,
-                      profiles.length === 1 && styles.profileCardSingle,
-                      isSelected && styles.profileCardSelected,
-                    ]}
+                    style={[styles.profilePill, isSelected && styles.profilePillSelected]}
                     onPress={() => selectProfile(item)}
                     activeOpacity={0.75}
                   >
                     <View style={[styles.avatar, isSelected && styles.avatarSelected]}>
-                      <Text style={styles.avatarText}>
+                      <Text style={[styles.avatarText, isSelected && styles.avatarTextSelected]}>
                         {item.name.charAt(0).toUpperCase()}
                       </Text>
                     </View>
@@ -218,7 +220,7 @@ export default function LoginScreen() {
                       {item.name}
                     </Text>
                     {isSelected && (
-                      <MaterialCommunityIcons name="check-circle" size={16} color="#1B5E20" style={styles.checkIcon} />
+                      <MaterialCommunityIcons name="check-circle" size={20} color="#1B5E20" />
                     )}
                   </TouchableOpacity>
                 );
@@ -227,52 +229,82 @@ export default function LoginScreen() {
           )}
         </View>
 
-        {/* PIN Entry */}
+        {/* PIN section */}
         {selectedProfile && (
           <View style={styles.pinSection}>
-            <Text variant="titleSmall" style={styles.pinLabel}>
-              Enter PIN for <Text style={styles.pinProfileName}>{selectedProfile.name}</Text>
-            </Text>
-            <TextInput
-              mode="outlined"
-              label="4-digit PIN"
+            <Text style={styles.pinLabel}>Enter your PIN</Text>
+
+            {/* Dot indicators — tap to focus hidden input */}
+            <TouchableOpacity
+              style={styles.dotsRow}
+              onPress={() => pinInputRef.current?.focus()}
+              activeOpacity={1}
+            >
+              {Array.from({ length: PIN_LENGTH }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.dot,
+                    pin.length > i && styles.dotFilled,
+                    isLocked && styles.dotLocked,
+                  ]}
+                />
+              ))}
+            </TouchableOpacity>
+
+            {/* Hidden real input */}
+            <RNTextInput
+              ref={pinInputRef}
               value={pin}
               onChangeText={text => {
-                setPin(text.replace(/\D/g, '').slice(0, 4));
+                setPin(text.replace(/\D/g, '').slice(0, PIN_LENGTH));
                 setError('');
               }}
               keyboardType="number-pad"
+              maxLength={PIN_LENGTH}
               secureTextEntry
-              maxLength={4}
-              style={styles.pinInput}
-              error={!!error}
-              outlineColor="#C8E6C9"
-              activeOutlineColor="#1B5E20"
-              accessibilityLabel={`PIN for ${selectedProfile?.name}`}
+              style={styles.hiddenInput}
+              editable={!isLocked && !loading}
             />
+
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            <Button
-              mode="contained"
+
+            {/* Unlock button */}
+            <TouchableOpacity
+              style={[styles.unlockBtn, !canUnlock && styles.unlockBtnDisabled]}
               onPress={handleLogin}
-              loading={loading}
-              disabled={pin.length !== 4 || loading || lockoutSeconds > 0}
-              style={styles.loginBtn}
-              contentStyle={styles.loginBtnContent}
-              textColor="#fff"
-              accessibilityLabel={lockoutSeconds > 0 ? `Account locked, wait ${lockoutSeconds} seconds` : 'Login'}
+              disabled={!canUnlock}
+              activeOpacity={0.85}
             >
-              {lockoutSeconds > 0 ? `Locked (${lockoutSeconds}s)` : 'Login'}
-            </Button>
-            {biometricEnabled && lockoutSeconds <= 0 && (
-              <TouchableOpacity
-                style={styles.biometricBtn}
-                onPress={() => selectedProfile && triggerBiometric(selectedProfile)}
-                accessibilityLabel="Login with fingerprint"
-              >
-                <MaterialCommunityIcons name="fingerprint" size={32} color="#1B5E20" />
-                <Text style={styles.biometricBtnText}>Use Fingerprint</Text>
-              </TouchableOpacity>
+              <MaterialCommunityIcons
+                name={isLocked ? 'lock' : 'lock-open-outline'}
+                size={20}
+                color="#fff"
+              />
+              <Text style={styles.unlockBtnText}>
+                {isLocked ? `Locked (${lockoutSeconds}s)` : loading ? 'Unlocking…' : 'Unlock'}
+              </Text>
+              {!isLocked && !loading && (
+                <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
+              )}
+            </TouchableOpacity>
+
+            {/* Biometric */}
+            {biometricEnabled && !isLocked && (
+              <>
+                <Text style={styles.orSeparator}>or</Text>
+                <TouchableOpacity
+                  style={styles.biometricBtn}
+                  onPress={() => selectedProfile && triggerBiometric(selectedProfile)}
+                  activeOpacity={0.8}
+                >
+                  <MaterialCommunityIcons name="fingerprint" size={22} color="#1B5E20" />
+                  <Text style={styles.biometricBtnText}>Unlock with Fingerprint</Text>
+                </TouchableOpacity>
+              </>
             )}
+
+            {/* Forgot PIN */}
             <TouchableOpacity
               onPress={() => {
                 Alert.alert(
@@ -316,14 +348,22 @@ export default function LoginScreen() {
           </View>
         )}
 
-        {/* Privacy Policy */}
-        <TouchableOpacity
-          onPress={() => Linking.openURL('https://aihomecloud.com/finpath/privacy')}
-          style={styles.privacyLink}
-          accessibilityRole="link"
-        >
-          <Text style={styles.privacyLinkText}>Privacy Policy</Text>
-        </TouchableOpacity>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <View style={styles.trustRow}>
+            <MaterialCommunityIcons name="shield-check-outline" size={14} color="#888" />
+            <Text style={styles.trustText}>Your data is safe and encrypted</Text>
+          </View>
+          <View style={styles.linksRow}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://aihomecloud.com/finpath/privacy')}>
+              <Text style={styles.linkText}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <Text style={styles.linkSep}> • </Text>
+            <TouchableOpacity onPress={() => Linking.openURL('https://aihomecloud.com/finpath/support')}>
+              <Text style={styles.linkText}>Terms of Service</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -332,7 +372,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F7FAF7',
   },
   scroll: {
     padding: 24,
@@ -340,90 +380,77 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 28,
   },
-  logoCircle: {
+  logo: {
     width: 72,
     height: 72,
-    borderRadius: 36,
-    backgroundColor: '#1B5E20',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    elevation: 4,
-    shadowColor: '#1B5E20',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
+    marginBottom: 10,
   },
   title: {
+    fontSize: 26,
     fontWeight: '700',
     color: '#1B5E20',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   subtitle: {
-    color: '#666',
+    fontSize: 15,
+    color: '#555',
     marginTop: 4,
   },
-  grid: {
-    paddingBottom: 8,
+  profileSection: {
+    marginBottom: 16,
   },
-  gridRow: {
+  profileList: {
+    gap: 8,
+  },
+  profilePill: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  profileCard: {
-    flex: 1,
-    margin: 8,
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 18,
     alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 40,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderWidth: 2,
     borderColor: 'transparent',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.07,
     shadowRadius: 4,
+    gap: 12,
   },
-  profileCardSingle: {
-    maxWidth: 200,
-    alignSelf: 'center',
-  },
-  profileCardSelected: {
+  profilePillSelected: {
     borderColor: '#1B5E20',
     backgroundColor: '#F1F8E9',
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#C8E6C9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
   },
   avatarSelected: {
     backgroundColor: '#1B5E20',
   },
   avatarText: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1B5E20',
   },
+  avatarTextSelected: {
+    color: '#FFF',
+  },
   profileName: {
-    fontSize: 14,
+    flex: 1,
+    fontSize: 15,
     fontWeight: '600',
     color: '#333',
-    textAlign: 'center',
   },
   profileNameSelected: {
     color: '#1B5E20',
-  },
-  checkIcon: {
-    marginTop: 6,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -436,75 +463,136 @@ const styles = StyleSheet.create({
   },
   pinSection: {
     backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 8,
+    borderRadius: 20,
+    padding: 24,
     marginBottom: 8,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.07,
     shadowRadius: 4,
+    alignItems: 'center',
   },
   pinLabel: {
-    color: '#555',
-    marginBottom: 12,
-    textAlign: 'center',
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+    fontWeight: '500',
   },
-  pinProfileName: {
-    fontWeight: '700',
-    color: '#1B5E20',
-  },
-  pinInput: {
-    backgroundColor: '#FFF',
+  dotsRow: {
+    flexDirection: 'row',
+    gap: 20,
     marginBottom: 4,
-    letterSpacing: 8,
-    fontSize: 20,
+    paddingVertical: 8,
+  },
+  dot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#BDBDBD',
+    backgroundColor: 'transparent',
+  },
+  dotFilled: {
+    backgroundColor: '#1B5E20',
+    borderColor: '#1B5E20',
+  },
+  dotLocked: {
+    borderColor: '#EF9A9A',
+    backgroundColor: '#FFCDD2',
+  },
+  hiddenInput: {
+    position: 'absolute',
+    opacity: 0,
+    width: 1,
+    height: 1,
   },
   errorText: {
     color: '#B71C1C',
     fontSize: 12,
-    marginTop: 4,
-    marginBottom: 8,
+    marginTop: 12,
+    marginBottom: 4,
     textAlign: 'center',
   },
-  loginBtn: {
-    marginTop: 12,
-    borderRadius: 10,
+  unlockBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#1B5E20',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    marginTop: 20,
+    width: '100%',
+    gap: 10,
+  },
+  unlockBtnDisabled: {
+    backgroundColor: '#A5D6A7',
+  },
+  unlockBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+  },
+  orSeparator: {
+    color: '#999',
+    fontSize: 13,
+    marginVertical: 12,
   },
   biometricBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
-    paddingVertical: 4,
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#1B5E20',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    width: '100%',
+    gap: 8,
   },
   biometricBtnText: {
     color: '#1B5E20',
-    fontSize: 13,
-    marginTop: 4,
+    fontSize: 15,
     fontWeight: '600',
   },
   forgotPin: {
-    alignSelf: 'center',
-    marginTop: 12,
+    marginTop: 16,
     paddingVertical: 4,
   },
   forgotPinText: {
     fontSize: 13,
-    color: '#C62828',
+    color: '#1B5E20',
     textDecorationLine: 'underline',
   },
-  loginBtnContent: {
-    height: 48,
-  },
-  privacyLink: {
+  footer: {
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 'auto',
+    paddingTop: 24,
     paddingBottom: 8,
+    gap: 6,
   },
-  privacyLinkText: {
+  trustRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  trustText: {
+    fontSize: 12,
+    color: '#888',
+  },
+  linksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  linkText: {
     fontSize: 12,
     color: '#999',
-    textDecorationLine: 'underline',
+  },
+  linkSep: {
+    fontSize: 12,
+    color: '#CCC',
   },
 });
