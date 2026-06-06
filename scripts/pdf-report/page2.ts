@@ -84,27 +84,28 @@ export function buildPage2(ctx: ReportContext): string {
   <!-- KEY INSIGHTS + SCENARIO ANALYSIS -->
   <div style="display:flex;gap:14px;margin-bottom:14px">
     <div style="flex:1">
-      <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Key Insights</div>
+      <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Projection Insights</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        ${insightCard('💪', 'SIP Sustainability',
-          `SIP is ${Math.round(burden * 100)}% of income — within the <30% threshold in this plan's model. Step-up of ${stepUp}%/yr compounds to a larger projected corpus vs flat contributions.`,
+        ${insightCard('💪', 'Contribution Sustainability',
+          `Contribution is ${Math.round(burden * 100)}% of income — within the <30% threshold in this plan's model. Step-up of ${stepUp}%/yr is active and compounds to a larger projected corpus vs flat contributions.`,
           '#EAF7EF', '#0B6B3A')}
-        ${insightCard('⚠️', 'Plan Risk',
+        ${insightCard('⚠️', 'Projection Gap',
           base.failureAge > 0
-            ? `Corpus depletes at age ${base.failureAge} — ${fireTargetAge - base.failureAge} years before your stated target. Pessimistic scenario (10% return, 7% inflation) depletes at age ${pessimistic.failureAge}.`
-            : `Under pessimistic conditions (10% return, 7% inflation) corpus depletes at age ${pessimistic.failureAge} — ${fireTargetAge - pessimistic.failureAge} years before your stated target.`,
+            ? `Under current assumptions, the model estimates corpus depletion around age ${base.failureAge} — ${fireTargetAge - base.failureAge} years before your stated target.`
+            : `Under pessimistic conditions (10% return, 7% inflation), the model estimates depletion around age ${pessimistic.failureAge} — ${fireTargetAge - pessimistic.failureAge} years before your stated target.`,
           '#FFF8E1', '#F39C12')}
-        ${insightCard('📐', 'Allocation vs Benchmark',
-          `Equity allocation is ${equityPct}%. The Rule of 110 (110 − age), a heuristic referenced in financial planning literature, suggests ${targetEquityPct}% for age ${age}.`,
+        ${insightCard('📐', 'Allocation Comparison',
+          `Equity allocation is ${equityPct}%. A commonly referenced allocation heuristic (110 − age) indicates approximately ${targetEquityPct}% equity exposure for age ${age}. This heuristic may not be suitable for every investor.`,
           '#EFF6FF', '#2D6CDF')}
-        ${insightCard('🧪', 'Stress Test',
-          `Pessimistic: corpus depletes at age ${pessimistic.failureAge} — ${fireTargetAge - pessimistic.failureAge} years before stated target.`,
+        ${insightCard('🧪', 'Sensitivity Observation',
+          `Under pessimistic assumptions (10% return, 7% inflation), the model estimates corpus depletion around age ${pessimistic.failureAge} — ${fireTargetAge - pessimistic.failureAge} years before stated target.`,
           '#FEF2F2', '#D64545')}
       </div>
     </div>
 
     <div style="width:240px">
-      <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Scenario Analysis</div>
+      <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Scenario Analysis</div>
+      <div style="font-size:8.5px;color:#94A3B8;margin-bottom:8px;line-height:1.4">Illustrative outcomes using different return and inflation assumptions. Actual inflation and spending patterns may differ.</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         ${scenarioCard('😊', 'Optimistic',   optimistic.failureAge,  '#0B6B3A', '#EAF7EF', fireTargetAge)}
         ${scenarioCard('🙂', 'Expected',     base.failureAge,        '#F39C12', '#FFF8E1', fireTargetAge)}

@@ -80,6 +80,6 @@ export function healthMetric(
 
 export const PAGE_FOOTER = `
   <div style="margin-top:14px;padding-top:8px;border-top:1px solid #E6EAE8;display:flex;flex-direction:column;align-items:center;gap:5px">
-    <div style="display:flex;gap:24px">${['Plan', 'Track', 'Optimize', 'Achieve'].map(p => `<div style="font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">${p}</div>`).join('')}</div>
-    <div style="font-size:7.5px;color:#C4C9D0;text-align:center">For informational use only · Not financial advice · Consult a SEBI-registered RIA before making investment decisions</div>
+    <div style="display:flex;gap:24px">${['Plan', 'Track', 'Explore', 'Achieve'].map(p => `<div style="font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">${p}</div>`).join('')}</div>
+    <div style="font-size:7.5px;color:#C4C9D0;text-align:center;max-width:520px">This report contains mathematical projections generated from user-provided information and selected assumptions. It is intended for educational and planning purposes only and should not be interpreted as personalized investment advice.</div>
   </div>`;

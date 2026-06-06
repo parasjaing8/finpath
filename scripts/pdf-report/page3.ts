@@ -55,7 +55,7 @@ export function buildPage3(ctx: ReportContext): string {
         <div style="font-size:8.5px;color:#94A3B8;margin-top:1px">Plan today. Live your freedom tomorrow.</div>
       </div>
     </div>
-    <div style="font-size:11px;font-weight:700;color:#1E293B;text-align:center;letter-spacing:0.3px;text-transform:uppercase">Health Analysis & Projections</div>
+    <div style="font-size:11px;font-weight:700;color:#1E293B;text-align:center;letter-spacing:0.3px;text-transform:uppercase">Plan Analysis & Projections</div>
     <div style="text-align:right">
       <div style="font-size:11px;color:#1E293B;font-weight:600">${profile.name} · Age ${age}</div>
       <div style="font-size:9px;color:#94A3B8;margin-top:2px">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
@@ -66,9 +66,9 @@ export function buildPage3(ctx: ReportContext): string {
   <!-- HEALTH METRICS + SCORE BREAKDOWN -->
   <div style="display:flex;gap:14px;margin-bottom:14px">
     <div style="flex:1">
-      <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Financial Health Metrics</div>
+      <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Plan Metrics</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-        ${healthMetric('📊', 'FI Ratio',      `${fiRatio}%`,                       'investable / corpus',     fiRatio >= 50 ? 'good' : fiRatio >= 20 ? 'warn' : 'bad')}
+        ${healthMetric('📊', 'Progress Ratio', `${fiRatio}%`,                       'investable / corpus',     fiRatio >= 50 ? 'good' : fiRatio >= 20 ? 'warn' : 'bad')}
         ${healthMetric('💰', 'Savings Rate',  `${Math.round(burden * 100)}%`,      'of monthly income',       burden < 0.3 ? 'good' : burden < 0.5 ? 'warn' : 'bad')}
         ${healthMetric('📈', 'Equity Alloc',  `${equityPct}%`,                     `Rule of 110: ${targetEquityPct}%`, equityPct >= targetEquityPct - 10 ? 'good' : 'warn')}
         ${healthMetric('🥇', 'Gold Alloc',    `${goldPct}%`,                       'typical range: 5–10%',    goldPct >= 5 && goldPct <= 15 ? 'good' : goldPct > 20 ? 'bad' : 'warn')}
@@ -113,7 +113,8 @@ export function buildPage3(ctx: ReportContext): string {
 
   <!-- SENSITIVITY MATRIX -->
   <div style="background:white;border-radius:16px;padding:14px 16px;border:1px solid #E6EAE8;box-shadow:0 1px 4px rgba(0,0,0,0.04);margin-bottom:12px">
-    <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Sensitivity Analysis — Corpus Depletion Age</div>
+    <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Sensitivity Analysis — Corpus Depletion Age</div>
+    <div style="font-size:8.5px;color:#94A3B8;margin-bottom:8px">Illustrative model outcomes under varying return and inflation assumptions.</div>
     <table style="width:100%;border-collapse:collapse;font-size:10px">
       <thead><tr>
         <th style="background:#F8FAFC;padding:8px 10px;text-align:left;color:#64748B;font-size:9.5px;border-bottom:2px solid #E6EAE8">Inflation / Return</th>

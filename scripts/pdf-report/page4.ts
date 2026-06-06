@@ -103,13 +103,13 @@ export function buildPage4(ctx: ReportContext): string {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div style="background:#FFF8E1;border-radius:12px;padding:12px 14px"><div style="font-size:9px;color:#F39C12;font-weight:700;text-transform:uppercase;margin-bottom:4px">Emergency Fund</div><div style="font-size:16px;font-weight:800;color:#1E293B">0 months</div><div style="font-size:9px;color:#94A3B8;margin-top:2px">Not tracked · common benchmark: 6 months</div></div>
         <div style="background:#EAF7EF;border-radius:12px;padding:12px 14px"><div style="font-size:9px;color:#0B6B3A;font-weight:700;text-transform:uppercase;margin-bottom:4px">Debt Ratio</div><div style="font-size:16px;font-weight:800;color:#0B6B3A">${debtPct}%</div><div style="font-size:9px;color:#94A3B8;margin-top:2px">EPF + PPF of investable corpus</div></div>
-        <div style="background:#F1F5F9;border-radius:12px;padding:12px 14px"><div style="font-size:9px;color:#64748B;font-weight:700;text-transform:uppercase;margin-bottom:4px">Term Insurance</div><div style="font-size:14px;font-weight:800;color:#94A3B8">Not Tracked</div><div style="font-size:9px;color:#94A3B8;margin-top:2px">Benchmark: 10–15× annual income</div></div>
-        <div style="background:#F1F5F9;border-radius:12px;padding:12px 14px"><div style="font-size:9px;color:#64748B;font-weight:700;text-transform:uppercase;margin-bottom:4px">Dependents</div><div style="font-size:14px;font-weight:800;color:#94A3B8">Not Tracked</div><div style="font-size:9px;color:#94A3B8;margin-top:2px">Factor dependents into corpus need</div></div>
+        <div style="background:#F1F5F9;border-radius:12px;padding:12px 14px"><div style="font-size:9px;color:#64748B;font-weight:700;text-transform:uppercase;margin-bottom:4px">Term Insurance</div><div style="font-size:14px;font-weight:800;color:#94A3B8">Not currently tracked by FinPath.</div><div style="font-size:9px;color:#94A3B8;margin-top:2px">Benchmark: 10–15× annual income</div></div>
+        <div style="background:#F1F5F9;border-radius:12px;padding:12px 14px"><div style="font-size:9px;color:#64748B;font-weight:700;text-transform:uppercase;margin-bottom:4px">Dependents</div><div style="font-size:14px;font-weight:800;color:#94A3B8">Not currently tracked by FinPath.</div><div style="font-size:9px;color:#94A3B8;margin-top:2px">Factor dependents into corpus need</div></div>
       </div>
     </div>
     <div style="width:220px">
       <div style="background:#EAF7EF;border-radius:14px;padding:14px 16px;border:1px solid #C8E6C9;margin-bottom:10px">
-        <div style="font-size:10px;font-weight:700;color:#0B6B3A;margin-bottom:6px">India-Specific Notes</div>
+        <div style="font-size:10px;font-weight:700;color:#0B6B3A;margin-bottom:6px">General Educational Information</div>
         ${[
           'EPS gives ₹7,500/month lifelong pension — an income floor not modelled here.',
           'NPS: 40% corpus must buy an annuity at age 60. 60% lump sum is tax-free.',
@@ -125,10 +125,10 @@ export function buildPage4(ctx: ReportContext): string {
     <div style="flex:1">
       <div style="font-size:14px;font-weight:700;color:white;margin-bottom:8px">About This Report</div>
       ${[
-        'Projections are computed using your actual goals, assets, and SIP parameters.',
-        'Returns are assumed constant — real markets have volatility. Use scenarios to stress-test.',
-        'All corpus values are in today\'s rupee terms, inflation-adjusted to retirement.',
-        'This is not financial advice. Consult a SEBI-registered RIA for a personalized plan.',
+        'Calculated using user-entered values and selected assumptions.',
+        'Uses constant mathematical assumptions — does not model real market volatility.',
+        'All projections are estimates only. Actual outcomes will vary.',
+        'Educational planning tool only. Not financial advice.',
       ].map(t => `<div style="display:flex;gap:8px;margin-bottom:5px"><div style="color:#4CAF50;font-size:12px">✓</div><div style="font-size:10px;color:rgba(255,255,255,0.8);line-height:1.5">${t}</div></div>`).join('')}
     </div>
     <div style="text-align:center;flex-shrink:0">

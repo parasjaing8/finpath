@@ -131,7 +131,7 @@ export function buildContext(
     : (base.netWorthAtRetirement > 0 ? 1 : 0);
   const covPts      = Math.round(cov * 15);
   const score       = Math.min(100, corpusPts + planPts + sipPts + covPts);
-  const scoreLabel  = score >= 80 ? 'Excellent' : score >= 60 ? 'Good Progress' : score >= 40 ? 'Fair' : 'Needs Work';
+  const scoreLabel  = score >= 80 ? 'On Track' : score >= 60 ? 'Minor Gap' : score >= 40 ? 'Needs Attention' : 'Target Gap';
   const scoreColor  = score >= 80 ? '#4CAF50' : score >= 60 ? '#8BC34A' : score >= 40 ? '#F39C12' : '#D64545';
 
   // derived metrics

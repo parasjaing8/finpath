@@ -54,7 +54,7 @@ export function buildPage1(ctx: ReportContext): string {
     <!-- LEFT: dark hero card -->
     <div style="width:36%;background:linear-gradient(150deg,#084E2A 0%,#0B6B3A 55%,#147A45 100%);border-radius:18px;padding:22px 18px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:310px">
       <div style="text-align:center;width:100%">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.55);margin-bottom:12px">Financial Health Score</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.55);margin-bottom:12px">Projection Score</div>
         ${svgHeroRing(score, scoreLabel, scoreColor)}
       </div>
       <div style="background:rgba(255,255,255,0.1);border-radius:12px;padding:12px 14px;width:100%;margin-top:12px">
@@ -91,7 +91,7 @@ export function buildPage1(ctx: ReportContext): string {
         </div>
       </div>
       ${base.requiredMonthlySIP > sipAmount
-        ? `<div style="background:#FFF8E1;border-radius:10px;padding:10px 14px;border-left:4px solid #F39C12;font-size:10.5px;color:#92400E"><strong>Required SIP is ${fmt(base.requiredMonthlySIP)}/month</strong> — ${fmt(sipGap)} above current. This is ${Math.round((base.requiredMonthlySIP / profile.monthly_income!) * 100)}% of your salary.</div>`
+        ? `<div style="background:#FFF8E1;border-radius:10px;padding:10px 14px;border-left:4px solid #F39C12;font-size:10.5px;color:#92400E">Model estimate: an investment of approximately <strong>${fmt(base.requiredMonthlySIP)}/month</strong> (${fmt(sipGap)} above current) would align with the selected assumptions.</div>`
         : ''}
     </div>
   </div>

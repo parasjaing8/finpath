@@ -39,12 +39,15 @@ const fxRates: FxRates = { USD: 1, INR: 84 };
 
 // ── Build ──────────────────────────────────────────────────────────────────
 const ctx = buildContext(profile, goals, assets, expenses, SIP_AMOUNT, SIP_RETURN, POST_RETURN, STEP_UP, fxRates);
+const reportId = `FP-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 
 const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>FinPath Premium Report — ${profile.name}</title>
+<title>FinPath Projection Report — ${profile.name}</title>
+<meta name="report-id" content="${reportId}"/>
+<meta name="generator" content="FinPath Projection Engine v3"/>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -58,6 +61,8 @@ ${buildPage1(ctx)}
 ${buildPage2(ctx)}
 ${buildPage3(ctx)}
 ${buildPage4(ctx)}
+<!-- report metadata -->
+<div style="display:none" data-report-id="${reportId}" data-engine="FinPath Projection Engine v3"></div>
 </body>
 </html>`;
 
