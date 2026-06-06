@@ -2,7 +2,7 @@
 import { ASSET_CATEGORIES } from '../../engine/types';
 import { formatCurrencyFull } from '../../engine/calculator';
 import type { ReportContext } from './context';
-import { LOGO_IMG } from './components';
+import { LOGO_IMG, pageFooter } from './components';
 
 const CAT_COLORS: Record<string, string> = {
   EQUITY: '#0B6B3A', MUTUAL_FUND: '#4CAF50', DEBT: '#2D6CDF',
@@ -62,7 +62,6 @@ export function buildPage4(ctx: ReportContext): string {
     <div style="text-align:right">
       <div style="font-size:11px;color:#1E293B;font-weight:600">${profile.name} · Age ${age}</div>
       <div style="font-size:9px;color:#94A3B8;margin-top:2px">${date}</div>
-      <div style="display:inline-block;background:#EAF7EF;color:#0B6B3A;font-size:8.5px;font-weight:700;padding:2px 8px;border-radius:10px;margin-top:3px">Page 4 of 4</div>
     </div>
   </div>
 
@@ -149,6 +148,8 @@ export function buildPage4(ctx: ReportContext): string {
       </div>
     </div>
   </div>
+
+  ${pageFooter(5, 5)}
 
   <!-- BRAND STRIP -->
   <div style="border:1px solid #E6EAE8;border-radius:14px;padding:14px 20px;display:flex;align-items:center;justify-content:space-between">

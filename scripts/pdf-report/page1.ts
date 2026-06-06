@@ -2,7 +2,7 @@
 import { ASSET_CATEGORIES } from '../../engine/types';
 import type { ReportContext } from './context';
 import { svgHeroRing, svgDonut, svgMountain } from './svg';
-import { pageHeader, metricCard, PAGE_FOOTER } from './components';
+import { pageHeader, metricCard, pageFooter } from './components';
 
 const CAT_COLORS: Record<string, string> = {
   EQUITY: '#0B6B3A', MUTUAL_FUND: '#4CAF50', DEBT: '#2D6CDF',
@@ -142,6 +142,6 @@ export function buildPage1(ctx: ReportContext): string {
     </div>
   </div>
 
-  ${PAGE_FOOTER}
+  ${pageFooter(1, 5)}
 </div>`;
 }

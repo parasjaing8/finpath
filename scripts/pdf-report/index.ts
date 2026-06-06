@@ -8,6 +8,7 @@ import { buildContext } from './context';
 import { buildPage1 } from './page1';
 import { buildPage2 } from './page2';
 import { buildPage3 } from './page3';
+import { buildPageYoY } from './pageYoY';
 import { buildPage4 } from './page4';
 
 // ── Sample data ────────────────────────────────────────────────────────────
@@ -60,6 +61,7 @@ const html = `<!DOCTYPE html>
 ${buildPage1(ctx)}
 ${buildPage2(ctx)}
 ${buildPage3(ctx)}
+${buildPageYoY(ctx)}
 ${buildPage4(ctx)}
 <!-- report metadata -->
 <div style="display:none" data-report-id="${reportId}" data-engine="FinPath Projection Engine v3"></div>

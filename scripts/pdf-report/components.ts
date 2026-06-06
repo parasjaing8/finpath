@@ -15,7 +15,6 @@ export function pageHeader(page: number, total: number, title: string, name: str
   <div style="text-align:right">
     <div style="font-size:11px;color:#1E293B;font-weight:600">${name} · Age ${age}</div>
     <div style="font-size:9px;color:#94A3B8;margin-top:2px">${date}</div>
-    <div style="display:inline-block;background:#EAF7EF;color:#0B6B3A;font-size:8.5px;font-weight:700;padding:2px 8px;border-radius:10px;margin-top:3px">Page ${page} of ${total}</div>
   </div>
 </div>`;
 }
@@ -79,8 +78,16 @@ export function healthMetric(
 </div>`;
 }
 
-export const PAGE_FOOTER = `
-  <div style="margin-top:14px;padding-top:8px;border-top:1px solid #E6EAE8;display:flex;flex-direction:column;align-items:center;gap:5px">
-    <div style="display:flex;gap:24px">${['Plan', 'Track', 'Explore', 'Achieve'].map(p => `<div style="font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">${p}</div>`).join('')}</div>
-    <div style="font-size:7.5px;color:#C4C9D0;text-align:center;max-width:520px">This report contains mathematical projections generated from user-provided information and selected assumptions. It is intended for educational and planning purposes only and should not be interpreted as personalized investment advice.</div>
+export function pageFooter(page: number, total: number): string {
+  const pillars = ['Plan', 'Track', 'Explore', 'Achieve']
+    .map(p => `<div style="font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">${p}</div>`)
+    .join('');
+  return `
+  <div style="margin-top:14px;padding-top:8px;border-top:1px solid #E6EAE8">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="display:flex;gap:24px">${pillars}</div>
+      <div style="background:#EAF7EF;color:#0B6B3A;font-size:8.5px;font-weight:700;padding:2px 10px;border-radius:10px">Page ${page} of ${total}</div>
+    </div>
+    <div style="font-size:7.5px;color:#C4C9D0;text-align:center">This report contains mathematical projections generated from user-provided information and selected assumptions. It is intended for educational and planning purposes only and should not be interpreted as personalized investment advice.</div>
   </div>`;
+}

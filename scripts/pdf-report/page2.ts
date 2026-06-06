@@ -2,7 +2,7 @@
 import type { ReportContext } from './context';
 import { INFL_S, RET_S } from './context';
 import { svgAreaChart, svgDrawdownChart } from './svg';
-import { insightCard, scenarioCard, PAGE_FOOTER, LOGO_IMG } from './components';
+import { insightCard, scenarioCard, pageFooter, LOGO_IMG } from './components';
 
 export function buildPage2(ctx: ReportContext): string {
   const {
@@ -46,7 +46,6 @@ export function buildPage2(ctx: ReportContext): string {
     <div style="text-align:right">
       <div style="font-size:11px;color:#1E293B;font-weight:600">${profile.name} · Age ${age}</div>
       <div style="font-size:9px;color:#94A3B8;margin-top:2px">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-      <div style="display:inline-block;background:#EAF7EF;color:#0B6B3A;font-size:8.5px;font-weight:700;padding:2px 8px;border-radius:10px;margin-top:3px">Page 2 of 4</div>
     </div>
   </div>
 
@@ -133,6 +132,6 @@ export function buildPage2(ctx: ReportContext): string {
     </div>
   </div>
 
-  ${PAGE_FOOTER}
+  ${pageFooter(2, 5)}
 </div>`;
 }

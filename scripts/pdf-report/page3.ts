@@ -1,9 +1,8 @@
 // page3.ts — Health analysis, sensitivity matrix, year-by-year projection
-import { formatCurrencyFull } from '../../engine/calculator';
 import type { ReportContext } from './context';
 import { INFL_S, RET_S } from './context';
 import { svgHeroRing } from './svg';
-import { healthMetric, PAGE_FOOTER, LOGO_IMG } from './components';
+import { healthMetric, pageFooter, LOGO_IMG } from './components';
 
 export function buildPage3(ctx: ReportContext): string {
   const {
@@ -32,18 +31,6 @@ export function buildPage3(ctx: ReportContext): string {
     </tr>`;
   }).join('');
 
-  // year-by-year table (every 3rd row + final row)
-  const projRows = base.projections
-    .filter((_, i) => i % 3 === 0 || i === base.projections.length - 1)
-    .map(p => `<tr${p.isFireAchieved ? ' style="background:#EAF7EF"' : ''}>
-      <td style="color:#64748B">${p.year}</td>
-      <td style="font-weight:600">${p.age}</td>
-      <td style="text-align:right">${formatCurrencyFull(p.annualSIP, cur)}</td>
-      <td style="text-align:right;color:#64748B">${formatCurrencyFull(p.totalNetExpenses, cur)}</td>
-      <td style="text-align:right;font-weight:700;color:${p.isFireAchieved ? '#0B6B3A' : '#1E293B'}">${formatCurrencyFull(p.netWorthEOY, cur)}</td>
-    </tr>`)
-    .join('');
-
   return `
 <!-- ═══ PAGE 3 ═══════════════════════════════════════════════════════════ -->
 <div style="padding:20px 22px 0;page-break-before:always;break-before:page">
@@ -59,7 +46,6 @@ export function buildPage3(ctx: ReportContext): string {
     <div style="text-align:right">
       <div style="font-size:11px;color:#1E293B;font-weight:600">${profile.name} · Age ${age}</div>
       <div style="font-size:9px;color:#94A3B8;margin-top:2px">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-      <div style="display:inline-block;background:#EAF7EF;color:#0B6B3A;font-size:8.5px;font-weight:700;padding:2px 8px;border-radius:10px;margin-top:3px">Page 3 of 4</div>
     </div>
   </div>
 
@@ -141,21 +127,6 @@ export function buildPage3(ctx: ReportContext): string {
       </div>`).join('')}
   </div>
 
-  <!-- YEAR-BY-YEAR TABLE -->
-  <div style="background:white;border-radius:16px;overflow:hidden;border:1px solid #E6EAE8;box-shadow:0 1px 4px rgba(0,0,0,0.04)">
-    <div style="background:#0B6B3A;padding:10px 14px">
-      <div style="font-size:11px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:0.5px">Year-by-Year Projection (every 3 years)</div>
-    </div>
-    <table style="width:100%;border-collapse:collapse;font-size:10px">
-      <thead><tr>
-        ${['Year', 'Age', 'Annual SIP', 'Withdrawals', 'Net Worth'].map(h =>
-          `<th style="padding:7px 10px;text-align:${['Annual SIP', 'Withdrawals', 'Net Worth'].includes(h) ? 'right' : 'left'};background:#F7FBF8;color:#64748B;font-size:9.5px;border-bottom:1px solid #E6EAE8">${h}</th>`
-        ).join('')}
-      </tr></thead>
-      <tbody>${projRows}</tbody>
-    </table>
-  </div>
-
-  ${PAGE_FOOTER}
+  ${pageFooter(3, 5)}
 </div>`;
 }
