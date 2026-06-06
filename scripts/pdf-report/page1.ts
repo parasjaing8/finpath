@@ -46,7 +46,7 @@ export function buildPage1(ctx: ReportContext): string {
   return `
 <!-- ═══ PAGE 1 ═══════════════════════════════════════════════════════════ -->
 <div style="padding:20px 22px 0">
-  ${pageHeader(1, 4, 'Fire Projection Report', profile.name, age)}
+  ${pageHeader(1, 5, 'Fire Projection Report', profile.name, age)}
 
   <!-- HERO ROW -->
   <div style="display:flex;gap:16px;align-items:stretch;margin-bottom:16px">

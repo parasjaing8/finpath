@@ -132,7 +132,6 @@ export function buildPage4(ctx: ReportContext): string {
       ].map(t => `<div style="display:flex;gap:8px;margin-bottom:5px"><div style="color:#4CAF50;font-size:12px">✓</div><div style="font-size:10px;color:rgba(255,255,255,0.8);line-height:1.5">${t}</div></div>`).join('')}
     </div>
     <div style="text-align:center;flex-shrink:0">
-      <div style="font-size:36px;margin-bottom:6px">⛰</div>
       <div style="font-size:11px;font-weight:700;color:white">Track your path to</div>
       <div style="font-size:11px;font-weight:700;color:#4CAF50">your financial goals.</div>
     </div>
@@ -141,7 +140,6 @@ export function buildPage4(ctx: ReportContext): string {
   <!-- DISCLAIMER -->
   <div style="background:#F8FAFC;border-radius:12px;padding:12px 16px;border:1px solid #E6EAE8;margin-bottom:14px">
     <div style="display:flex;gap:8px;align-items:flex-start">
-      <div style="font-size:16px">🛡️</div>
       <div>
         <div style="font-size:10px;font-weight:700;color:#64748B;margin-bottom:4px">DISCLAIMER</div>
         <div style="font-size:9px;color:#94A3B8;line-height:1.6">Projections are estimates based on user-provided inputs and assumed growth rates. Past performance is not indicative of future results. Market returns, inflation, and personal circumstances are variable. FinPath is not a SEBI-registered investment advisor. This report is for informational and educational purposes only. Consult a licensed SEBI RIA before making major investment decisions. Generated ${date}.</div>
@@ -161,12 +159,9 @@ export function buildPage4(ctx: ReportContext): string {
       </div>
     </div>
     <div style="display:flex;gap:20px">
-      ${[
-        ['Plan',     '🗓'],
-        ['Track',    '📊'],
-        ['Optimize', '⚡'],
-        ['Achieve',  '🎯'],
-      ].map(([label, icon]) => `<div style="text-align:center"><div style="font-size:16px;margin-bottom:3px">${icon}</div><div style="font-size:9px;font-weight:700;color:#0B6B3A">${label}</div></div>`).join('')}
+      ${['Plan', 'Track', 'Explore', 'Achieve']
+        .map(label => `<div style="text-align:center"><div style="font-size:9px;font-weight:700;color:#0B6B3A;text-transform:uppercase;letter-spacing:0.5px">${label}</div></div>`)
+        .join('')}
     </div>
     <div style="text-align:center;color:#94A3B8;font-size:9px;max-width:100px">Thank you for trusting FinPath in your financial journey.</div>
   </div>

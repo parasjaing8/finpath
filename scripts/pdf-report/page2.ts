@@ -1,6 +1,5 @@
 // page2.ts — Wealth projection overview, insights, scenario analysis
 import type { ReportContext } from './context';
-import { INFL_S, RET_S } from './context';
 import { svgAreaChart, svgDrawdownChart } from './svg';
 import { insightCard, scenarioCard, pageFooter, LOGO_IMG } from './components';
 
@@ -13,23 +12,6 @@ export function buildPage2(ctx: ReportContext): string {
   } = ctx;
 
   const fireTargetAge = goals.fire_target_age ?? 100;
-
-  // sensitivity matrix rows
-  const { sensiGrid } = ctx;
-  const sensiRows = INFL_S.map((infl, ri) => {
-    const cells = sensiGrid[ri].map(fa => {
-      const ok   = fa > fireTargetAge;
-      const diff = fireTargetAge - fa;
-      const color = ok ? '#0B6B3A' : diff <= 5 ? '#F39C12' : '#D64545';
-      const bg    = ok ? '#EAF7EF' : diff <= 5 ? '#FFF8E1' : '#FEF2F2';
-      return `<td style="text-align:center;padding:8px 6px;background:${bg};color:${color};font-weight:700;font-size:11px">${ok ? `${fireTargetAge}+ ✓` : `Age ${fa}`}</td>`;
-    }).join('');
-    const isBase = infl === 6;
-    return `<tr${isBase ? ' style="outline:2px solid #2D6CDF;outline-offset:-1px"' : ''}>
-      <td style="padding:8px 10px;background:${isBase ? '#EFF6FF' : '#F8FAFC'};font-size:10px;font-weight:600;color:${isBase ? '#2D6CDF' : '#64748B'}">${infl}% infl${isBase ? ' (base)' : ''}</td>
-      ${cells}
-    </tr>`;
-  }).join('');
 
   return `
 <!-- ═══ PAGE 2 ═══════════════════════════════════════════════════════════ -->

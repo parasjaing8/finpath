@@ -96,7 +96,7 @@ export function buildContext(
 
   const pessimistic = runScenario(10, 6, 7);
   const optimistic  = runScenario(14, 10, 5);
-  const earlyRetire = runScenario(sipReturn, postReturn, goals.inflation_rate, 52);
+  const earlyRetire = runScenario(sipReturn, postReturn, goals.inflation_rate, Math.max(age + 1, 52));
 
   const sensiGrid = INFL_S.map(infl => RET_S.map(ret => {
     try {
@@ -107,7 +107,7 @@ export function buildContext(
         postSipReturnRate: Math.max(4, postReturn + (ret - sipReturn)),
         stepUpRate: stepUp, fxRates,
       });
-      return out.failureAge > 0 ? out.failureAge : (goals.fire_target_age! + 1);
+      return out.failureAge > 0 ? out.failureAge : ((goals.fire_target_age ?? 100) + 1);
     } catch { return 0; }
   }));
 
