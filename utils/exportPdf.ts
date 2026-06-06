@@ -106,11 +106,11 @@ function buildSummaryBullets(
   const age = getAge(profile.dob);
   const bullets: string[] = [];
 
-  // Bullet 1: current wealth → retirement wealth
+  // Bullet 1: current wealth + SIP → retirement wealth
   bullets.push(
-    `Portfolio of ${fmt(calc.totalNetWorth, cur)} today projected to reach ` +
-    `${fmt(calc.netWorthAtRetirement, cur)} by age ${goals.retirement_age} ` +
-    `(${goals.retirement_age - age} years away).`
+    `Current portfolio of ${fmt(calc.totalNetWorth, cur)} plus ${fmt(sipAmount, cur)}/month SIP ` +
+    `over ${goals.retirement_age - age} years is projected to reach ` +
+    `${fmt(calc.netWorthAtRetirement, cur)} by age ${goals.retirement_age}.`
   );
 
   // Bullet 2: FIRE status
@@ -121,8 +121,8 @@ function buildSummaryBullets(
     );
   } else if (calc.failureAge > 0) {
     bullets.push(
-      `Corpus runs out at age ${calc.failureAge}. Increasing SIP to ` +
-      `${fmt(calc.requiredMonthlySIP, cur)}/month would sustain withdrawals to age ${goals.fire_target_age ?? 100}.`
+      `Corpus depletes at age ${calc.failureAge}. The model calculates ` +
+      `${fmt(calc.requiredMonthlySIP, cur)}/month as the SIP needed to sustain withdrawals to your stated target age of ${goals.fire_target_age ?? 100}.`
     );
   } else {
     bullets.push(
@@ -135,25 +135,25 @@ function buildSummaryBullets(
   if (income > 0 && sipAmount / income > 0.5) {
     bullets.push(
       `SIP of ${fmt(sipAmount, cur)}/month is ${Math.round((sipAmount / income) * 100)}% of monthly income — ` +
-      `review expenses to reduce pressure on cash flow.`
+      `above the 30% of income threshold in this plan's model.`
     );
   } else if (calc.investableNetWorth > calc.fireCorpus * 0.7) {
     bullets.push(
-      `Investable net worth (${fmt(calc.investableNetWorth, cur)}) is already ${Math.round((calc.investableNetWorth / calc.fireCorpus) * 100)}% ` +
-      `of your FIRE corpus target — you are in a strong position.`
+      `Investable net worth (${fmt(calc.investableNetWorth, cur)}) is ${Math.round((calc.investableNetWorth / calc.fireCorpus) * 100)}% ` +
+      `of the stated FIRE corpus target per your current inputs.`
     );
   } else {
     bullets.push(
-      `Annual step-up contributions and staying invested through market cycles are the highest-leverage actions at this stage.`
+      `Step-up contributions and long-term market participation have historically increased corpus growth in this plan's model.`
     );
   }
 
   return bullets;
 }
 
-// ─── Action Items ─────────────────────────────────────────────────────────
+// ─── Plan Observations ────────────────────────────────────────────────────
 
-function buildActionItems(
+function buildPlanObservations(
   calc: CalculationOutput,
   profile: Profile,
   goals: Goals,
@@ -168,29 +168,29 @@ function buildActionItems(
   if (calc.failureAge > 0) {
     const gap = calc.requiredMonthlySIP - sipAmount;
     items.push(
-      `Increase monthly SIP by ${fmt(Math.max(0, gap), cur)} to prevent corpus depletion at age ${calc.failureAge}.`
+      `The model projects corpus depletion at age ${calc.failureAge}. An additional ${fmt(Math.max(0, gap), cur)}/month in SIP would be needed to sustain withdrawals to your stated target age of ${goals.fire_target_age ?? 100}.`
     );
   }
 
   if (income > 0 && sipAmount / income > 0.5) {
-    items.push('Audit recurring expenses — reducing discretionary spend creates more investable surplus.');
+    items.push(`SIP of ${fmt(sipAmount, cur)}/month is ${Math.round((sipAmount / income) * 100)}% of income — above the 30% of income threshold in this plan's model.`);
   }
 
   if (progress < 0.1) {
     items.push(
-      `You are at ${Math.round(progress * 100)}% of your corpus target. Starting a SIP today is the single highest-impact action.`
+      `Portfolio is at ${Math.round(progress * 100)}% of the stated FIRE corpus target. This plan's model shows contributions have significant compounding impact over the remaining ${goals.retirement_age - age} years.`
     );
   } else if (calc.fireAchievedAge > 0 && calc.fireAchievedAge < goals.retirement_age - 5) {
     items.push(
-      `Sustaining your current SIP could let you retire at ${calc.fireAchievedAge} — ${goals.retirement_age - calc.fireAchievedAge} years early.`
+      `At current SIP levels, the model projects the FIRE corpus target could be met at age ${calc.fireAchievedAge} — ${goals.retirement_age - calc.fireAchievedAge} years before your stated retirement age.`
     );
   }
 
   if (goals.retirement_age - age > 20 && progress < 0.5) {
-    items.push('Enable 10% annual SIP step-up — it more than doubles corpus without changing today\'s cash flow.');
+    items.push(`With ${goals.retirement_age - age} years to stated retirement, the plan's model shows compounding has a significant impact on projected corpus at this stage.`);
   }
 
-  items.push('Review asset allocation and goals annually, especially after income changes or major life events.');
+  items.push(`This report is based on user-provided inputs. Projections change materially with variations in returns, inflation, or contribution amounts — see the sensitivity analysis above.`);
 
   return items.slice(0, 5);
 }
@@ -418,7 +418,7 @@ function buildHtml(
 
   const health = computeHealthScore(calc, profile, goals, sipAmount);
   const bullets = buildSummaryBullets(calc, profile, goals, sipAmount, cur);
-  const actions = buildActionItems(calc, profile, goals, sipAmount, cur);
+  const actions = buildPlanObservations(calc, profile, goals, sipAmount, cur);
 
   // Pre-retirement projections (current age → retirement)
   const preRetirement = projections.filter(p => p.age <= goals.retirement_age);
@@ -564,7 +564,7 @@ function buildHtml(
   </div>` : `<div class="stat-card" style="background:${calc.failureAge ? '#FFF3E0' : '#F5F5F5'}">
     <div class="stat-label">${calc.failureAge ? 'Corpus Depletion Age' : 'Net Worth at Age 100'}</div>
     <div class="stat-value" style="color:${calc.failureAge ? '#E65100' : '#555'}">${calc.failureAge ? calc.failureAge : fmt(calc.netWorthAtAge100, cur)}</div>
-    <div class="stat-sub">${calc.failureAge ? 'increase SIP to prevent' : 'projected'}</div>
+    <div class="stat-sub">${calc.failureAge ? 'plan shows shortfall' : 'projected'}</div>
   </div>`}
 </div>
 
@@ -584,7 +584,7 @@ ${postChart}
 <h2>Sensitivity Analysis — Required Monthly SIP</h2>
 ${sensitivityTable}
 
-<h2>Action Items</h2>
+<h2>Plan Observations</h2>
 <ol class="actions">
   ${actions.map(a => `<li>${a}</li>`).join('')}
 </ol>
