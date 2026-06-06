@@ -2,6 +2,7 @@
 import { ASSET_CATEGORIES } from '../../engine/types';
 import { formatCurrencyFull } from '../../engine/calculator';
 import type { ReportContext } from './context';
+import { LOGO_IMG } from './components';
 
 const CAT_COLORS: Record<string, string> = {
   EQUITY: '#0B6B3A', MUTUAL_FUND: '#4CAF50', DEBT: '#2D6CDF',
@@ -51,7 +52,7 @@ export function buildPage4(ctx: ReportContext): string {
 <div style="padding:20px 22px 0;page-break-before:always;break-before:page">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0 10px;border-bottom:1.5px solid #E6EAE8;margin-bottom:18px">
     <div style="display:flex;align-items:center;gap:10px">
-      <div style="background:#0B6B3A;color:white;font-size:14px;font-weight:800;padding:5px 11px;border-radius:7px;letter-spacing:-0.3px">FP</div>
+      <img src="${LOGO_IMG}" style="width:36px;height:36px;border-radius:6px"/>
       <div>
         <div style="font-size:10px;font-weight:700;color:#0B6B3A;letter-spacing:0.5px;text-transform:uppercase">FinPath</div>
         <div style="font-size:8.5px;color:#94A3B8;margin-top:1px">Plan today. Live your freedom tomorrow.</div>
@@ -152,7 +153,7 @@ export function buildPage4(ctx: ReportContext): string {
   <!-- BRAND STRIP -->
   <div style="border:1px solid #E6EAE8;border-radius:14px;padding:14px 20px;display:flex;align-items:center;justify-content:space-between">
     <div style="display:flex;align-items:center;gap:10px">
-      <div style="background:#0B6B3A;color:white;font-size:16px;font-weight:800;padding:6px 13px;border-radius:8px">FP</div>
+      <img src="${LOGO_IMG}" style="width:44px;height:44px;border-radius:8px"/>
       <div>
         <div style="font-size:14px;font-weight:800;color:#0B6B3A">FinPath</div>
         <div style="font-size:9px;color:#94A3B8">Plan today. Live your freedom tomorrow.</div>

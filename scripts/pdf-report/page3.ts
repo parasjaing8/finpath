@@ -3,7 +3,7 @@ import { formatCurrencyFull } from '../../engine/calculator';
 import type { ReportContext } from './context';
 import { INFL_S, RET_S } from './context';
 import { svgHeroRing } from './svg';
-import { healthMetric, PAGE_FOOTER } from './components';
+import { healthMetric, PAGE_FOOTER, LOGO_IMG } from './components';
 
 export function buildPage3(ctx: ReportContext): string {
   const {
@@ -49,7 +49,7 @@ export function buildPage3(ctx: ReportContext): string {
 <div style="padding:20px 22px 0;page-break-before:always;break-before:page">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0 10px;border-bottom:1.5px solid #E6EAE8;margin-bottom:18px">
     <div style="display:flex;align-items:center;gap:10px">
-      <div style="background:#0B6B3A;color:white;font-size:14px;font-weight:800;padding:5px 11px;border-radius:7px;letter-spacing:-0.3px">FP</div>
+      <img src="${LOGO_IMG}" style="width:36px;height:36px;border-radius:6px"/>
       <div>
         <div style="font-size:10px;font-weight:700;color:#0B6B3A;letter-spacing:0.5px;text-transform:uppercase">FinPath</div>
         <div style="font-size:8.5px;color:#94A3B8;margin-top:1px">Plan today. Live your freedom tomorrow.</div>
