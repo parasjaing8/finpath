@@ -7,9 +7,32 @@
 
 ## Core Philosophy
 
-FinPath helps salaried users achieve financial independence (retire early).
-The model has two phases: **pre-retirement** (accumulation) and **post-retirement** (withdrawal).
+FinPath helps users plan financial freedom — not necessarily early retirement, but reaching a point where your invested corpus generates enough passive income that work becomes a choice, not a necessity. The goal: know whether your money lasts as long as you need it to.
+
+The model has two phases: **pre-retirement / accumulation** and **post-retirement / withdrawal**.
 All calculations are local, offline, and per-profile.
+
+---
+
+## How the App Works (User Flow)
+
+1. **Enter assets** — two categories:
+   - *Investable*: equity, mutual funds, EPF, PPF, NPS, gold, FDs, ESOPs, crypto — these form the corpus and grow at their expected ROI
+   - *Self-use*: home you live in (`is_self_use = true`) — excluded from corpus; doesn't generate returns
+
+2. **Enter expenses** — three types:
+   - `CURRENT_RECURRING`: present lifestyle expenses (rent, EMI, groceries) — salary-funded, stop at retirement
+   - `FUTURE_ONE_TIME`: one-time future spends (wedding, car, education) — corpus-funded if post-retirement
+   - `FUTURE_RECURRING`: recurring future spends (college fees) — corpus-funded if post-retirement
+
+3. **Set goals** — retirement age, corpus survival age (`fire_target_age`), monthly income needed post-retirement (`pension_income`), inflation assumption
+
+4. **App calculates (outputs):**
+   - `fireCorpus`: total corpus needed at retirement to cover all post-retirement withdrawals
+   - `requiredMonthlySIP`: monthly SIP to start now via binary search over the full lifecycle simulation
+   - Year-by-year corpus projection
+
+5. **User tweaks (simulation):** SIP amount, pre-retirement return rate, post-retirement return rate, step-up % — to see how different assumptions affect corpus survival
 
 ---
 
